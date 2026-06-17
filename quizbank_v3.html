@@ -91,6 +91,14 @@
   .chip:hover { border-color: var(--accent); }
   .chip.active { background: var(--ink); color: white; border-color: var(--ink); }
 
+  .tag-search-row { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+  .tag-search-input {
+    flex: 1; max-width: 280px; border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px;
+    font-size: 13px; font-family: inherit; background: var(--card); color: var(--ink);
+  }
+  .tag-search-input:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+  .tag-search-clear { font-family: var(--mono); font-size: 11px; color: #9b9484; cursor: pointer; background: none; border: none; padding: 4px; }
+
   .deck { max-width: 760px; margin: 0 auto; padding: 22px 18px 80px; display: flex; flex-direction: column; gap: 14px; }
   .empty-msg { text-align: center; padding: 40px 0; color: #9b9484; font-size: 13px; }
 
@@ -112,6 +120,10 @@
   .category-tag { font-family: var(--mono); font-size: 10px; color: #9b9484; }
   .last-date-tag { font-family: var(--mono); font-size: 10px; color: #9b9484; }
   .stale-warn { font-family: var(--mono); font-size: 10px; color: var(--warn); }
+  .tag-pill {
+    font-family: var(--mono); font-size: 10px; color: var(--accent); background: var(--accent-soft);
+    padding: 1px 7px; border-radius: 999px;
+  }
 
   .fav-btn {
     flex-shrink: 0; border: none; background: transparent; font-size: 20px; line-height: 1; cursor: pointer;
@@ -280,6 +292,10 @@
       <span class="progress-pill" id="progress"></span>
     </div>
     <div class="filter-row" id="filter-row"></div>
+    <div class="tag-search-row">
+      <input type="text" class="tag-search-input" id="input-tag-search" placeholder="태그로 검색 (예: 보일러)">
+      <button class="tag-search-clear" id="btn-tag-search-clear">지우기</button>
+    </div>
     <div class="hidden-toggle-row">
       <button class="io-btn" id="btn-dash">진행 요약 보기 ▾</button>
       <button class="io-btn" id="btn-refresh">지금 동기화</button>
@@ -313,6 +329,11 @@
     <div class="field-block">
       <label class="field-label">중요도</label>
       <div class="star-picker" id="star-picker"></div>
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">태그 (쉼표로 구분해서 입력, 예: 난방, 보일러, 2021년)</label>
+      <input type="text" class="text-input" id="input-tags" placeholder="난방, 보일러, 2021년">
     </div>
 
     <div class="field-block">
@@ -379,6 +400,7 @@ let wrongOnly = false;
 let favOnly = false;
 let showHidden = false;
 let dashOpen = false;
+let tagSearch = '';
 
 let modalMode = 'add';
 let modalEditId = null;
@@ -524,6 +546,7 @@ async function loadDataFromDrive() {
     if (q.noteText === undefined) q.noteText = '';
     if (q.noteImages === undefined) q.noteImages = [];
     if (q.qImages === undefined) q.qImages = [];
+    if (q.tags === undefined) q.tags = [];
     if (q.aImages === undefined) q.aImages = [];
   });
 }
@@ -626,6 +649,12 @@ function dueInfo(q) {
   return { label: `${q.dueDate} 복습`, cls: 'due-later' };
 }
 function isDueOrOverdue(q) { return q.dueDate ? q.dueDate <= todayStr() : false; }
+function matchesTagSearch(q, query) {
+  if (!query) return true;
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return (q.tags || []).some(t => t.toLowerCase().includes(needle));
+}
 
 async function cycleMark(id, round) {
   const q = byId(id);
@@ -672,6 +701,7 @@ function render() {
     if (dueOnly && !isDueOrOverdue(q)) return false;
     if (wrongOnly && lastRoundMark(q) !== 'wrong') return false;
     if (favOnly && !q.favorite) return false;
+    if (!matchesTagSearch(q, tagSearch)) return false;
     return true;
   });
 
@@ -706,6 +736,7 @@ async function renderCard(deck, id, idx) {
           <span class="last-date-tag">${lastDateLabel}</span>
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
           ${staleHTML}
+          ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
       </div>
       <button class="fav-btn ${q.favorite ? 'active' : ''}" data-fav="${id}" title="즐겨찾기">${q.favorite ? '★' : '☆'}</button>
@@ -1046,6 +1077,15 @@ document.getElementById('btn-show-hidden').addEventListener('click', () => {
   document.getElementById('btn-show-hidden').classList.toggle('active', showHidden);
   render();
 });
+document.getElementById('input-tag-search').addEventListener('input', (e) => {
+  tagSearch = e.target.value;
+  render();
+});
+document.getElementById('btn-tag-search-clear').addEventListener('click', () => {
+  tagSearch = '';
+  document.getElementById('input-tag-search').value = '';
+  render();
+});
 document.getElementById('btn-dash').addEventListener('click', () => {
   dashOpen = !dashOpen;
   document.getElementById('btn-dash').textContent = dashOpen ? '진행 요약 닫기 ▴' : '진행 요약 보기 ▾';
@@ -1082,6 +1122,7 @@ function resetModalState() {
   modalStars = 3;
   document.getElementById('input-title').value = '';
   document.getElementById('input-category-new').value = '';
+  document.getElementById('input-tags').value = '';
   renderStarPicker();
   renderThumbs('q');
   renderThumbs('a');
@@ -1211,6 +1252,7 @@ async function openModalForEdit(id) {
   renderCategorySelect();
   document.getElementById('input-title').value = q.title || '';
   document.getElementById('input-category-select').value = q.category || '';
+  document.getElementById('input-tags').value = (q.tags || []).join(', ');
   modalStars = q.difficulty || 3;
   renderStarPicker();
 
@@ -1240,6 +1282,10 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
   const newCat = document.getElementById('input-category-new').value.trim();
   const selectedCat = document.getElementById('input-category-select').value;
   const category = newCat || selectedCat || '미분류';
+  const tags = document.getElementById('input-tags').value
+    .split(',')
+    .map(t => t.trim())
+    .filter(t => t.length > 0);
 
   if (!title) { alert('문제 이름을 입력해주세요.'); return; }
   if (modalQImages.length === 0) { alert('문제 이미지를 1개 이상 추가해주세요.'); return; }
@@ -1264,7 +1310,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
 
     if (modalMode === 'add') {
       questions.push({
-        id: nextId++, title, category, difficulty: modalStars,
+        id: nextId++, title, category, difficulty: modalStars, tags,
         hidden: false, favorite: false,
         qImages: qIds, aImages: aIds,
         noteText: '', noteImages: [],
@@ -1276,7 +1322,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
       const keptA = new Set(aIds);
       for (const old of (q.qImages || [])) if (!keptQ.has(old)) await deleteDriveFile(old);
       for (const old of (q.aImages || [])) if (!keptA.has(old)) await deleteDriveFile(old);
-      q.title = title; q.category = category; q.difficulty = modalStars;
+      q.title = title; q.category = category; q.difficulty = modalStars; q.tags = tags;
       q.qImages = qIds; q.aImages = aIds;
     }
 
