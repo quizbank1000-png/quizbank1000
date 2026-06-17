@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공조설비 문제은행</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --ink: #1c2230;
+    --paper: #f3f1ec;
+    --card: #ffffff;
+    --line: #d8d4c8;
+    --accent: #2f5d50;
+    --accent-soft: #e4ede9;
+    --warn: #b6492f;
+    --warn-soft: #f6e6e1;
+    --mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============ 로그인 전 화면 ============ */
+  .gate {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .gate-box { max-width: 440px; text-align: center; }
+  .gate-box h1 { font-size: 22px; margin-bottom: 8px; }
+  .gate-box p { font-size: 13px; color: #6b6356; line-height: 1.6; margin-bottom: 22px; }
+  .gate-btn {
+    background: var(--ink); color: white; border: none; font-size: 14px; font-weight: 600;
+    padding: 12px 22px; border-radius: 9px; cursor: pointer;
+  }
+  .gate-btn:hover { background: var(--accent); }
+  .gate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gate-warn { margin-top: 16px; font-family: var(--mono); font-size: 11px; color: var(--warn); white-space: pre-wrap; }
+  .gate-status { margin-top: 14px; font-family: var(--mono); font-size: 12px; color: #6b6356; }
+  .config-box {
+    margin-top: 20px; text-align: left; background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 14px 16px; font-size: 12px;
+  }
+  .config-box label { display: block; font-weight: 600; margin-bottom: 6px; color: #6b6356; }
+  .config-box input {
+    width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+    font-size: 12px; font-family: var(--mono); background: var(--paper); color: var(--ink);
+  }
+  .config-box .save-row { margin-top: 10px; display: flex; gap: 8px; }
+
+  /* ============ 본문 (대부분 v2와 동일) ============ */
+  .topbar {
+    position: sticky; top: 0; z-index: 10; background: var(--paper);
+    border-bottom: 1px solid var(--line); padding: 18px 24px 14px;
+  }
+  .topbar h1 { margin: 0 0 2px; font-size: 19px; letter-spacing: -0.01em; font-weight: 700; }
+  .topbar .meta { font-family: var(--mono); font-size: 12px; color: #6b6356; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #9b9484; display: inline-block; }
+  .sync-dot.ok { background: var(--accent); }
+  .sync-dot.busy { background: #d8a826; animation: pulse 1s infinite; }
+  .sync-dot.err { background: var(--warn); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button.mode-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 13px;
+    font-weight: 600; padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all .15s ease;
+  }
+  button.mode-btn:hover { border-color: var(--accent); }
+  button.mode-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  button.mode-btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+  button.mode-btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+  .progress-pill { font-family: var(--mono); font-size: 12px; color: #6b6356; margin-left: auto; padding: 6px 0; }
+
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--card); color: #6b6356; font-size: 12px;
+    font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--ink); color: white; border-color: var(--ink); }
+
+  .deck { max-width: 760px; margin: 0 auto; padding: 22px 18px 80px; display: flex; flex-direction: column; gap: 14px; }
+  .empty-msg { text-align: center; padding: 40px 0; color: #9b9484; font-size: 13px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color .15s ease; }
+  .card.open { border-color: var(--accent); }
+  .card.is-hidden { opacity: 0.55; }
+
+  .card-head { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; user-select: none; }
+  .num {
+    font-family: var(--mono); font-size: 12px; color: #fff; background: var(--ink); width: 28px; height: 28px;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .card.open .num { background: var(--accent); }
+  .head-text { flex: 1; min-width: 0; }
+  .head-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .stars { font-size: 11px; letter-spacing: 1px; color: var(--warn); }
+  .stars .dim { color: #d3cfc4; }
+  .meta-row { display: flex; gap: 8px; align-items: center; margin-top: 2px; flex-wrap: wrap; }
+  .category-tag { font-family: var(--mono); font-size: 10px; color: #9b9484; }
+  .last-date-tag { font-family: var(--mono); font-size: 10px; color: #9b9484; }
+  .stale-warn { font-family: var(--mono); font-size: 10px; color: var(--warn); }
+
+  .fav-btn {
+    flex-shrink: 0; border: none; background: transparent; font-size: 20px; line-height: 1; cursor: pointer;
+    color: #d3cfc4; padding: 6px; min-width: 36px; min-height: 36px;
+  }
+  .fav-btn.active { color: #d8a826; }
+
+  .due-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .due-badge.due-today { background: #b6492f; color: white; }
+  .due-badge.due-soon { background: #e8d9a8; color: #5a4a1f; }
+  .due-badge.due-later { background: var(--accent-soft); color: var(--accent); }
+  .due-badge.due-new { background: var(--line); color: #6b6356; }
+
+  .chevron { font-size: 13px; color: #9b9484; transition: transform .2s ease; flex-shrink: 0; }
+  .card.open .chevron { transform: rotate(180deg); color: var(--accent); }
+
+  .card-body { max-height: 0; overflow: hidden; transition: max-height .25s ease; border-top: 1px solid transparent; }
+  .card.open .card-body { border-top: 1px solid var(--line); }
+  .body-inner { padding: 18px; }
+  .body-inner img, .note-images img { width: 100%; display: block; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 10px; }
+  .body-inner > img:last-of-type { margin-bottom: 14px; }
+  .answer-wrap img { margin-bottom: 10px; }
+  .answer-wrap img:last-child { margin-bottom: 0; }
+
+  .reveal-zone { border-top: 1px dashed var(--line); padding-top: 14px; margin-top: 4px; }
+  .reveal-toggle {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border: none; padding: 10px 16px; border-radius: 7px; cursor: pointer; min-height: 40px;
+  }
+  .answer-wrap { margin-top: 12px; display: none; }
+  .answer-wrap.shown { display: block; }
+  .answer-label { font-family: var(--mono); font-size: 11px; color: var(--warn); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+
+  .img-loading { font-family: var(--mono); font-size: 11px; color: #9b9484; padding: 10px 0; }
+
+  .tracker { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 14px; }
+  .tracker-label { font-family: var(--mono); font-size: 11px; color: #6b6356; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+  .tracker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (min-width: 480px) { .tracker-grid { grid-template-columns: repeat(10, 1fr); } }
+  .round-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .round-no { font-family: var(--mono); font-size: 10px; color: #9b9484; }
+  .round-btn {
+    width: 100%; aspect-ratio: 1; min-height: 38px; border: 1.5px solid var(--line); background: var(--paper);
+    border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all .12s ease; color: #b3ad9e;
+  }
+  .round-btn:hover { border-color: var(--accent); }
+  .round-btn.correct { background: #2f5d50; border-color: #2f5d50; color: white; }
+  .round-btn.wrong { background: #b6492f; border-color: #b6492f; color: white; }
+
+  .stat-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: #6b6356; flex-wrap: wrap; }
+  .stat-bar { flex: 1; min-width: 60px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: flex; }
+  .stat-bar .seg-correct { background: #2f5d50; }
+  .stat-bar .seg-wrong { background: #b6492f; }
+  .wrong-count-badge { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--warn); background: var(--warn-soft); padding: 3px 8px; border-radius: 999px; }
+
+  .note-section { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 14px; }
+  .note-textarea {
+    width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; font-family: inherit; resize: vertical; background: var(--paper); color: var(--ink);
+  }
+  .note-textarea:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+  .note-toolbar { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .note-images { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .note-image-item { position: relative; }
+  .note-image-remove {
+    position: absolute; top: 6px; right: 6px; background: rgba(28,34,48,0.75); color: white; border: none;
+    border-radius: 6px; font-size: 11px; padding: 4px 8px; cursor: pointer;
+  }
+
+  .io-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 12px; font-weight: 600;
+    padding: 8px 13px; border-radius: 7px; cursor: pointer; min-height: 36px;
+  }
+  .io-btn:hover { border-color: var(--accent); }
+  .io-btn.danger { color: var(--warn); }
+  .io-btn.danger:hover { border-color: var(--warn); }
+
+  .dashboard { max-width: 760px; margin: 0 auto; padding: 0 18px 6px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  @media (min-width: 480px) { .dash-grid { grid-template-columns: repeat(4, 1fr); } }
+  .dash-stat { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; }
+  .dash-stat .num-big { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+  .dash-stat .label-small { font-size: 11px; color: #6b6356; margin-top: 2px; }
+  .dash-table { background: var(--card); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .dash-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .dash-row:last-child { border-bottom: none; }
+  .dash-row .dr-title { flex: 1; min-width: 0; }
+  .dash-row .dr-rate { font-family: var(--mono); font-weight: 700; color: var(--warn); flex-shrink: 0; }
+  .dash-row .dr-rate.good { color: var(--accent); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(28,34,48,0.45); display: flex; align-items: flex-start;
+    justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 50;
+  }
+  .modal-box { background: var(--card); border-radius: 12px; max-width: 560px; width: 100%; padding: 26px; }
+  .modal-box h2 { margin: 0 0 4px; font-size: 18px; }
+  .modal-box .modal-sub { font-size: 12px; color: #6b6356; margin-bottom: 18px; }
+  .field-label { font-size: 12px; font-weight: 600; color: #6b6356; margin-bottom: 6px; display: block; }
+  .field-block { margin-bottom: 18px; }
+  .text-input {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px;
+    font-family: inherit; background: var(--paper); color: var(--ink);
+  }
+  .text-input:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+  .star-picker { display: flex; gap: 4px; }
+  .star-picker button { border: none; background: transparent; font-size: 24px; cursor: pointer; color: #d3cfc4; padding: 2px; }
+  .star-picker button.active { color: var(--warn); }
+  .category-input-row { display: flex; gap: 8px; }
+  .category-input-row select { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; background: var(--paper); color: var(--ink); }
+  .paste-zone { border: 1.5px dashed var(--line); border-radius: 9px; padding: 18px; text-align: center; font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--paper); }
+  .paste-zone:hover { border-color: var(--accent); }
+  .paste-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .paste-zone:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
+  .zone-filebtn-row { margin-top: 10px; }
+  .pasted-thumbs { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .modal-uploading { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 10px; }
+
+  footer { text-align: center; font-family: var(--mono); font-size: 11px; color: #a39c8c; padding-bottom: 30px; }
+  .hidden-toggle-row { display: flex; gap: 8px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h1>공조설비 문제은행</h1>
+    <p>
+      구글 드라이브에 로그인하면, 문제·풀이 이미지와 학습 기록이 드라이브에 저장됩니다.<br>
+      같은 구글 계정으로 다른 컴퓨터, 맥북, 태블릿에서 로그인하면 어디서든 이어서 사용할 수 있습니다.
+    </p>
+    <button class="gate-btn" id="btn-signin" disabled>구글 계정으로 로그인</button>
+    <div class="gate-status" id="gate-status">초기화 중...</div>
+    <div class="gate-warn" id="gate-warn"></div>
+
+    <div class="config-box" id="config-box" style="display:none;">
+      <label>Google OAuth 클라이언트 ID</label>
+      <input type="text" id="input-client-id" placeholder="xxxxxxxx.apps.googleusercontent.com">
+      <div class="save-row">
+        <button class="io-btn" id="btn-save-client-id">저장하고 다시 시도</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <h1>공조설비 문제은행</h1>
+    <div class="meta">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span id="sync-text">동기화 대기 중</span>
+      <span id="user-email"></span>
+      <button class="io-btn" id="btn-signout" style="margin-left:auto;">로그아웃</button>
+    </div>
+    <div class="controls">
+      <button class="mode-btn primary" id="btn-add">+ 문제 추가</button>
+      <button class="mode-btn active" id="btn-order">순서대로</button>
+      <button class="mode-btn" id="btn-random">랜덤으로</button>
+      <button class="mode-btn" id="btn-due">오늘 복습할 문제만</button>
+      <button class="mode-btn" id="btn-wrong">최근 오답만</button>
+      <button class="mode-btn" id="btn-fav">즐겨찾기만 ★</button>
+      <button class="mode-btn" id="btn-show-hidden">숨긴 문제 보기</button>
+      <span class="progress-pill" id="progress"></span>
+    </div>
+    <div class="filter-row" id="filter-row"></div>
+    <div class="hidden-toggle-row">
+      <button class="io-btn" id="btn-dash">진행 요약 보기 ▾</button>
+      <button class="io-btn" id="btn-refresh">지금 동기화</button>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard" style="display:none;"></div>
+  <div class="deck" id="deck"></div>
+
+  <footer>건축설비기사 과년도 · 데이터는 본인의 구글 드라이브에만 저장됩니다</footer>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop" style="display:none;">
+  <div class="modal-box">
+    <h2 id="modal-title">문제 추가</h2>
+    <div class="modal-sub">PDF나 이미지에서 영역을 복사한 뒤, 모달 안 어디서든 Ctrl+V로 붙여넣으면 마지막에 선택한 영역(문제/풀이)에 들어갑니다.</div>
+
+    <div class="field-block">
+      <label class="field-label">문제 이름</label>
+      <input type="text" class="text-input" id="input-title" placeholder="예: 외기 전외기 난방 계통">
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">단원 / 카테고리</label>
+      <div class="category-input-row">
+        <select id="input-category-select"></select>
+        <input type="text" class="text-input" id="input-category-new" placeholder="새 단원 직접 입력" style="flex:1;">
+      </div>
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">중요도</label>
+      <div class="star-picker" id="star-picker"></div>
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">문제 이미지</label>
+      <div class="paste-zone" id="paste-zone-q" tabindex="0">
+        클릭해서 이 영역을 붙여넣기 대상으로 지정
+        <div class="zone-filebtn-row"><button type="button" class="io-btn" data-pick-file="q">파일에서 선택</button></div>
+      </div>
+      <div class="pasted-thumbs" id="thumbs-q"></div>
+      <input type="file" id="file-input-q" accept="image/*" multiple style="display:none;">
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">풀이 / 정답 이미지</label>
+      <div class="paste-zone" id="paste-zone-a" tabindex="0">
+        클릭해서 이 영역을 붙여넣기 대상으로 지정
+        <div class="zone-filebtn-row"><button type="button" class="io-btn" data-pick-file="a">파일에서 선택</button></div>
+      </div>
+      <div class="pasted-thumbs" id="thumbs-a"></div>
+      <input type="file" id="file-input-a" accept="image/*" multiple style="display:none;">
+    </div>
+
+    <div class="modal-uploading" id="modal-uploading" style="display:none;">구글 드라이브에 업로드 중...</div>
+
+    <div class="modal-actions">
+      <button class="io-btn" id="btn-modal-cancel">취소</button>
+      <button class="io-btn danger" id="btn-modal-delete" style="display:none;">문제 삭제</button>
+      <button class="mode-btn primary" id="btn-modal-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOTAL_ROUNDS = 10;
+const DRIVE_FOLDER_NAME = '공조설비_문제은행_데이터';
+const DATA_FILE_NAME = 'data.json';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const CLIENT_ID_STORAGE_KEY = 'quizbank_drive_client_id';
+
+function intervalForWrongCount(wrongCount) {
+  if (wrongCount <= 0) return 30;
+  if (wrongCount === 1) return 14;
+  if (wrongCount === 2) return 7;
+  if (wrongCount === 3) return 3;
+  return 1;
+}
+
+// ============ 구글 드라이브 상태 ============
+let accessToken = null;
+let tokenClient = null;
+let folderId = null;
+let dataFileId = null;
+let userEmail = '';
+
+let questions = [];
+let nextId = 1;
+
+let currentOrder = [];
+let openSet = new Set();
+let revealedSet = new Set();
+let activeCategory = 'all';
+let dueOnly = false;
+let wrongOnly = false;
+let favOnly = false;
+let showHidden = false;
+let dashOpen = false;
+
+let modalMode = 'add';
+let modalEditId = null;
+let modalQImages = []; // {name, blob, url, existingFileId}
+let modalAImages = [];
+let modalStars = 3;
+let lastFocusedZoneKind = 'q';
+
+const imageUrlCache = new Map(); // fileId -> blob url (메모리 캐시, 매번 다시 다운로드하지 않도록)
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// ============ 동기화 상태 표시 ============
+function setSyncStatus(state, text) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-text');
+  if (dot) dot.className = 'sync-dot ' + (state || '');
+  if (label) label.textContent = text || '';
+}
+
+// ============ Google OAuth ============
+function getStoredClientId() {
+  return localStorage.getItem(CLIENT_ID_STORAGE_KEY) || '';
+}
+
+function initGoogleAuth() {
+  const clientId = getStoredClientId();
+  const statusEl = document.getElementById('gate-status');
+  const signinBtn = document.getElementById('btn-signin');
+
+  if (!clientId) {
+    statusEl.textContent = '먼저 Google OAuth 클라이언트 ID를 입력해주세요.';
+    document.getElementById('config-box').style.display = 'block';
+    signinBtn.disabled = true;
+    return;
+  }
+
+  if (!window.google || !window.google.accounts) {
+    statusEl.textContent = 'Google 로그인 스크립트를 불러오는 중입니다...';
+    setTimeout(initGoogleAuth, 300);
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) {
+        document.getElementById('gate-warn').textContent = '로그인 실패: ' + resp.error;
+        return;
+      }
+      accessToken = resp.access_token;
+      await afterSignIn();
+    },
+  });
+
+  statusEl.textContent = '로그인할 준비가 되었습니다.';
+  signinBtn.disabled = false;
+}
+
+async function afterSignIn() {
+  setSyncStatus('busy', '드라이브 폴더 확인 중...');
+  try {
+    await fetchUserEmail();
+    await ensureFolder();
+    await loadDataFromDrive();
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('user-email').textContent = userEmail;
+    initAfterLoad();
+    setSyncStatus('ok', '동기화 완료');
+  } catch (e) {
+    console.error(e);
+    setSyncStatus('err', '오류: ' + e.message);
+    document.getElementById('gate-warn').textContent = '드라이브 연결 중 오류가 발생했습니다: ' + e.message;
+  }
+}
+
+async function fetchUserEmail() {
+  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.ok) {
+    const data = await res.json();
+    userEmail = data.email || '';
+  }
+}
+
+async function driveFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Drive API 오류 (${res.status}): ${text.slice(0, 200)}`);
+  }
+  return res;
+}
+
+async function ensureFolder() {
+  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  if (data.files && data.files.length > 0) {
+    folderId = data.files[0].id;
+    return;
+  }
+  const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  const created = await createRes.json();
+  folderId = created.id;
+}
+
+async function loadDataFromDrive() {
+  const q = encodeURIComponent(`name='${DATA_FILE_NAME}' and '${folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  if (data.files && data.files.length > 0) {
+    dataFileId = data.files[0].id;
+    const fileRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?alt=media`);
+    const parsed = await fileRes.json();
+    questions = parsed.questions || [];
+  } else {
+    questions = [];
+    dataFileId = null;
+  }
+
+  nextId = questions.reduce((max, q) => Math.max(max, q.id), 0) + 1;
+  questions.forEach(q => {
+    if (q.hidden === undefined) q.hidden = false;
+    if (q.favorite === undefined) q.favorite = false;
+    if (q.rounds === undefined) q.rounds = {};
+    if (q.wrongCount === undefined) q.wrongCount = Object.values(q.rounds).filter(m => m === 'wrong').length;
+    if (q.noteText === undefined) q.noteText = '';
+    if (q.noteImages === undefined) q.noteImages = [];
+    if (q.qImages === undefined) q.qImages = [];
+    if (q.aImages === undefined) q.aImages = [];
+  });
+}
+
+async function saveDataToDrive() {
+  setSyncStatus('busy', '저장 중...');
+  const body = JSON.stringify({ questions });
+  const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
+
+  try {
+    if (dataFileId) {
+      await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${dataFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    } else {
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([body], { type: 'application/json' }));
+      const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        body: form,
+      });
+      const created = await res.json();
+      dataFileId = created.id;
+    }
+    setSyncStatus('ok', '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'));
+  } catch (e) {
+    setSyncStatus('err', '저장 실패: ' + e.message);
+    throw e;
+  }
+}
+
+async function uploadImageBlob(blob, filenamePrefix) {
+  const ext = (blob.type && blob.type.split('/')[1]) || 'png';
+  const filename = `${filenamePrefix}_${Date.now()}_${Math.floor(Math.random()*100000)}.${ext}`;
+  const metadata = { name: filename, parents: [folderId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', blob);
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    body: form,
+  });
+  const created = await res.json();
+  return created.id; // fileId를 저장해서 참조
+}
+
+async function fetchImageURL(fileId) {
+  if (imageUrlCache.has(fileId)) return imageUrlCache.get(fileId);
+  try {
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    imageUrlCache.set(fileId, url);
+    return url;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function deleteDriveFile(fileId) {
+  try {
+    await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE' });
+  } catch (e) { /* 이미 없으면 무시 */ }
+}
+
+// ============ 헬퍼 (v2와 동일 로직) ============
+function byId(id) { return questions.find(q => q.id === id); }
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function starString(n) {
+  let s = '';
+  for (let i = 0; i < 5; i++) s += i < n ? '★' : '<span class="dim">★</span>';
+  return s;
+}
+function getMark(q, round) { return (q.rounds && q.rounds[round]) || ''; }
+function lastRoundMark(q) {
+  const roundsDone = Object.keys(q.rounds || {}).map(Number);
+  if (roundsDone.length === 0) return '';
+  return q.rounds[Math.max(...roundsDone)];
+}
+function daysSinceStudied(q) {
+  if (!q.lastDate) return null;
+  return Math.round((new Date(todayStr()) - new Date(q.lastDate)) / 86400000);
+}
+function dueInfo(q) {
+  if (!q.dueDate) return { label: '복습 예정 없음', cls: 'due-new' };
+  const today = todayStr();
+  if (q.dueDate <= today) return { label: q.dueDate === today ? '오늘 복습' : '복습 지남', cls: 'due-today' };
+  const diffDays = Math.round((new Date(q.dueDate) - new Date(today)) / 86400000);
+  if (diffDays <= 3) return { label: `${diffDays}일 후 복습`, cls: 'due-soon' };
+  return { label: `${q.dueDate} 복습`, cls: 'due-later' };
+}
+function isDueOrOverdue(q) { return q.dueDate ? q.dueDate <= todayStr() : false; }
+
+async function cycleMark(id, round) {
+  const q = byId(id);
+  const cur = q.rounds[round] || '';
+  const next = cur === '' ? 'correct' : cur === 'correct' ? 'wrong' : '';
+  if (cur === 'wrong') q.wrongCount = Math.max(0, (q.wrongCount || 0) - 1);
+  if (next === '') {
+    delete q.rounds[round];
+  } else {
+    q.rounds[round] = next;
+    if (next === 'wrong') q.wrongCount = (q.wrongCount || 0) + 1;
+    const today = todayStr();
+    q.lastDate = today;
+    q.dueDate = addDays(today, intervalForWrongCount(q.wrongCount));
+  }
+  await saveDataToDrive();
+  render();
+}
+async function toggleFavorite(id) { const q = byId(id); q.favorite = !q.favorite; await saveDataToDrive(); render(); }
+async function toggleHidden(id) { const q = byId(id); q.hidden = !q.hidden; await saveDataToDrive(); render(); }
+function categories() { return Array.from(new Set(questions.map(q => q.category).filter(Boolean))).sort(); }
+
+// ============ 렌더링 ============
+function getOrderedIds() {
+  const allIds = questions.map(q => q.id);
+  const known = new Set(currentOrder);
+  const merged = currentOrder.filter(id => allIds.includes(id));
+  allIds.forEach(id => { if (!known.has(id)) merged.push(id); });
+  return merged;
+}
+
+function render() {
+  renderDashboard();
+  const deck = document.getElementById('deck');
+  deck.innerHTML = '';
+  currentOrder = getOrderedIds();
+
+  let visibleIds = currentOrder.filter(id => {
+    const q = byId(id);
+    if (!q) return false;
+    if (showHidden) return q.hidden;
+    if (q.hidden) return false;
+    if (activeCategory !== 'all' && q.category !== activeCategory) return false;
+    if (dueOnly && !isDueOrOverdue(q)) return false;
+    if (wrongOnly && lastRoundMark(q) !== 'wrong') return false;
+    if (favOnly && !q.favorite) return false;
+    return true;
+  });
+
+  if (visibleIds.length === 0) {
+    deck.innerHTML = `<div class="empty-msg">해당하는 문제가 없습니다. 필터를 확인하거나 문제를 추가해보세요.</div>`;
+  }
+  visibleIds.forEach((id, idx) => renderCard(deck, id, idx));
+
+  document.getElementById('progress').textContent = `${revealedSet.size} / ${questions.length} 풀이 확인함`;
+}
+
+async function renderCard(deck, id, idx) {
+  const q = byId(id);
+  const isOpen = openSet.has(id);
+  const isRevealed = revealedSet.has(id);
+  const due = dueInfo(q);
+  const sinceDays = daysSinceStudied(q);
+  const lastDateLabel = q.lastDate ? `최근 풀이: ${q.lastDate}` : '최근 풀이: 기록 없음';
+  const staleHTML = (sinceDays !== null && sinceDays >= 14) ? `<span class="stale-warn">${sinceDays}일째 복습 안 함</span>` : '';
+
+  const card = document.createElement('div');
+  card.className = 'card' + (isOpen ? ' open' : '') + (q.hidden ? ' is-hidden' : '');
+
+  card.innerHTML = `
+    <div class="card-head" data-id="${id}">
+      <div class="num">${String(idx + 1).padStart(2, '0')}</div>
+      <div class="head-text">
+        <div class="head-title">${escapeHTML(q.title || '(제목 없음)')}</div>
+        <div class="stars">${starString(q.difficulty || 0)}</div>
+        <div class="meta-row">
+          <span class="category-tag">${escapeHTML(q.category || '미분류')}</span>
+          <span class="last-date-tag">${lastDateLabel}</span>
+          ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
+          ${staleHTML}
+        </div>
+      </div>
+      <button class="fav-btn ${q.favorite ? 'active' : ''}" data-fav="${id}" title="즐겨찾기">${q.favorite ? '★' : '☆'}</button>
+      <div class="due-badge ${due.cls}">${due.label}</div>
+      <div class="chevron">▾</div>
+    </div>
+    <div class="card-body" data-body="${id}">
+      <div class="body-inner" data-body-inner="${id}">
+        <div class="img-slot-q" data-imgslot-q="${id}"></div>
+        <div class="reveal-zone">
+          <button class="reveal-toggle" data-reveal="${id}">${isRevealed ? '풀이 숨기기 ▲' : '풀이 / 정답 보기 ▼'}</button>
+          <div class="answer-wrap ${isRevealed ? 'shown' : ''}" data-answerwrap="${id}">
+            <div class="answer-label">SOLUTION</div>
+            <div class="img-slot-a" data-imgslot-a="${id}"></div>
+          </div>
+        </div>
+        ${trackerHTML(q)}
+        ${noteSectionHTML(q)}
+        <div class="hidden-toggle-row">
+          <button class="io-btn" data-edit="${id}">문제 수정</button>
+          <button class="io-btn" data-hide="${id}">${q.hidden ? '숨기기 해제' : '문제 숨기기'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  deck.appendChild(card);
+
+  const body = card.querySelector(`[data-body="${id}"]`);
+  if (isOpen) {
+    await renderCardImages(card, q, id);
+    requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+  } else {
+    body.style.maxHeight = '0px';
+  }
+}
+
+async function renderCardImages(card, q, id) {
+  const qSlot = card.querySelector(`[data-imgslot-q="${id}"]`);
+  const aSlot = card.querySelector(`[data-imgslot-a="${id}"]`);
+  if (qSlot && !qSlot.dataset.loaded) {
+    qSlot.dataset.loaded = '1';
+    qSlot.innerHTML = '<div class="img-loading">이미지 불러오는 중...</div>';
+    const urls = [];
+    for (const fileId of (q.qImages || [])) urls.push(await fetchImageURL(fileId));
+    qSlot.innerHTML = '';
+    urls.forEach(url => { if (url) { const img = document.createElement('img'); img.src = url; img.alt = '문제 이미지'; qSlot.appendChild(img); } });
+  }
+  if (aSlot && !aSlot.dataset.loaded) {
+    aSlot.dataset.loaded = '1';
+    aSlot.innerHTML = '<div class="img-loading">이미지 불러오는 중...</div>';
+    const urls = [];
+    for (const fileId of (q.aImages || [])) urls.push(await fetchImageURL(fileId));
+    aSlot.innerHTML = '';
+    urls.forEach(url => { if (url) { const img = document.createElement('img'); img.src = url; img.alt = '풀이 이미지'; aSlot.appendChild(img); } });
+  }
+  const noteSlot = card.querySelector(`[data-noteimgs="${id}"]`);
+  if (noteSlot && !noteSlot.dataset.loaded) {
+    noteSlot.dataset.loaded = '1';
+    for (const fileId of (q.noteImages || [])) {
+      const url = await fetchImageURL(fileId);
+      if (url) {
+        const wrap = document.createElement('div');
+        wrap.className = 'note-image-item';
+        wrap.innerHTML = `<img src="${url}" alt="오답노트 이미지"><button class="note-image-remove" data-remove-note-img="${id}" data-fileid="${fileId}">삭제</button>`;
+        noteSlot.appendChild(wrap);
+      }
+    }
+  }
+}
+
+function trackerHTML(q) {
+  let cells = '';
+  let correctCount = 0, wrongCount = 0;
+  for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+    const mark = getMark(q, r);
+    if (mark === 'correct') correctCount++;
+    if (mark === 'wrong') wrongCount++;
+    const cls = mark === 'correct' ? 'correct' : mark === 'wrong' ? 'wrong' : '';
+    const symbol = mark === 'correct' ? 'O' : mark === 'wrong' ? 'X' : '';
+    cells += `<div class="round-cell"><div class="round-no">${r}회</div><button class="round-btn ${cls}" data-track="${q.id}" data-round="${r}">${symbol}</button></div>`;
+  }
+  const doneCount = correctCount + wrongCount;
+  const correctPct = (correctCount / TOTAL_ROUNDS) * 100;
+  const wrongPct = (wrongCount / TOTAL_ROUNDS) * 100;
+  const nextInterval = intervalForWrongCount(q.wrongCount || 0);
+  return `
+    <div class="tracker">
+      <div class="tracker-label">회독 체크 (10회독) · 누적 오답 ${q.wrongCount || 0}회 → 다음 간격 ${nextInterval}일</div>
+      <div class="tracker-grid">${cells}</div>
+      <div class="stat-line">
+        <span>${doneCount}/${TOTAL_ROUNDS}회독</span>
+        <div class="stat-bar"><div class="seg-correct" style="width:${correctPct}%"></div><div class="seg-wrong" style="width:${wrongPct}%"></div></div>
+        <span>정답 ${correctCount} · 오답 ${wrongCount}</span>
+      </div>
+    </div>`;
+}
+
+function noteSectionHTML(q) {
+  return `
+    <div class="note-section">
+      <div class="tracker-label">오답노트</div>
+      <textarea class="note-textarea" data-note-text="${q.id}" placeholder="틀린 이유, 헷갈린 부분 등을 적어두세요">${escapeHTML(q.noteText || '')}</textarea>
+      <div class="note-toolbar">
+        <button class="io-btn" data-note-img-add="${q.id}">이미지 추가 (붙여넣기/선택)</button>
+        <button class="io-btn" data-note-save="${q.id}">노트 저장</button>
+      </div>
+      <input type="file" data-note-file-input="${q.id}" accept="image/*" multiple style="display:none;">
+      <div class="note-images" data-noteimgs="${q.id}"></div>
+    </div>`;
+}
+
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderFilters() {
+  const row = document.getElementById('filter-row');
+  const cats = ['all', ...categories()];
+  row.innerHTML = cats.map(cat => {
+    const label = cat === 'all' ? '전체' : cat;
+    const active = activeCategory === cat ? ' active' : '';
+    return `<button class="chip${active}" data-cat="${cat}">${escapeHTML(label)}</button>`;
+  }).join('');
+}
+
+function renderDashboard() {
+  const panel = document.getElementById('dashboard');
+  if (!dashOpen) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const visible = questions.filter(q => !q.hidden);
+  const total = visible.length;
+  let startedCount = 0, dueCount = 0;
+  const stats = visible.map(q => {
+    const rounds = Object.values(q.rounds || {});
+    const correct = rounds.filter(m => m === 'correct').length;
+    const wrong = rounds.filter(m => m === 'wrong').length;
+    const attempted = correct + wrong;
+    if (attempted > 0) startedCount++;
+    if (isDueOrOverdue(q)) dueCount++;
+    return { title: q.title, correct, wrong, attempted, wrongRate: attempted > 0 ? wrong / attempted : 0 };
+  });
+  const avgRoundsDone = total > 0 ? (stats.reduce((s, st) => s + st.attempted, 0) / total).toFixed(1) : '0';
+  const worst = stats.filter(s => s.attempted > 0).sort((a,b) => b.wrongRate - a.wrongRate).slice(0, 5);
+  const worstRows = worst.length > 0
+    ? worst.map(s => {
+        const pct = Math.round(s.wrongRate * 100);
+        const cls = pct >= 50 ? '' : 'good';
+        return `<div class="dash-row"><div class="dr-title">${escapeHTML(s.title)}</div><div class="dr-rate ${cls}">오답률 ${pct}% (${s.wrong}/${s.attempted})</div></div>`;
+      }).join('')
+    : `<div class="dash-row"><div class="dr-title" style="color:#9b9484;">아직 풀이 기록이 없습니다</div></div>`;
+
+  panel.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-stat"><div class="num-big">${startedCount} / ${total}</div><div class="label-small">학습 시작한 문제</div></div>
+      <div class="dash-stat"><div class="num-big">${avgRoundsDone}</div><div class="label-small">평균 회독 진행 수</div></div>
+      <div class="dash-stat"><div class="num-big">${dueCount}</div><div class="label-small">오늘 복습 필요</div></div>
+      <div class="dash-stat"><div class="num-big">${total - startedCount}</div><div class="label-small">아직 안 푼 문제</div></div>
+    </div>
+    <div class="dash-table">${worstRows}</div>
+  `;
+}
+
+// ============ 이벤트: 덱 ============
+document.getElementById('deck').addEventListener('click', async (e) => {
+  const head = e.target.closest('.card-head');
+  const revealBtn = e.target.closest('[data-reveal]');
+  const trackBtn = e.target.closest('[data-track]');
+  const favBtn = e.target.closest('[data-fav]');
+  const editBtn = e.target.closest('[data-edit]');
+  const hideBtn = e.target.closest('[data-hide]');
+  const noteImgAddBtn = e.target.closest('[data-note-img-add]');
+  const noteSaveBtn = e.target.closest('[data-note-save]');
+  const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
+
+  if (favBtn) { e.stopPropagation(); await toggleFavorite(Number(favBtn.dataset.fav)); return; }
+  if (editBtn) { e.stopPropagation(); openModalForEdit(Number(editBtn.dataset.edit)); return; }
+  if (hideBtn) { e.stopPropagation(); await toggleHidden(Number(hideBtn.dataset.hide)); return; }
+
+  if (trackBtn) {
+    e.stopPropagation();
+    await cycleMark(Number(trackBtn.dataset.track), Number(trackBtn.dataset.round));
+    const body = document.querySelector(`[data-body="${trackBtn.dataset.track}"]`);
+    if (body && openSet.has(Number(trackBtn.dataset.track))) {
+      requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+    }
+    return;
+  }
+
+  if (revealBtn) {
+    e.stopPropagation();
+    const id = Number(revealBtn.dataset.reveal);
+    if (revealedSet.has(id)) revealedSet.delete(id); else revealedSet.add(id);
+    render();
+    requestAnimationFrame(async () => {
+      const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+      const body = document.querySelector(`[data-body="${id}"]`);
+      if (card && body && openSet.has(id)) {
+        await renderCardImages(card, byId(id), id);
+        body.style.maxHeight = body.scrollHeight + 'px';
+      }
+    });
+    return;
+  }
+
+  if (noteImgAddBtn) {
+    e.stopPropagation();
+    document.querySelector(`[data-note-file-input="${Number(noteImgAddBtn.dataset.noteImgAdd)}"]`).click();
+    return;
+  }
+
+  if (noteSaveBtn) {
+    e.stopPropagation();
+    const id = Number(noteSaveBtn.dataset.noteSave);
+    const textarea = document.querySelector(`[data-note-text="${id}"]`);
+    byId(id).noteText = textarea.value;
+    await saveDataToDrive();
+    noteSaveBtn.textContent = '저장됨 ✓';
+    setTimeout(() => { noteSaveBtn.textContent = '노트 저장'; }, 1200);
+    return;
+  }
+
+  if (noteImgRemoveBtn) {
+    e.stopPropagation();
+    const id = Number(noteImgRemoveBtn.dataset.removeNoteImg);
+    const fileId = noteImgRemoveBtn.dataset.fileid;
+    const q = byId(id);
+    q.noteImages = (q.noteImages || []).filter(f => f !== fileId);
+    await deleteDriveFile(fileId);
+    await saveDataToDrive();
+    render();
+    requestAnimationFrame(async () => {
+      const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+      if (card) await renderCardImages(card, byId(id), id);
+    });
+    return;
+  }
+
+  if (head) {
+    const id = Number(head.dataset.id);
+    if (openSet.has(id)) openSet.delete(id); else openSet.add(id);
+    render();
+    if (openSet.has(id)) {
+      requestAnimationFrame(async () => {
+        const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+        const body = document.querySelector(`[data-body="${id}"]`);
+        if (card && body) {
+          await renderCardImages(card, byId(id), id);
+          body.style.maxHeight = body.scrollHeight + 'px';
+        }
+      });
+    }
+  }
+});
+
+document.getElementById('deck').addEventListener('change', async (e) => {
+  const input = e.target.closest('[data-note-file-input]');
+  if (!input) return;
+  const id = Number(input.dataset.noteFileInput);
+  const q = byId(id);
+  setSyncStatus('busy', '이미지 업로드 중...');
+  for (const file of input.files) {
+    const fileId = await uploadImageBlob(file, 'note');
+    q.noteImages = q.noteImages || [];
+    q.noteImages.push(fileId);
+  }
+  await saveDataToDrive();
+  input.value = '';
+  render();
+  requestAnimationFrame(async () => {
+    const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+    if (card) await renderCardImages(card, byId(id), id);
+  });
+});
+
+document.addEventListener('paste', async (e) => {
+  const active = document.activeElement;
+  if (!active || !active.matches || !active.matches('[data-note-text]')) return;
+  const items = e.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      const id = Number(active.dataset.noteText);
+      setSyncStatus('busy', '이미지 업로드 중...');
+      const fileId = await uploadImageBlob(blob, 'note');
+      const q = byId(id);
+      q.noteImages = q.noteImages || [];
+      q.noteImages.push(fileId);
+      await saveDataToDrive();
+      render();
+      requestAnimationFrame(async () => {
+        const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+        if (card) await renderCardImages(card, byId(id), id);
+      });
+    }
+  }
+});
+
+document.getElementById('filter-row').addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-cat]');
+  if (!chip) return;
+  activeCategory = chip.dataset.cat;
+  renderFilters();
+  render();
+});
+
+document.getElementById('btn-order').addEventListener('click', () => {
+  currentOrder = questions.map(q => q.id);
+  document.getElementById('btn-order').classList.add('active');
+  document.getElementById('btn-random').classList.remove('active');
+  render();
+});
+document.getElementById('btn-random').addEventListener('click', () => {
+  currentOrder = shuffle(questions.map(q => q.id));
+  document.getElementById('btn-random').classList.add('active');
+  document.getElementById('btn-order').classList.remove('active');
+  render();
+});
+document.getElementById('btn-due').addEventListener('click', () => {
+  dueOnly = !dueOnly;
+  document.getElementById('btn-due').classList.toggle('active', dueOnly);
+  render();
+});
+document.getElementById('btn-wrong').addEventListener('click', () => {
+  wrongOnly = !wrongOnly;
+  document.getElementById('btn-wrong').classList.toggle('active', wrongOnly);
+  render();
+});
+document.getElementById('btn-fav').addEventListener('click', () => {
+  favOnly = !favOnly;
+  document.getElementById('btn-fav').classList.toggle('active', favOnly);
+  render();
+});
+document.getElementById('btn-show-hidden').addEventListener('click', () => {
+  showHidden = !showHidden;
+  document.getElementById('btn-show-hidden').classList.toggle('active', showHidden);
+  render();
+});
+document.getElementById('btn-dash').addEventListener('click', () => {
+  dashOpen = !dashOpen;
+  document.getElementById('btn-dash').textContent = dashOpen ? '진행 요약 닫기 ▴' : '진행 요약 보기 ▾';
+  renderDashboard();
+});
+document.getElementById('btn-refresh').addEventListener('click', async () => {
+  setSyncStatus('busy', '드라이브에서 새로고침 중...');
+  try {
+    imageUrlCache.clear();
+    await loadDataFromDrive();
+    openSet.clear();
+    revealedSet.clear();
+    renderFilters();
+    render();
+    setSyncStatus('ok', '새로고침 완료 · ' + new Date().toLocaleTimeString('ko-KR'));
+  } catch (e) {
+    setSyncStatus('err', '새로고침 실패: ' + e.message);
+  }
+});
+document.getElementById('btn-signout').addEventListener('click', () => {
+  if (accessToken && window.google) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('gate-status').textContent = '로그인할 준비가 되었습니다.';
+});
+
+// ============ 모달 ============
+function resetModalState() {
+  modalQImages = [];
+  modalAImages = [];
+  modalStars = 3;
+  document.getElementById('input-title').value = '';
+  document.getElementById('input-category-new').value = '';
+  renderStarPicker();
+  renderThumbs('q');
+  renderThumbs('a');
+}
+function renderCategorySelect() {
+  const select = document.getElementById('input-category-select');
+  select.innerHTML = `<option value="">-- 기존 단원 선택 --</option>` + categories().map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+}
+function renderStarPicker() {
+  const wrap = document.getElementById('star-picker');
+  wrap.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const btn = document.createElement('button');
+    btn.textContent = '★';
+    btn.className = i <= modalStars ? 'active' : '';
+    btn.dataset.star = i;
+    wrap.appendChild(btn);
+  }
+}
+document.getElementById('star-picker').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-star]');
+  if (!btn) return;
+  modalStars = Number(btn.dataset.star);
+  renderStarPicker();
+});
+function renderThumbs(kind) {
+  const list = kind === 'q' ? modalQImages : modalAImages;
+  const wrap = document.getElementById(kind === 'q' ? 'thumbs-q' : 'thumbs-a');
+  wrap.innerHTML = '';
+  list.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'note-image-item';
+    div.innerHTML = `<img src="${item.url}" alt="미리보기"><button class="note-image-remove" data-remove-thumb="${kind}-${idx}">삭제</button>`;
+    wrap.appendChild(div);
+  });
+}
+document.getElementById('thumbs-q').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-remove-thumb]');
+  if (!btn) return;
+  const idx = Number(btn.dataset.removeThumb.split('-')[1]);
+  modalQImages.splice(idx, 1);
+  renderThumbs('q');
+});
+document.getElementById('thumbs-a').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-remove-thumb]');
+  if (!btn) return;
+  const idx = Number(btn.dataset.removeThumb.split('-')[1]);
+  modalAImages.splice(idx, 1);
+  renderThumbs('a');
+});
+
+function addImageToModal(kind, blob) {
+  const url = URL.createObjectURL(blob);
+  const item = { blob, url };
+  if (kind === 'q') modalQImages.push(item); else modalAImages.push(item);
+  renderThumbs(kind);
+  flashZone(kind);
+}
+function flashZone(kind) {
+  const zone = document.getElementById(`paste-zone-${kind}`);
+  zone.classList.add('dragover');
+  setTimeout(() => zone.classList.remove('dragover'), 300);
+}
+
+['q', 'a'].forEach(kind => {
+  const zone = document.getElementById(`paste-zone-${kind}`);
+  const fileInput = document.getElementById(`file-input-${kind}`);
+  zone.addEventListener('click', (e) => {
+    if (e.target.closest('[data-pick-file]')) return;
+    lastFocusedZoneKind = kind;
+    zone.focus();
+  });
+  zone.addEventListener('focus', () => { lastFocusedZoneKind = kind; });
+  zone.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items || [];
+    for (const item of items) if (item.type.startsWith('image/')) addImageToModal(kind, item.getAsFile());
+  });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    lastFocusedZoneKind = kind;
+    for (const file of e.dataTransfer.files) if (file.type.startsWith('image/')) addImageToModal(kind, file);
+  });
+  fileInput.addEventListener('change', () => {
+    for (const file of fileInput.files) addImageToModal(kind, file);
+    fileInput.value = '';
+  });
+});
+document.querySelectorAll('[data-pick-file]').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const kind = btn.dataset.pickFile;
+    lastFocusedZoneKind = kind;
+    document.getElementById(`file-input-${kind}`).click();
+  });
+});
+document.addEventListener('paste', (e) => {
+  const backdrop = document.getElementById('modal-backdrop');
+  if (backdrop.style.display !== 'flex') return;
+  if (e.target.closest && e.target.closest('.paste-zone')) return;
+  const items = e.clipboardData?.items || [];
+  let added = false;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) { addImageToModal(lastFocusedZoneKind, item.getAsFile()); added = true; }
+  }
+  if (added) e.preventDefault();
+});
+
+function openModalForAdd() {
+  modalMode = 'add';
+  modalEditId = null;
+  document.getElementById('modal-title').textContent = '문제 추가';
+  document.getElementById('btn-modal-delete').style.display = 'none';
+  resetModalState();
+  renderCategorySelect();
+  document.getElementById('modal-backdrop').style.display = 'flex';
+}
+async function openModalForEdit(id) {
+  const q = byId(id);
+  modalMode = 'edit';
+  modalEditId = id;
+  document.getElementById('modal-title').textContent = '문제 수정';
+  document.getElementById('btn-modal-delete').style.display = 'inline-block';
+  resetModalState();
+  renderCategorySelect();
+  document.getElementById('input-title').value = q.title || '';
+  document.getElementById('input-category-select').value = q.category || '';
+  modalStars = q.difficulty || 3;
+  renderStarPicker();
+
+  document.getElementById('modal-backdrop').style.display = 'flex';
+  document.getElementById('modal-uploading').style.display = 'block';
+  document.getElementById('modal-uploading').textContent = '기존 이미지 불러오는 중...';
+
+  for (const fileId of (q.qImages || [])) {
+    const url = await fetchImageURL(fileId);
+    if (url) modalQImages.push({ existingFileId: fileId, url });
+  }
+  for (const fileId of (q.aImages || [])) {
+    const url = await fetchImageURL(fileId);
+    if (url) modalAImages.push({ existingFileId: fileId, url });
+  }
+  renderThumbs('q');
+  renderThumbs('a');
+  document.getElementById('modal-uploading').style.display = 'none';
+}
+function closeModal() { document.getElementById('modal-backdrop').style.display = 'none'; }
+
+document.getElementById('btn-add').addEventListener('click', openModalForAdd);
+document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
+
+document.getElementById('btn-modal-save').addEventListener('click', async () => {
+  const title = document.getElementById('input-title').value.trim();
+  const newCat = document.getElementById('input-category-new').value.trim();
+  const selectedCat = document.getElementById('input-category-select').value;
+  const category = newCat || selectedCat || '미분류';
+
+  if (!title) { alert('문제 이름을 입력해주세요.'); return; }
+  if (modalQImages.length === 0) { alert('문제 이미지를 1개 이상 추가해주세요.'); return; }
+
+  const uploadingEl = document.getElementById('modal-uploading');
+  uploadingEl.style.display = 'block';
+  uploadingEl.textContent = '구글 드라이브에 업로드 중...';
+  setSyncStatus('busy', '이미지 업로드 중...');
+
+  async function resolveImageFileIds(list, prefix) {
+    const ids = [];
+    for (const item of list) {
+      if (item.existingFileId) ids.push(item.existingFileId);
+      else ids.push(await uploadImageBlob(item.blob, prefix));
+    }
+    return ids;
+  }
+
+  try {
+    const qIds = await resolveImageFileIds(modalQImages, 'q');
+    const aIds = await resolveImageFileIds(modalAImages, 'a');
+
+    if (modalMode === 'add') {
+      questions.push({
+        id: nextId++, title, category, difficulty: modalStars,
+        hidden: false, favorite: false,
+        qImages: qIds, aImages: aIds,
+        noteText: '', noteImages: [],
+        rounds: {}, wrongCount: 0, lastDate: null, dueDate: null,
+      });
+    } else {
+      const q = byId(modalEditId);
+      const keptQ = new Set(qIds);
+      const keptA = new Set(aIds);
+      for (const old of (q.qImages || [])) if (!keptQ.has(old)) await deleteDriveFile(old);
+      for (const old of (q.aImages || [])) if (!keptA.has(old)) await deleteDriveFile(old);
+      q.title = title; q.category = category; q.difficulty = modalStars;
+      q.qImages = qIds; q.aImages = aIds;
+    }
+
+    await saveDataToDrive();
+    uploadingEl.style.display = 'none';
+    closeModal();
+    renderFilters();
+    render();
+  } catch (e) {
+    uploadingEl.style.display = 'none';
+    alert('저장 중 오류가 발생했습니다: ' + e.message);
+    setSyncStatus('err', '저장 실패');
+  }
+});
+
+document.getElementById('btn-modal-delete').addEventListener('click', async () => {
+  if (!modalEditId) return;
+  if (!confirm('이 문제를 완전히 삭제할까요? 이미지와 학습 기록도 함께 삭제됩니다.')) return;
+  const q = byId(modalEditId);
+  setSyncStatus('busy', '삭제 중...');
+  for (const f of (q.qImages || [])) await deleteDriveFile(f);
+  for (const f of (q.aImages || [])) await deleteDriveFile(f);
+  for (const f of (q.noteImages || [])) await deleteDriveFile(f);
+  questions = questions.filter(x => x.id !== modalEditId);
+  await saveDataToDrive();
+  closeModal();
+  renderFilters();
+  render();
+});
+
+// ============ 초기화 ============
+function initAfterLoad() {
+  currentOrder = questions.map(q => q.id);
+  renderFilters();
+  render();
+}
+
+document.getElementById('btn-signin').addEventListener('click', () => {
+  document.getElementById('gate-warn').textContent = '';
+  tokenClient.requestAccessToken();
+});
+
+document.getElementById('btn-save-client-id').addEventListener('click', () => {
+  const val = document.getElementById('input-client-id').value.trim();
+  if (!val) return;
+  localStorage.setItem(CLIENT_ID_STORAGE_KEY, val);
+  document.getElementById('config-box').style.display = 'none';
+  initGoogleAuth();
+});
+
+// 시작
+initGoogleAuth();
+</script>
+
+</body>
+</html>
