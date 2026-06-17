@@ -169,71 +169,15 @@
   @media (min-width: 480px) { .tracker-grid { grid-template-columns: repeat(10, 1fr); } }
   .round-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
   .round-no { font-family: var(--mono); font-size: 10px; color: #9b9484; }
-  .round-btn {
-    width: 100%; aspect-ratio: 1; min-height: 38px; border: 1.5px solid var(--line); background: var(--paper);
-    border-radius: 8px; cursor: default; transition: all .12s ease; color: #b3ad9e;
-    display: flex; align-items: center; justify-content: center; position: relative; padding: 0;
+  .round-select {
+    width: 100%; min-height: 38px; border: 1.5px solid var(--line); background: var(--paper);
+    border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b6356;
+    text-align: center; text-align-last: center; padding: 4px 2px; font-family: inherit;
   }
-  .round-btn.correct { background: #2f5d50; border-color: #2f5d50; color: white; }
-  .round-btn.wrong { background: #b6492f; border-color: #b6492f; color: white; }
-  .round-btn.menu-open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-
-  .round-symbol { font-size: 15px; font-weight: 700; pointer-events: none; }
-
-  .round-arrow {
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 18px;
-    height: 18px;
-    border: 1.5px solid var(--line);
-    background: var(--card);
-    border-radius: 5px;
-    font-size: 9px;
-    line-height: 1;
-    color: #6b6356;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .round-arrow:hover { border-color: var(--accent); color: var(--accent); }
-  .round-arrow.menu-open { background: var(--accent); border-color: var(--accent); color: white; }
-
-  .round-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    box-shadow: 0 6px 18px rgba(28,34,48,0.18);
-    padding: 6px;
-    display: flex;
-    gap: 4px;
-    z-index: 20;
-  }
-  .round-menu-option {
-    width: 38px; height: 38px;
-    border: 1.5px solid var(--line);
-    background: var(--paper);
-    border-radius: 7px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .round-menu-option:hover { border-color: var(--accent); }
-  .round-menu-option.opt-correct { color: #2f5d50; }
-  .round-menu-option.opt-correct:hover { background: #2f5d50; color: white; }
-  .round-menu-option.opt-wrong { color: #b6492f; }
-  .round-menu-option.opt-wrong:hover { background: #b6492f; color: white; }
-  .round-menu-option.opt-blank { color: #9b9484; font-size: 11px; }
-  .round-menu-option.opt-blank:hover { background: var(--line); color: var(--ink); }
+  .round-select:hover { border-color: var(--accent); }
+  .round-select:focus { outline: 1.5px solid var(--accent); }
+  .round-select.correct { background: #2f5d50; border-color: #2f5d50; color: white; }
+  .round-select.wrong { background: #b6492f; border-color: #b6492f; color: white; }
 
   .stat-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: #6b6356; flex-wrap: wrap; }
   .stat-bar { flex: 1; min-width: 60px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: flex; }
@@ -464,7 +408,6 @@ let favOnly = false;
 let showHidden = false;
 let dashOpen = false;
 let tagSearch = '';
-let openRoundMenuKey = null; // "questionId-round" 형태, 현재 열려있는 드롭다운 메뉴 식별
 
 let modalMode = 'add';
 let modalEditId = null;
@@ -947,21 +890,18 @@ function trackerHTML(q) {
   let cells = '';
   let correctCount = 0, wrongCount = 0;
   for (let r = 1; r <= TOTAL_ROUNDS; r++) {
-    const mark = getMark(q, r);
+    const mark = getMark(q, r); // '', 'correct', 'wrong'
     if (mark === 'correct') correctCount++;
     if (mark === 'wrong') wrongCount++;
     const cls = mark === 'correct' ? 'correct' : mark === 'wrong' ? 'wrong' : '';
-    const symbol = mark === 'correct' ? 'O' : mark === 'wrong' ? 'X' : '';
-    const menuKey = `${q.id}-${r}`;
-    const isMenuOpen = openRoundMenuKey === menuKey;
     cells += `
-      <div class="round-cell" data-round-cell="${menuKey}">
+      <div class="round-cell" data-round-cell="${q.id}-${r}">
         <div class="round-no">${r}회</div>
-        <div class="round-btn ${cls} ${isMenuOpen ? 'menu-open' : ''}">
-          <span class="round-symbol">${symbol}</span>
-          <button class="round-arrow ${isMenuOpen ? 'menu-open' : ''}" data-track="${q.id}" data-round="${r}" title="선택">▾</button>
-        </div>
-        ${isMenuOpen ? roundMenuHTML(q.id, r) : ''}
+        <select class="round-select ${cls}" data-round-select="${q.id}" data-round="${r}">
+          <option value="" ${mark === '' ? 'selected' : ''}>−</option>
+          <option value="correct" ${mark === 'correct' ? 'selected' : ''}>○ 정답</option>
+          <option value="wrong" ${mark === 'wrong' ? 'selected' : ''}>X 오답</option>
+        </select>
       </div>`;
   }
   const doneCount = correctCount + wrongCount;
@@ -977,15 +917,6 @@ function trackerHTML(q) {
         <div class="stat-bar"><div class="seg-correct" style="width:${correctPct}%"></div><div class="seg-wrong" style="width:${wrongPct}%"></div></div>
         <span>정답 ${correctCount} · 오답 ${wrongCount}</span>
       </div>
-    </div>`;
-}
-
-function roundMenuHTML(id, round) {
-  return `
-    <div class="round-menu" data-round-menu="${id}-${round}">
-      <button class="round-menu-option opt-correct" data-set-mark="${id}" data-round="${round}" data-mark="correct" title="정답">○</button>
-      <button class="round-menu-option opt-wrong" data-set-mark="${id}" data-round="${round}" data-mark="wrong" title="오답">X</button>
-      <button class="round-menu-option opt-blank" data-set-mark="${id}" data-round="${round}" data-mark="" title="표시 없음">∅</button>
     </div>`;
 }
 
@@ -1061,8 +992,6 @@ function renderDashboard() {
 document.getElementById('deck').addEventListener('click', async (e) => {
   const head = e.target.closest('.card-head');
   const revealBtn = e.target.closest('[data-reveal]');
-  const trackBtn = e.target.closest('[data-track]');
-  const setMarkBtn = e.target.closest('[data-set-mark]');
   const favBtn = e.target.closest('[data-fav]');
   const editBtn = e.target.closest('[data-edit]');
   const hideBtn = e.target.closest('[data-hide]');
@@ -1073,40 +1002,6 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (favBtn) { e.stopPropagation(); await toggleFavorite(Number(favBtn.dataset.fav)); return; }
   if (editBtn) { e.stopPropagation(); openModalForEdit(Number(editBtn.dataset.edit)); return; }
   if (hideBtn) { e.stopPropagation(); await toggleHidden(Number(hideBtn.dataset.hide)); return; }
-
-  if (setMarkBtn) {
-    e.stopPropagation();
-    const id = Number(setMarkBtn.dataset.setMark);
-    const round = Number(setMarkBtn.dataset.round);
-    const mark = setMarkBtn.dataset.mark; // '', 'correct', 'wrong'
-    openRoundMenuKey = null;
-    await setMark(id, round, mark);
-    const body = document.querySelector(`[data-body="${id}"]`);
-    if (body && openSet.has(id)) {
-      requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
-    }
-    return;
-  }
-
-  if (trackBtn) {
-    e.stopPropagation();
-    const id = Number(trackBtn.dataset.track);
-    const round = Number(trackBtn.dataset.round);
-    const key = `${id}-${round}`;
-    openRoundMenuKey = (openRoundMenuKey === key) ? null : key;
-    render();
-    const body = document.querySelector(`[data-body="${id}"]`);
-    if (body && openSet.has(id)) {
-      requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
-    }
-    return;
-  }
-
-  // 트래커 메뉴 바깥의 다른 곳을 클릭하면 열려있던 메뉴를 닫음
-  if (openRoundMenuKey !== null) {
-    openRoundMenuKey = null;
-    render();
-  }
 
   if (revealBtn) {
     e.stopPropagation();
@@ -1161,7 +1056,6 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const id = Number(head.dataset.id);
     if (openSet.has(id)) {
       openSet.delete(id);
-      if (openRoundMenuKey && openRoundMenuKey.startsWith(`${id}-`)) openRoundMenuKey = null;
     } else {
       openSet.add(id);
     }
@@ -1180,6 +1074,19 @@ document.getElementById('deck').addEventListener('click', async (e) => {
 });
 
 document.getElementById('deck').addEventListener('change', async (e) => {
+  const roundSelect = e.target.closest('[data-round-select]');
+  if (roundSelect) {
+    const id = Number(roundSelect.dataset.roundSelect);
+    const round = Number(roundSelect.dataset.round);
+    const mark = roundSelect.value; // '', 'correct', 'wrong'
+    await setMark(id, round, mark);
+    const body = document.querySelector(`[data-body="${id}"]`);
+    if (body && openSet.has(id)) {
+      requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+    }
+    return;
+  }
+
   const input = e.target.closest('[data-note-file-input]');
   if (!input) return;
   const id = Number(input.dataset.noteFileInput);
@@ -1220,13 +1127,6 @@ document.addEventListener('paste', async (e) => {
       });
     }
   }
-});
-
-document.addEventListener('click', (e) => {
-  if (openRoundMenuKey === null) return;
-  if (e.target.closest && e.target.closest('#deck')) return; // 덱 안 클릭은 덱 자체 핸들러가 처리
-  openRoundMenuKey = null;
-  render();
 });
 
 document.getElementById('filter-row').addEventListener('click', (e) => {
