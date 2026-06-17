@@ -165,9 +165,9 @@
 
   .tracker { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 14px; }
   .tracker-label { font-family: var(--mono); font-size: 11px; color: #6b6356; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
-  .tracker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .tracker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; position: relative; }
   @media (min-width: 480px) { .tracker-grid { grid-template-columns: repeat(10, 1fr); } }
-  .round-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .round-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
   .round-no { font-family: var(--mono); font-size: 10px; color: #9b9484; }
   .round-btn {
     width: 100%; aspect-ratio: 1; min-height: 38px; border: 1.5px solid var(--line); background: var(--paper);
@@ -176,6 +176,42 @@
   .round-btn:hover { border-color: var(--accent); }
   .round-btn.correct { background: #2f5d50; border-color: #2f5d50; color: white; }
   .round-btn.wrong { background: #b6492f; border-color: #b6492f; color: white; }
+  .round-btn.menu-open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+  .round-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    box-shadow: 0 6px 18px rgba(28,34,48,0.18);
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 20;
+  }
+  .round-menu-option {
+    width: 38px; height: 38px;
+    border: 1.5px solid var(--line);
+    background: var(--paper);
+    border-radius: 7px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .round-menu-option:hover { border-color: var(--accent); }
+  .round-menu-option.opt-correct { color: #2f5d50; }
+  .round-menu-option.opt-correct:hover { background: #2f5d50; color: white; }
+  .round-menu-option.opt-wrong { color: #b6492f; }
+  .round-menu-option.opt-wrong:hover { background: #b6492f; color: white; }
+  .round-menu-option.opt-blank { color: #9b9484; font-size: 11px; }
+  .round-menu-option.opt-blank:hover { background: var(--line); color: var(--ink); }
 
   .stat-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: #6b6356; flex-wrap: wrap; }
   .stat-bar { flex: 1; min-width: 60px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: flex; }
@@ -406,6 +442,7 @@ let favOnly = false;
 let showHidden = false;
 let dashOpen = false;
 let tagSearch = '';
+let openRoundMenuKey = null; // "questionId-round" 형태, 현재 열려있는 드롭다운 메뉴 식별
 
 let modalMode = 'add';
 let modalEditId = null;
@@ -728,13 +765,18 @@ function matchesTagSearch(q, query) {
   return (q.tags || []).some(t => t.toLowerCase().includes(needle));
 }
 
-async function cycleMark(id, round) {
+async function setMark(id, round, mark) {
   const q = byId(id);
   const cur = q.rounds[round] || '';
-  const next = cur === '' ? 'correct' : cur === 'correct' ? 'wrong' : '';
+  const next = mark; // '', 'correct', 'wrong' 중 하나
+
+  if (cur === next) return; // 변화 없으면 그대로 둠 (드라이브 저장 생략)
+
   if (cur === 'wrong') q.wrongCount = Math.max(0, (q.wrongCount || 0) - 1);
+
   if (next === '') {
     delete q.rounds[round];
+    // 표시를 지운 경우에도 마지막 학습일/복습일은 유지 (다른 회차 기록이 있을 수 있으므로 건드리지 않음)
   } else {
     q.rounds[round] = next;
     if (next === 'wrong') q.wrongCount = (q.wrongCount || 0) + 1;
@@ -888,7 +930,14 @@ function trackerHTML(q) {
     if (mark === 'wrong') wrongCount++;
     const cls = mark === 'correct' ? 'correct' : mark === 'wrong' ? 'wrong' : '';
     const symbol = mark === 'correct' ? 'O' : mark === 'wrong' ? 'X' : '';
-    cells += `<div class="round-cell"><div class="round-no">${r}회</div><button class="round-btn ${cls}" data-track="${q.id}" data-round="${r}">${symbol}</button></div>`;
+    const menuKey = `${q.id}-${r}`;
+    const isMenuOpen = openRoundMenuKey === menuKey;
+    cells += `
+      <div class="round-cell" data-round-cell="${menuKey}">
+        <div class="round-no">${r}회</div>
+        <button class="round-btn ${cls} ${isMenuOpen ? 'menu-open' : ''}" data-track="${q.id}" data-round="${r}">${symbol}</button>
+        ${isMenuOpen ? roundMenuHTML(q.id, r) : ''}
+      </div>`;
   }
   const doneCount = correctCount + wrongCount;
   const correctPct = (correctCount / TOTAL_ROUNDS) * 100;
@@ -903,6 +952,15 @@ function trackerHTML(q) {
         <div class="stat-bar"><div class="seg-correct" style="width:${correctPct}%"></div><div class="seg-wrong" style="width:${wrongPct}%"></div></div>
         <span>정답 ${correctCount} · 오답 ${wrongCount}</span>
       </div>
+    </div>`;
+}
+
+function roundMenuHTML(id, round) {
+  return `
+    <div class="round-menu" data-round-menu="${id}-${round}">
+      <button class="round-menu-option opt-correct" data-set-mark="${id}" data-round="${round}" data-mark="correct" title="정답">○</button>
+      <button class="round-menu-option opt-wrong" data-set-mark="${id}" data-round="${round}" data-mark="wrong" title="오답">X</button>
+      <button class="round-menu-option opt-blank" data-set-mark="${id}" data-round="${round}" data-mark="" title="표시 없음">∅</button>
     </div>`;
 }
 
@@ -979,6 +1037,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const head = e.target.closest('.card-head');
   const revealBtn = e.target.closest('[data-reveal]');
   const trackBtn = e.target.closest('[data-track]');
+  const setMarkBtn = e.target.closest('[data-set-mark]');
   const favBtn = e.target.closest('[data-fav]');
   const editBtn = e.target.closest('[data-edit]');
   const hideBtn = e.target.closest('[data-hide]');
@@ -990,14 +1049,38 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (editBtn) { e.stopPropagation(); openModalForEdit(Number(editBtn.dataset.edit)); return; }
   if (hideBtn) { e.stopPropagation(); await toggleHidden(Number(hideBtn.dataset.hide)); return; }
 
-  if (trackBtn) {
+  if (setMarkBtn) {
     e.stopPropagation();
-    await cycleMark(Number(trackBtn.dataset.track), Number(trackBtn.dataset.round));
-    const body = document.querySelector(`[data-body="${trackBtn.dataset.track}"]`);
-    if (body && openSet.has(Number(trackBtn.dataset.track))) {
+    const id = Number(setMarkBtn.dataset.setMark);
+    const round = Number(setMarkBtn.dataset.round);
+    const mark = setMarkBtn.dataset.mark; // '', 'correct', 'wrong'
+    openRoundMenuKey = null;
+    await setMark(id, round, mark);
+    const body = document.querySelector(`[data-body="${id}"]`);
+    if (body && openSet.has(id)) {
       requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
     }
     return;
+  }
+
+  if (trackBtn) {
+    e.stopPropagation();
+    const id = Number(trackBtn.dataset.track);
+    const round = Number(trackBtn.dataset.round);
+    const key = `${id}-${round}`;
+    openRoundMenuKey = (openRoundMenuKey === key) ? null : key;
+    render();
+    const body = document.querySelector(`[data-body="${id}"]`);
+    if (body && openSet.has(id)) {
+      requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; });
+    }
+    return;
+  }
+
+  // 트래커 메뉴 바깥의 다른 곳을 클릭하면 열려있던 메뉴를 닫음
+  if (openRoundMenuKey !== null) {
+    openRoundMenuKey = null;
+    render();
   }
 
   if (revealBtn) {
@@ -1051,7 +1134,12 @@ document.getElementById('deck').addEventListener('click', async (e) => {
 
   if (head) {
     const id = Number(head.dataset.id);
-    if (openSet.has(id)) openSet.delete(id); else openSet.add(id);
+    if (openSet.has(id)) {
+      openSet.delete(id);
+      if (openRoundMenuKey && openRoundMenuKey.startsWith(`${id}-`)) openRoundMenuKey = null;
+    } else {
+      openSet.add(id);
+    }
     render();
     if (openSet.has(id)) {
       requestAnimationFrame(async () => {
@@ -1107,6 +1195,13 @@ document.addEventListener('paste', async (e) => {
       });
     }
   }
+});
+
+document.addEventListener('click', (e) => {
+  if (openRoundMenuKey === null) return;
+  if (e.target.closest && e.target.closest('#deck')) return; // 덱 안 클릭은 덱 자체 핸들러가 처리
+  openRoundMenuKey = null;
+  render();
 });
 
 document.getElementById('filter-row').addEventListener('click', (e) => {
