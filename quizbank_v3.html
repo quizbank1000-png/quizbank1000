@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>공조설비 문제은행</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --ink: #1c2230;
@@ -246,7 +247,9 @@
   .modal-uploading { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 10px; }
 
   footer { text-align: center; font-family: var(--mono); font-size: 11px; color: #a39c8c; padding-bottom: 30px; }
-  .hidden-toggle-row { display: flex; gap: 8px; margin-top: 8px; }
+  .hidden-toggle-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  .backup-progress { font-family: var(--mono); font-size: 11px; color: #6b6356; }
+  .io-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -299,6 +302,8 @@
     <div class="hidden-toggle-row">
       <button class="io-btn" id="btn-dash">진행 요약 보기 ▾</button>
       <button class="io-btn" id="btn-refresh">지금 동기화</button>
+      <button class="io-btn" id="btn-backup">전체 백업 다운로드</button>
+      <span class="backup-progress" id="backup-progress"></span>
     </div>
   </div>
 
@@ -613,6 +618,73 @@ async function deleteDriveFile(fileId) {
   try {
     await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE' });
   } catch (e) { /* 이미 없으면 무시 */ }
+}
+
+async function fetchImageBlobRaw(fileId) {
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return await res.blob();
+}
+
+function guessExtFromBlob(blob, fallback) {
+  if (blob && blob.type) {
+    const ext = blob.type.split('/')[1];
+    if (ext) return ext.replace('+xml', '').replace('jpeg', 'jpg');
+  }
+  return fallback || 'png';
+}
+
+function collectAllImageFileIds() {
+  const ids = new Set();
+  questions.forEach(q => {
+    (q.qImages || []).forEach(id => ids.add(id));
+    (q.aImages || []).forEach(id => ids.add(id));
+    (q.noteImages || []).forEach(id => ids.add(id));
+  });
+  return Array.from(ids);
+}
+
+async function backupAllToZip(onProgress) {
+  if (!window.JSZip) throw new Error('백업 라이브러리(JSZip)를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.');
+  const zip = new JSZip();
+
+  // 1) data.json 그대로 포함
+  zip.file('data.json', JSON.stringify({ questions }, null, 2));
+
+  // 2) 사용 중인 모든 이미지 파일을 다운로드해서 images/ 폴더에 추가
+  const fileIds = collectAllImageFileIds();
+  const imgFolder = zip.folder('images');
+  const fileIdToZipName = {};
+
+  for (let i = 0; i < fileIds.length; i++) {
+    const fileId = fileIds[i];
+    if (onProgress) onProgress(i + 1, fileIds.length);
+    try {
+      const blob = await fetchImageBlobRaw(fileId);
+      const ext = guessExtFromBlob(blob);
+      const zipName = `${fileId}.${ext}`;
+      imgFolder.file(zipName, blob);
+      fileIdToZipName[fileId] = zipName;
+    } catch (e) {
+      console.warn('이미지 백업 실패, 건너뜀:', fileId, e.message);
+    }
+  }
+
+  // 3) data.json 안의 fileId 참조를 백업 zip 안의 실제 파일명으로 매핑한 보조 파일도 포함
+  //    (복원 시 fileId -> 로컬 파일명 대응을 쉽게 확인할 수 있도록)
+  zip.file('file_id_map.json', JSON.stringify(fileIdToZipName, null, 2));
+
+  return await zip.generateAsync({ type: 'blob' });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ============ 헬퍼 (v2와 동일 로직) ============
@@ -1105,6 +1177,28 @@ document.getElementById('btn-refresh').addEventListener('click', async () => {
     setSyncStatus('err', '새로고침 실패: ' + e.message);
   }
 });
+
+document.getElementById('btn-backup').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-backup');
+  const progressEl = document.getElementById('backup-progress');
+  btn.disabled = true;
+  progressEl.textContent = '백업 준비 중...';
+  try {
+    const blob = await backupAllToZip((done, total) => {
+      progressEl.textContent = total > 0
+        ? `이미지 백업 중... (${done}/${total})`
+        : '백업 준비 중...';
+    });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadBlob(blob, `문제은행_백업_${stamp}.zip`);
+    progressEl.textContent = '백업 완료 · ' + new Date().toLocaleTimeString('ko-KR');
+  } catch (e) {
+    progressEl.textContent = '백업 실패: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('btn-signout').addEventListener('click', () => {
   if (accessToken && window.google) {
     google.accounts.oauth2.revoke(accessToken, () => {});
