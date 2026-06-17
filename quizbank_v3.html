@@ -171,12 +171,34 @@
   .round-no { font-family: var(--mono); font-size: 10px; color: #9b9484; }
   .round-btn {
     width: 100%; aspect-ratio: 1; min-height: 38px; border: 1.5px solid var(--line); background: var(--paper);
-    border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all .12s ease; color: #b3ad9e;
+    border-radius: 8px; cursor: default; transition: all .12s ease; color: #b3ad9e;
+    display: flex; align-items: center; justify-content: center; position: relative; padding: 0;
   }
-  .round-btn:hover { border-color: var(--accent); }
   .round-btn.correct { background: #2f5d50; border-color: #2f5d50; color: white; }
   .round-btn.wrong { background: #b6492f; border-color: #b6492f; color: white; }
   .round-btn.menu-open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+  .round-symbol { font-size: 15px; font-weight: 700; pointer-events: none; }
+
+  .round-arrow {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--line);
+    background: var(--card);
+    border-radius: 5px;
+    font-size: 9px;
+    line-height: 1;
+    color: #6b6356;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .round-arrow:hover { border-color: var(--accent); color: var(--accent); }
+  .round-arrow.menu-open { background: var(--accent); border-color: var(--accent); color: white; }
 
   .round-menu {
     position: absolute;
@@ -935,7 +957,10 @@ function trackerHTML(q) {
     cells += `
       <div class="round-cell" data-round-cell="${menuKey}">
         <div class="round-no">${r}회</div>
-        <button class="round-btn ${cls} ${isMenuOpen ? 'menu-open' : ''}" data-track="${q.id}" data-round="${r}">${symbol}</button>
+        <div class="round-btn ${cls} ${isMenuOpen ? 'menu-open' : ''}">
+          <span class="round-symbol">${symbol}</span>
+          <button class="round-arrow ${isMenuOpen ? 'menu-open' : ''}" data-track="${q.id}" data-round="${r}" title="선택">▾</button>
+        </div>
         ${isMenuOpen ? roundMenuHTML(q.id, r) : ''}
       </div>`;
   }
