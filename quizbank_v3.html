@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>공조설비 문제은행</title>
+<title>문제은행</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -243,6 +243,7 @@
   .paste-zone:hover { border-color: var(--accent); }
   .paste-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
   .paste-zone:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
+  .note-paste-zone { padding: 14px; margin-top: 10px; }
   .zone-filebtn-row { margin-top: 10px; }
   .pasted-thumbs { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
@@ -415,6 +416,7 @@ let modalQImages = []; // {name, blob, url, existingFileId}
 let modalAImages = [];
 let modalStars = 3;
 let lastFocusedZoneKind = 'q';
+let activeNotePasteTarget = null; // 오답노트 paste-zone 중 현재 선택된 문제 id
 
 const imageUrlCache = new Map(); // fileId -> blob url (메모리 캐시, 매번 다시 다운로드하지 않도록)
 
@@ -926,8 +928,11 @@ function noteSectionHTML(q) {
       <div class="tracker-label">오답노트</div>
       <textarea class="note-textarea" data-note-text="${q.id}" placeholder="틀린 이유, 헷갈린 부분 등을 적어두세요">${escapeHTML(q.noteText || '')}</textarea>
       <div class="note-toolbar">
-        <button class="io-btn" data-note-img-add="${q.id}">이미지 추가 (붙여넣기/선택)</button>
         <button class="io-btn" data-note-save="${q.id}">노트 저장</button>
+      </div>
+      <div class="paste-zone note-paste-zone" data-note-paste-zone="${q.id}" tabindex="0">
+        클릭해서 이 영역을 붙여넣기 대상으로 지정 (PDF에서 복사한 내용을 Ctrl+V)
+        <div class="zone-filebtn-row"><button type="button" class="io-btn" data-note-pick-file="${q.id}">파일에서 선택</button></div>
       </div>
       <input type="file" data-note-file-input="${q.id}" accept="image/*" multiple style="display:none;">
       <div class="note-images" data-noteimgs="${q.id}"></div>
@@ -995,7 +1000,8 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const favBtn = e.target.closest('[data-fav]');
   const editBtn = e.target.closest('[data-edit]');
   const hideBtn = e.target.closest('[data-hide]');
-  const noteImgAddBtn = e.target.closest('[data-note-img-add]');
+  const notePickFileBtn = e.target.closest('[data-note-pick-file]');
+  const notePasteZone = e.target.closest('[data-note-paste-zone]');
   const noteSaveBtn = e.target.closest('[data-note-save]');
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
 
@@ -1019,9 +1025,19 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     return;
   }
 
-  if (noteImgAddBtn) {
+  if (notePickFileBtn) {
     e.stopPropagation();
-    document.querySelector(`[data-note-file-input="${Number(noteImgAddBtn.dataset.noteImgAdd)}"]`).click();
+    const id = Number(notePickFileBtn.dataset.notePickFile);
+    activeNotePasteTarget = id;
+    document.querySelector(`[data-note-file-input="${id}"]`).click();
+    return;
+  }
+
+  if (notePasteZone) {
+    e.stopPropagation();
+    const id = Number(notePasteZone.dataset.notePasteZone);
+    activeNotePasteTarget = id;
+    notePasteZone.focus();
     return;
   }
 
@@ -1056,6 +1072,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const id = Number(head.dataset.id);
     if (openSet.has(id)) {
       openSet.delete(id);
+      if (activeNotePasteTarget === id) activeNotePasteTarget = null;
     } else {
       openSet.add(id);
     }
@@ -1107,26 +1124,79 @@ document.getElementById('deck').addEventListener('change', async (e) => {
 });
 
 document.addEventListener('paste', async (e) => {
+  const backdrop = document.getElementById('modal-backdrop');
+  if (backdrop.style.display === 'flex') return; // 모달이 열려있으면 모달 전용 paste 핸들러가 처리
+
   const active = document.activeElement;
-  if (!active || !active.matches || !active.matches('[data-note-text]')) return;
+  const focusedOnTextarea = active && active.matches && active.matches('[data-note-text]');
+  const targetId = focusedOnTextarea ? Number(active.dataset.noteText) : activeNotePasteTarget;
+
+  if (targetId === null || targetId === undefined) return;
+
   const items = e.clipboardData?.items || [];
+  let handled = false;
   for (const item of items) {
     if (item.type.startsWith('image/')) {
+      handled = true;
       const blob = item.getAsFile();
-      const id = Number(active.dataset.noteText);
       setSyncStatus('busy', '이미지 업로드 중...');
       const fileId = await uploadImageBlob(blob, 'note');
-      const q = byId(id);
+      const q = byId(targetId);
       q.noteImages = q.noteImages || [];
       q.noteImages.push(fileId);
       await saveDataToDrive();
       render();
       requestAnimationFrame(async () => {
-        const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
-        if (card) await renderCardImages(card, byId(id), id);
+        const card = document.querySelector(`[data-id="${targetId}"]`)?.closest('.card');
+        if (card) {
+          await renderCardImages(card, byId(targetId), targetId);
+          const zone = card.querySelector(`[data-note-paste-zone="${targetId}"]`);
+          if (zone) {
+            zone.classList.add('dragover');
+            setTimeout(() => zone.classList.remove('dragover'), 300);
+          }
+        }
       });
     }
   }
+  if (handled) e.preventDefault();
+});
+
+document.getElementById('deck').addEventListener('dragover', (e) => {
+  const zone = e.target.closest('[data-note-paste-zone]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.add('dragover');
+});
+
+document.getElementById('deck').addEventListener('dragleave', (e) => {
+  const zone = e.target.closest('[data-note-paste-zone]');
+  if (!zone) return;
+  zone.classList.remove('dragover');
+});
+
+document.getElementById('deck').addEventListener('drop', async (e) => {
+  const zone = e.target.closest('[data-note-paste-zone]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const id = Number(zone.dataset.notePasteZone);
+  activeNotePasteTarget = id;
+  const q = byId(id);
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (files.length === 0) return;
+  setSyncStatus('busy', '이미지 업로드 중...');
+  for (const file of files) {
+    const fileId = await uploadImageBlob(file, 'note');
+    q.noteImages = q.noteImages || [];
+    q.noteImages.push(fileId);
+  }
+  await saveDataToDrive();
+  render();
+  requestAnimationFrame(async () => {
+    const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+    if (card) await renderCardImages(card, byId(id), id);
+  });
 });
 
 document.getElementById('filter-row').addEventListener('click', (e) => {
