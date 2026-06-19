@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>문제은행</title>
+<title>공조설비 문제은행</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -17,7 +17,19 @@
     --warn: #b6492f;
     --warn-soft: #f6e6e1;
     --mono: 'JetBrains Mono', 'Consolas', monospace;
+    --font-scale: 1;
   }
+  body.dark-mode {
+    --ink: #e2dfd8;
+    --paper: #1a1c22;
+    --card: #252830;
+    --line: #353944;
+    --accent: #4a9980;
+    --accent-soft: #1e3530;
+    --warn: #e06040;
+    --warn-soft: #3a2020;
+  }
+  body { font-size: calc(14px * var(--font-scale)); }
 
   * { box-sizing: border-box; }
 
@@ -64,7 +76,25 @@
     position: sticky; top: 0; z-index: 10; background: var(--paper);
     border-bottom: 1px solid var(--line); padding: 18px 24px 14px;
   }
-  .topbar h1 { margin: 0 0 2px; font-size: 19px; letter-spacing: -0.01em; font-weight: 700; }
+  .topbar-header { display: flex; align-items: center; gap: 10px; }
+  .topbar h1 { margin: 0 0 2px; font-size: 19px; letter-spacing: -0.01em; font-weight: 700; flex: 1; }
+  .topbar-collapse-btn {
+    border: 1px solid var(--line); background: var(--card); color: #6b6356;
+    font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    white-space: nowrap; transition: all .15s ease; flex-shrink: 0;
+  }
+  .topbar-collapse-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .topbar-collapsible {
+    overflow: hidden;
+    max-height: 600px;
+    transition: max-height .3s ease, opacity .3s ease;
+    opacity: 1;
+  }
+  .topbar-collapsible.collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
   .topbar .meta { font-family: var(--mono); font-size: 12px; color: #6b6356; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #9b9484; display: inline-block; }
   .sync-dot.ok { background: var(--accent); }
@@ -253,6 +283,155 @@
   .hidden-toggle-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
   .backup-progress { font-family: var(--mono); font-size: 11px; color: #6b6356; }
   .io-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── 다크모드 토글 ── */
+  .dark-toggle {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: 16px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    transition: all .15s; flex-shrink: 0;
+  }
+  .dark-toggle:hover { border-color: var(--accent); }
+
+  /* ── 폰트 크기 조절 ── */
+  .font-size-row {
+    display: flex; align-items: center; gap: 6px; font-family: var(--mono);
+    font-size: 11px; color: #6b6356;
+  }
+  .font-size-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: 13px; font-weight: 700; width: 28px; height: 28px; border-radius: 6px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .font-size-btn:hover { border-color: var(--accent); }
+
+  /* ── 시험 모드 오버레이 ── */
+  .exam-overlay {
+    position: fixed; inset: 0; background: var(--paper); z-index: 100;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .exam-header {
+    display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .exam-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .exam-progress-text { font-family: var(--mono); font-size: 13px; color: #6b6356; }
+  .exam-timer {
+    font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 4px 12px; border-radius: 8px;
+  }
+  .exam-timer.danger { color: var(--warn); background: var(--warn-soft); animation: pulse 1s infinite; }
+  .exam-progress-bar-wrap { height: 4px; background: var(--line); flex-shrink: 0; }
+  .exam-progress-bar { height: 100%; background: var(--accent); transition: width .3s; }
+  .exam-body { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .exam-qnum { font-family: var(--mono); font-size: 12px; color: #6b6356; margin-bottom: 8px; }
+  .exam-qtitle { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+  .exam-img-area { margin-bottom: 20px; }
+  .exam-img-area img { width: 100%; border-radius: 8px; border: 1px solid var(--line); margin-bottom: 8px; }
+  .exam-answer-area { margin-top: 16px; }
+  .exam-answer-textarea {
+    width: 100%; min-height: 100px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-size: calc(14px * var(--font-scale)); font-family: inherit;
+    background: var(--card); color: var(--ink); resize: vertical;
+  }
+  .exam-answer-textarea:focus { outline: 1.5px solid var(--accent); }
+  .exam-solution-reveal { margin-top: 16px; }
+  .exam-solution-box {
+    margin-top: 12px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; background: var(--card); display: none;
+  }
+  .exam-solution-box.shown { display: block; }
+  .exam-solution-label { font-family: var(--mono); font-size: 11px; color: var(--warn); margin-bottom: 8px; text-transform: uppercase; }
+  .exam-solution-box img { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; }
+  .exam-self-grade { display: none; gap: 10px; margin-top: 14px; }
+  .exam-self-grade.shown { display: flex; }
+  .exam-grade-btn {
+    flex: 1; padding: 12px; border-radius: 8px; border: 2px solid var(--line);
+    font-size: 15px; font-weight: 700; cursor: pointer; background: var(--card); color: var(--ink);
+    transition: all .15s;
+  }
+  .exam-grade-btn.correct { border-color: var(--accent); background: var(--accent); color: white; }
+  .exam-grade-btn.wrong { border-color: var(--warn); background: var(--warn); color: white; }
+  .exam-footer {
+    padding: 14px 20px; border-top: 1px solid var(--line); background: var(--card);
+    display: flex; gap: 10px; flex-shrink: 0; max-width: 760px; margin: 0 auto; width: 100%;
+  }
+  .exam-nav-btn {
+    flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--line);
+    font-size: 14px; font-weight: 600; cursor: pointer; background: var(--card); color: var(--ink);
+    transition: all .15s;
+  }
+  .exam-nav-btn:hover { border-color: var(--accent); }
+  .exam-nav-btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+  .exam-nav-btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+  /* 시험 결과 화면 */
+  .exam-result { padding: 30px 20px; max-width: 760px; margin: 0 auto; }
+  .exam-result h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .exam-result .result-sub { font-size: 13px; color: #6b6356; margin-bottom: 22px; font-family: var(--mono); }
+  .result-score-big { font-size: 52px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+  .result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 18px 0; }
+  @media (min-width: 480px) { .result-grid { grid-template-columns: repeat(4, 1fr); } }
+  .result-stat { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; }
+  .result-stat .rs-num { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+  .result-stat .rs-label { font-size: 11px; color: #6b6356; margin-top: 2px; }
+  .result-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .result-item {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+  }
+  .result-item .ri-mark { font-size: 18px; flex-shrink: 0; }
+  .result-item .ri-title { flex: 1; min-width: 0; }
+
+  /* ── 카테고리 진도율 차트 ── */
+  .cat-chart { max-width: 760px; margin: 0 auto; padding: 0 18px 6px; }
+  .cat-chart-title { font-family: var(--mono); font-size: 12px; color: #6b6356; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+  .cat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+  .cat-bar-label { min-width: 90px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+  .cat-bar-wrap { flex: 1; height: 14px; background: var(--line); border-radius: 7px; overflow: hidden; display: flex; }
+  .cat-bar-fill-correct { background: var(--accent); height: 100%; transition: width .4s; }
+  .cat-bar-fill-wrong { background: var(--warn); height: 100%; transition: width .4s; }
+  .cat-bar-pct { font-family: var(--mono); font-size: 11px; color: #6b6356; min-width: 38px; text-align: right; }
+
+  /* ── 연속 학습 스트릭 ── */
+  .streak-banner {
+    display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+    background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 9px;
+    font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 10px;
+  }
+  .streak-fire { font-size: 20px; }
+
+  /* ── HTML 링크 ── */
+  .ref-link-btn {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 4px 10px; text-decoration: none; cursor: pointer;
+    transition: all .15s; margin-top: 8px;
+  }
+  .ref-link-btn:hover { background: var(--accent); color: white; }
+  .ref-link-input-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .ref-link-input { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: inherit; background: var(--card); color: var(--ink); }
+  .ref-link-input:focus { outline: 1.5px solid var(--accent); }
+
+  /* ── 키보드 단축키 힌트 ── */
+  .kb-hint {
+    position: fixed; bottom: 16px; right: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 16px; font-family: var(--mono); font-size: 11px;
+    color: #6b6356; z-index: 90; display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    max-width: 240px;
+  }
+  .kb-hint.visible { display: block; }
+  .kb-hint h4 { margin: 0 0 8px; font-size: 12px; color: var(--ink); }
+  .kb-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .kb-key { background: var(--line); border-radius: 4px; padding: 1px 5px; color: var(--ink); font-weight: 700; }
+  .kb-toggle-btn {
+    position: fixed; bottom: 16px; right: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 50%; width: 36px; height: 36px; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; z-index: 91;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all .15s;
+  }
+  .kb-toggle-btn:hover { border-color: var(--accent); }
+  .kb-toggle-btn.hint-open { display: none; }
 </style>
 </head>
 <body>
@@ -280,7 +459,11 @@
 
 <div id="app" style="display:none;">
   <div class="topbar">
-    <h1>공조설비 문제은행</h1>
+    <div class="topbar-header">
+      <h1>공조설비 문제은행</h1>
+      <button class="topbar-collapse-btn" id="btn-topbar-toggle">메뉴 접기 ▴</button>
+    </div>
+    <div class="topbar-collapsible" id="topbar-collapsible">
     <div class="meta">
       <span class="sync-dot" id="sync-dot"></span>
       <span id="sync-text">동기화 대기 중</span>
@@ -306,12 +489,52 @@
       <button class="io-btn" id="btn-dash">진행 요약 보기 ▾</button>
       <button class="io-btn" id="btn-refresh">지금 동기화</button>
       <button class="io-btn" id="btn-backup">전체 백업 다운로드</button>
+      <button class="io-btn" id="btn-exam-mode">🎯 시험 모드</button>
+      <button class="io-btn" id="btn-wrong-focus">🔥 오답 집중</button>
       <span class="backup-progress" id="backup-progress"></span>
+    </div>
+    <div class="hidden-toggle-row" style="margin-top:6px;">
+      <button class="dark-toggle" id="btn-dark-mode" title="다크모드 전환">🌙</button>
+      <div class="font-size-row">
+        <span>글자</span>
+        <button class="font-size-btn" id="btn-font-down">A-</button>
+        <button class="font-size-btn" id="btn-font-up">A+</button>
+      </div>
+    </div>
     </div>
   </div>
 
+  <div class="cat-chart" id="cat-chart" style="display:none;"></div>
   <div class="dashboard" id="dashboard" style="display:none;"></div>
   <div class="deck" id="deck"></div>
+
+  <!-- 시험 모드 오버레이 -->
+  <div class="exam-overlay" id="exam-overlay" style="display:none;">
+    <div class="exam-header">
+      <div class="exam-title">🎯 시험 모드</div>
+      <div class="exam-progress-text" id="exam-prog-text"></div>
+      <div class="exam-timer" id="exam-timer">00:00</div>
+      <button class="io-btn" id="btn-exam-close">나가기</button>
+    </div>
+    <div class="exam-progress-bar-wrap"><div class="exam-progress-bar" id="exam-prog-bar"></div></div>
+    <div class="exam-body" id="exam-body"></div>
+    <div class="exam-footer" id="exam-footer"></div>
+  </div>
+
+  <!-- 키보드 단축키 힌트 -->
+  <button class="kb-toggle-btn" id="kb-toggle-btn" title="키보드 단축키">⌨️</button>
+  <div class="kb-hint" id="kb-hint">
+    <h4>키보드 단축키</h4>
+    <div class="kb-row"><span><span class="kb-key">Space</span> / <span class="kb-key">↓</span></span><span>다음 문제 열기</span></div>
+    <div class="kb-row"><span><span class="kb-key">↑</span></span><span>이전 문제 열기</span></div>
+    <div class="kb-row"><span><span class="kb-key">A</span></span><span>풀이 보기/숨기기</span></div>
+    <div class="kb-row"><span><span class="kb-key">O</span></span><span>정답 ○ 표시</span></div>
+    <div class="kb-row"><span><span class="kb-key">X</span></span><span>오답 X 표시</span></div>
+    <div class="kb-row"><span><span class="kb-key">F</span></span><span>즐겨찾기 토글</span></div>
+    <div class="kb-row"><span><span class="kb-key">D</span></span><span>다크모드 전환</span></div>
+    <div class="kb-row"><span><span class="kb-key">?</span></span><span>이 도움말</span></div>
+    <div style="margin-top:8px;"><button class="io-btn" id="kb-close-btn" style="font-size:11px;padding:4px 10px;">닫기</button></div>
+  </div>
 
   <footer>건축설비기사 과년도 · 데이터는 본인의 구글 드라이브에만 저장됩니다</footer>
 </div>
@@ -342,6 +565,12 @@
     <div class="field-block">
       <label class="field-label">태그 (쉼표로 구분해서 입력, 예: 난방, 보일러, 2021년)</label>
       <input type="text" class="text-input" id="input-tags" placeholder="난방, 보일러, 2021년">
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">참고 링크 (선택) — HTML 문서나 관련 자료 URL</label>
+      <input type="text" class="text-input" id="input-ref-url" placeholder="https://example.com/reference.html">
+      <input type="text" class="text-input" id="input-ref-label" placeholder="링크 표시 이름 (예: 교재 설명 페이지)" style="margin-top:6px;">
     </div>
 
     <div class="field-block">
@@ -418,7 +647,19 @@ let modalStars = 3;
 let lastFocusedZoneKind = 'q';
 let activeNotePasteTarget = null; // 오답노트 paste-zone 중 현재 선택된 문제 id
 
-const imageUrlCache = new Map(); // fileId -> blob url (메모리 캐시, 매번 다시 다운로드하지 않도록)
+// ── 신규 기능 상태 ──
+let fontScale = parseFloat(localStorage.getItem('font-scale') || '1');
+let darkMode = localStorage.getItem('dark-mode') === '1';
+let examMode = false;
+let examQueue = [];
+let examIdx = 0;
+let examAnswers = {}; // id -> 'correct'|'wrong'|''
+let examSolutionShown = {};
+let examStartTime = null;
+let examTimerInterval = null;
+let examRoundNum = 1; // 시험에 쓸 회독 번호
+
+const imageUrlCache = new Map(); // fileId -> blob url
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function addDays(dateStr, days) {
@@ -557,6 +798,8 @@ async function loadDataFromDrive() {
     if (q.qImages === undefined) q.qImages = [];
     if (q.tags === undefined) q.tags = [];
     if (q.aImages === undefined) q.aImages = [];
+    if (q.refUrl === undefined) q.refUrl = '';
+    if (q.refLabel === undefined) q.refLabel = '';
   });
 }
 
@@ -769,6 +1012,7 @@ function getOrderedIds() {
 
 function render() {
   renderDashboard();
+  renderCatChart();
   const deck = document.getElementById('deck');
   deck.innerHTML = '';
   currentOrder = getOrderedIds();
@@ -839,6 +1083,7 @@ async function renderCard(deck, id, idx) {
         <div class="hidden-toggle-row">
           <button class="io-btn" data-edit="${id}">문제 수정</button>
           <button class="io-btn" data-hide="${id}">${q.hidden ? '숨기기 해제' : '문제 숨기기'}</button>
+          ${q.refUrl ? `<a class="ref-link-btn" href="${escapeHTML(q.refUrl)}" target="_blank" rel="noopener">📄 ${escapeHTML(q.refLabel || '참고 자료')}</a>` : ''}
         </div>
       </div>
     </div>
@@ -1252,6 +1497,7 @@ document.getElementById('btn-dash').addEventListener('click', () => {
   dashOpen = !dashOpen;
   document.getElementById('btn-dash').textContent = dashOpen ? '진행 요약 닫기 ▴' : '진행 요약 보기 ▾';
   renderDashboard();
+  renderCatChart();
 });
 document.getElementById('btn-refresh').addEventListener('click', async () => {
   setSyncStatus('busy', '드라이브에서 새로고침 중...');
@@ -1307,6 +1553,8 @@ function resetModalState() {
   document.getElementById('input-title').value = '';
   document.getElementById('input-category-new').value = '';
   document.getElementById('input-tags').value = '';
+  document.getElementById('input-ref-url').value = '';
+  document.getElementById('input-ref-label').value = '';
   renderStarPicker();
   renderThumbs('q');
   renderThumbs('a');
@@ -1437,6 +1685,8 @@ async function openModalForEdit(id) {
   document.getElementById('input-title').value = q.title || '';
   document.getElementById('input-category-select').value = q.category || '';
   document.getElementById('input-tags').value = (q.tags || []).join(', ');
+  document.getElementById('input-ref-url').value = q.refUrl || '';
+  document.getElementById('input-ref-label').value = q.refLabel || '';
   modalStars = q.difficulty || 3;
   renderStarPicker();
 
@@ -1470,6 +1720,8 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
     .split(',')
     .map(t => t.trim())
     .filter(t => t.length > 0);
+  const refUrl = document.getElementById('input-ref-url').value.trim();
+  const refLabel = document.getElementById('input-ref-label').value.trim();
 
   if (!title) { alert('문제 이름을 입력해주세요.'); return; }
   if (modalQImages.length === 0) { alert('문제 이미지를 1개 이상 추가해주세요.'); return; }
@@ -1499,6 +1751,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
         qImages: qIds, aImages: aIds,
         noteText: '', noteImages: [],
         rounds: {}, wrongCount: 0, lastDate: null, dueDate: null,
+        refUrl, refLabel,
       });
     } else {
       const q = byId(modalEditId);
@@ -1508,6 +1761,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
       for (const old of (q.aImages || [])) if (!keptA.has(old)) await deleteDriveFile(old);
       q.title = title; q.category = category; q.difficulty = modalStars; q.tags = tags;
       q.qImages = qIds; q.aImages = aIds;
+      q.refUrl = refUrl; q.refLabel = refLabel;
     }
 
     await saveDataToDrive();
@@ -1540,8 +1794,92 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
 // ============ 초기화 ============
 function initAfterLoad() {
   currentOrder = questions.map(q => q.id);
+  applyDarkMode();
+  applyFontScale();
+  updateStreak();
   renderFilters();
   render();
+}
+
+// ── 다크모드 ──
+function applyDarkMode() {
+  document.body.classList.toggle('dark-mode', darkMode);
+  document.getElementById('btn-dark-mode').textContent = darkMode ? '☀️' : '🌙';
+}
+document.getElementById('btn-dark-mode').addEventListener('click', () => {
+  darkMode = !darkMode;
+  localStorage.setItem('dark-mode', darkMode ? '1' : '0');
+  applyDarkMode();
+});
+
+// ── 폰트 크기 ──
+function applyFontScale() {
+  document.documentElement.style.setProperty('--font-scale', fontScale);
+}
+document.getElementById('btn-font-up').addEventListener('click', () => {
+  fontScale = Math.min(1.5, Math.round((fontScale + 0.1) * 10) / 10);
+  localStorage.setItem('font-scale', fontScale);
+  applyFontScale();
+});
+document.getElementById('btn-font-down').addEventListener('click', () => {
+  fontScale = Math.max(0.7, Math.round((fontScale - 0.1) * 10) / 10);
+  localStorage.setItem('font-scale', fontScale);
+  applyFontScale();
+});
+
+// ── 연속 학습 스트릭 ──
+function getStreak() {
+  const today = todayStr();
+  const studied = new Set(questions.flatMap(q => Object.keys(q.rounds || {})).map(() => ''));
+  // lastDate 기준으로 날짜 수집
+  const dates = new Set(questions.map(q => q.lastDate).filter(Boolean));
+  dates.add(today); // 오늘이 있어야 streak 유지
+  let streak = 0;
+  let d = new Date(today);
+  while (true) {
+    const ds = d.toISOString().slice(0, 10);
+    const hasStudy = questions.some(q => q.lastDate === ds);
+    if (!hasStudy && ds !== today) break;
+    if (hasStudy) streak++;
+    d.setDate(d.getDate() - 1);
+    if (streak > 365) break;
+  }
+  return streak;
+}
+function updateStreak() {
+  // streak 배너는 dashboard 안에 포함시킴
+}
+
+// ── 카테고리별 진도율 차트 ──
+function renderCatChart() {
+  const panel = document.getElementById('cat-chart');
+  if (!dashOpen) { panel.style.display = 'none'; return; }
+  const cats = categories();
+  if (cats.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const rows = cats.map(cat => {
+    const qs = questions.filter(q => q.category === cat && !q.hidden);
+    const total = qs.length;
+    if (total === 0) return '';
+    const correct = qs.reduce((s, q) => s + Object.values(q.rounds || {}).filter(m => m === 'correct').length, 0);
+    const wrong = qs.reduce((s, q) => s + Object.values(q.rounds || {}).filter(m => m === 'wrong').length, 0);
+    const done = qs.filter(q => Object.keys(q.rounds || {}).length > 0).length;
+    const pct = Math.round((done / total) * 100);
+    const correctW = Math.round((correct / (total * 10)) * 100);
+    const wrongW = Math.round((wrong / (total * 10)) * 100);
+    return `
+      <div class="cat-bar-row">
+        <div class="cat-bar-label" title="${escapeHTML(cat)}">${escapeHTML(cat)}</div>
+        <div class="cat-bar-wrap">
+          <div class="cat-bar-fill-correct" style="width:${correctW}%"></div>
+          <div class="cat-bar-fill-wrong" style="width:${wrongW}%"></div>
+        </div>
+        <div class="cat-bar-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+  const streak = getStreak();
+  const streakHTML = streak > 0 ? `<div class="streak-banner"><span class="streak-fire">🔥</span><span>${streak}일 연속 학습 중!</span></div>` : '';
+  panel.innerHTML = `${streakHTML}<div class="cat-chart-title">단원별 진도율</div>${rows}`;
 }
 
 document.getElementById('btn-signin').addEventListener('click', () => {
@@ -1556,6 +1894,306 @@ document.getElementById('btn-save-client-id').addEventListener('click', () => {
   document.getElementById('config-box').style.display = 'none';
   initGoogleAuth();
 });
+
+// ============ 오답 집중 모드 ============
+document.getElementById('btn-wrong-focus').addEventListener('click', () => {
+  wrongOnly = !wrongOnly;
+  favOnly = false;
+  dueOnly = false;
+  document.getElementById('btn-wrong-focus').classList.toggle('active', wrongOnly);
+  document.getElementById('btn-wrong').classList.toggle('active', wrongOnly);
+  document.getElementById('btn-fav').classList.remove('active');
+  document.getElementById('btn-due').classList.remove('active');
+  render();
+});
+
+// ============ 키보드 단축키 ============
+(function() {
+  const hint = document.getElementById('kb-hint');
+  const toggleBtn = document.getElementById('kb-toggle-btn');
+  const closeBtn = document.getElementById('kb-close-btn');
+  let hintVisible = false;
+
+  function showHint(v) {
+    hintVisible = v;
+    hint.classList.toggle('visible', v);
+    toggleBtn.classList.toggle('hint-open', v);
+  }
+  toggleBtn.addEventListener('click', () => showHint(!hintVisible));
+  closeBtn.addEventListener('click', () => showHint(false));
+
+  let focusIdx = -1; // 현재 키보드로 열려있는 카드 인덱스
+
+  document.addEventListener('keydown', (e) => {
+    // 입력창에 포커스 있으면 무시
+    if (e.target.matches('input, textarea, select')) return;
+    // 모달 열려있으면 무시
+    if (document.getElementById('modal-backdrop').style.display === 'flex') return;
+    // 시험 모드 중에는 별도 처리
+    if (examMode) return;
+
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const visibleIds = cards.map(c => Number(c.querySelector('.card-head')?.dataset.id)).filter(Boolean);
+
+    if (e.key === '?' || e.key === '/') { showHint(!hintVisible); e.preventDefault(); return; }
+    if (e.key === 'd' || e.key === 'D') { document.getElementById('btn-dark-mode').click(); return; }
+
+    if ((e.key === 'ArrowDown' || e.key === ' ') && !e.shiftKey) {
+      e.preventDefault();
+      focusIdx = Math.min(focusIdx + 1, visibleIds.length - 1);
+      activateCardAt(visibleIds, focusIdx);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusIdx = Math.max(focusIdx - 1, 0);
+      activateCardAt(visibleIds, focusIdx);
+      return;
+    }
+
+    const id = visibleIds[focusIdx];
+    if (!id) return;
+
+    if (e.key === 'a' || e.key === 'A') {
+      if (revealedSet.has(id)) revealedSet.delete(id); else revealedSet.add(id);
+      render();
+      setTimeout(() => { const body = document.querySelector(`[data-body="${id}"]`); if (body) body.style.maxHeight = body.scrollHeight + 'px'; }, 50);
+      return;
+    }
+    if (e.key === 'o' || e.key === 'O') {
+      const q = byId(id);
+      const r = Math.max(1, Object.keys(q.rounds || {}).length + (getMark(q, Object.keys(q.rounds || {}).length) ? 0 : 1));
+      setMark(id, r, 'correct'); return;
+    }
+    if (e.key === 'x' || e.key === 'X') {
+      const q = byId(id);
+      const r = Math.max(1, Object.keys(q.rounds || {}).length + (getMark(q, Object.keys(q.rounds || {}).length) ? 0 : 1));
+      setMark(id, r, 'wrong'); return;
+    }
+    if (e.key === 'f' || e.key === 'F') { toggleFavorite(id); return; }
+  });
+
+  async function activateCardAt(visibleIds, idx) {
+    if (idx < 0 || idx >= visibleIds.length) return;
+    const id = visibleIds[idx];
+    // close all others, open this one
+    const prev = [...openSet];
+    openSet.clear();
+    openSet.add(id);
+    render();
+    requestAnimationFrame(async () => {
+      const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+      const body = document.querySelector(`[data-body="${id}"]`);
+      if (card && body) {
+        await renderCardImages(card, byId(id), id);
+        body.style.maxHeight = body.scrollHeight + 'px';
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+})();
+
+// ============ 시험 모드 ============
+document.getElementById('btn-exam-mode').addEventListener('click', startExamMode);
+document.getElementById('btn-exam-close').addEventListener('click', endExamMode);
+
+function startExamMode() {
+  // 현재 필터 기준으로 문제 추출
+  const ids = questions.filter(q => {
+    if (q.hidden) return false;
+    if (activeCategory !== 'all' && q.category !== activeCategory) return false;
+    return true;
+  }).map(q => q.id);
+
+  if (ids.length === 0) { alert('시험할 문제가 없습니다.'); return; }
+
+  examQueue = shuffle(ids);
+  examIdx = 0;
+  examAnswers = {};
+  examSolutionShown = {};
+  examStartTime = Date.now();
+  examMode = true;
+
+  // 사용할 회독 번호: 마지막 회독 + 1
+  const maxRound = questions.reduce((m, q) => {
+    const rounds = Object.keys(q.rounds || {}).map(Number);
+    return rounds.length > 0 ? Math.max(m, Math.max(...rounds)) : m;
+  }, 0);
+  examRoundNum = maxRound + 1;
+
+  document.getElementById('exam-overlay').style.display = 'flex';
+  clearInterval(examTimerInterval);
+  examTimerInterval = setInterval(updateExamTimer, 1000);
+  renderExamCard();
+}
+
+function endExamMode() {
+  examMode = false;
+  clearInterval(examTimerInterval);
+  document.getElementById('exam-overlay').style.display = 'none';
+}
+
+function updateExamTimer() {
+  const elapsed = Math.floor((Date.now() - examStartTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  const el = document.getElementById('exam-timer');
+  el.textContent = `${m}:${s}`;
+}
+
+async function renderExamCard() {
+  const id = examQueue[examIdx];
+  const q = byId(id);
+  const total = examQueue.length;
+  const pct = Math.round((examIdx / total) * 100);
+
+  document.getElementById('exam-prog-text').textContent = `${examIdx + 1} / ${total}`;
+  document.getElementById('exam-prog-bar').style.width = pct + '%';
+
+  const body = document.getElementById('exam-body');
+  body.innerHTML = `
+    <div class="exam-qnum">${examIdx + 1}번 문제 · ${escapeHTML(q.category || '미분류')} · ${starString(q.difficulty || 0)}</div>
+    <div class="exam-qtitle">${escapeHTML(q.title || '(제목 없음)')}</div>
+    <div class="exam-img-area" id="exam-qimg"><div class="img-loading">이미지 불러오는 중...</div></div>
+    <div class="exam-answer-area">
+      <textarea class="exam-answer-textarea" id="exam-textarea" placeholder="여기에 풀이를 적어보세요 (선택사항)"></textarea>
+    </div>
+    <div class="exam-solution-reveal">
+      <button class="mode-btn" id="exam-reveal-btn" style="width:100%;padding:12px;">풀이 / 정답 보기 ▼</button>
+      <div class="exam-solution-box ${examSolutionShown[id] ? 'shown' : ''}" id="exam-sol-box">
+        <div class="exam-solution-label">SOLUTION</div>
+        <div id="exam-aimg"><div class="img-loading">이미지 불러오는 중...</div></div>
+        ${q.refUrl ? `<a class="ref-link-btn" href="${escapeHTML(q.refUrl)}" target="_blank" rel="noopener" style="display:inline-flex;margin-top:8px;">📄 ${escapeHTML(q.refLabel || '참고 자료')}</a>` : ''}
+      </div>
+    </div>
+    <div class="exam-self-grade ${examSolutionShown[id] ? 'shown' : ''}" id="exam-grade-row">
+      <button class="exam-grade-btn ${examAnswers[id] === 'correct' ? 'correct' : ''}" id="exam-grade-o">○ 맞았어요</button>
+      <button class="exam-grade-btn ${examAnswers[id] === 'wrong' ? 'wrong' : ''}" id="exam-grade-x">✕ 틀렸어요</button>
+    </div>
+  `;
+
+  // Load images
+  const qImgs = [];
+  for (const fid of (q.qImages || [])) { const url = await fetchImageURL(fid); if (url) qImgs.push(url); }
+  const qImgEl = document.getElementById('exam-qimg');
+  if (qImgEl) qImgEl.innerHTML = qImgs.map(u => `<img src="${u}" alt="문제 이미지">`).join('');
+
+  if (examSolutionShown[id]) {
+    const aImgs = [];
+    for (const fid of (q.aImages || [])) { const url = await fetchImageURL(fid); if (url) aImgs.push(url); }
+    const aImgEl = document.getElementById('exam-aimg');
+    if (aImgEl) aImgEl.innerHTML = aImgs.map(u => `<img src="${u}" alt="풀이 이미지">`).join('');
+  }
+
+  // Reveal button
+  document.getElementById('exam-reveal-btn')?.addEventListener('click', async () => {
+    examSolutionShown[id] = true;
+    document.getElementById('exam-sol-box')?.classList.add('shown');
+    document.getElementById('exam-grade-row')?.classList.add('shown');
+    const aImgs = [];
+    for (const fid of (q.aImages || [])) { const url = await fetchImageURL(fid); if (url) aImgs.push(url); }
+    const aImgEl = document.getElementById('exam-aimg');
+    if (aImgEl) aImgEl.innerHTML = aImgs.map(u => `<img src="${u}" alt="풀이 이미지">`).join('');
+  });
+
+  document.getElementById('exam-grade-o')?.addEventListener('click', () => {
+    examAnswers[id] = 'correct';
+    document.getElementById('exam-grade-o').className = 'exam-grade-btn correct';
+    document.getElementById('exam-grade-x').className = 'exam-grade-btn';
+  });
+  document.getElementById('exam-grade-x')?.addEventListener('click', () => {
+    examAnswers[id] = 'wrong';
+    document.getElementById('exam-grade-x').className = 'exam-grade-btn wrong';
+    document.getElementById('exam-grade-o').className = 'exam-grade-btn';
+  });
+
+  // Footer nav
+  const footer = document.getElementById('exam-footer');
+  const isLast = examIdx === examQueue.length - 1;
+  footer.innerHTML = `
+    <button class="exam-nav-btn" id="exam-prev" ${examIdx === 0 ? 'disabled style="opacity:.4"' : ''}>◀ 이전</button>
+    <button class="exam-nav-btn primary" id="exam-next">${isLast ? '결과 보기 ✓' : '다음 ▶'}</button>
+  `;
+  document.getElementById('exam-prev')?.addEventListener('click', () => { examIdx--; renderExamCard(); });
+  document.getElementById('exam-next')?.addEventListener('click', async () => {
+    if (isLast) { await finishExam(); } else { examIdx++; renderExamCard(); }
+  });
+}
+
+async function finishExam() {
+  clearInterval(examTimerInterval);
+  const elapsed = Math.floor((Date.now() - examStartTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+
+  const total = examQueue.length;
+  const answered = Object.keys(examAnswers).length;
+  const correct = Object.values(examAnswers).filter(v => v === 'correct').length;
+  const wrong = Object.values(examAnswers).filter(v => v === 'wrong').length;
+  const scorePct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+
+  // 성적 저장
+  for (const id of examQueue) {
+    const mark = examAnswers[id];
+    if (mark) await setMark(id, examRoundNum, mark);
+  }
+
+  document.getElementById('exam-prog-bar').style.width = '100%';
+  document.getElementById('exam-body').innerHTML = `
+    <div class="exam-result">
+      <h2>시험 완료 🎉</h2>
+      <div class="result-sub">소요 시간: ${m}:${s} · 회독 ${examRoundNum}회차에 기록됨</div>
+      <div class="result-score-big">${scorePct}점</div>
+      <div class="result-grid">
+        <div class="result-stat"><div class="rs-num">${total}</div><div class="rs-label">총 문제 수</div></div>
+        <div class="result-stat"><div class="rs-num" style="color:var(--accent)">${correct}</div><div class="rs-label">정답</div></div>
+        <div class="result-stat"><div class="rs-num" style="color:var(--warn)">${wrong}</div><div class="rs-label">오답</div></div>
+        <div class="result-stat"><div class="rs-num">${total - answered}</div><div class="rs-label">미채점</div></div>
+      </div>
+      <div class="result-list">
+        ${examQueue.map(id => {
+          const q = byId(id);
+          const mark = examAnswers[id];
+          const icon = mark === 'correct' ? '🟢' : mark === 'wrong' ? '🔴' : '⚪';
+          return `<div class="result-item"><div class="ri-mark">${icon}</div><div class="ri-title">${escapeHTML(q?.title || '')}</div><div style="font-size:11px;color:#9b9484;font-family:var(--mono)">${escapeHTML(q?.category || '')}</div></div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  document.getElementById('exam-footer').innerHTML = `
+    <button class="exam-nav-btn primary" id="exam-done-btn">닫기</button>
+  `;
+  document.getElementById('exam-done-btn')?.addEventListener('click', endExamMode);
+}
+
+// ============ 상단 메뉴 접기/펼치기 ============
+(function() {
+  const btn = document.getElementById('btn-topbar-toggle');
+  const panel = document.getElementById('topbar-collapsible');
+  let collapsed = localStorage.getItem('topbar-collapsed') === '1';
+  function applyState() {
+    if (collapsed) {
+      panel.classList.add('collapsed');
+      btn.textContent = '메뉴 열기 ▾';
+    } else {
+      panel.classList.remove('collapsed');
+      btn.textContent = '메뉴 접기 ▴';
+    }
+  }
+  applyState();
+  btn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    localStorage.setItem('topbar-collapsed', collapsed ? '1' : '0');
+    applyState();
+  });
+})();
+
+// 페이지 로드 시 즉시 적용
+(function() {
+  if (localStorage.getItem('dark-mode') === '1') document.body.classList.add('dark-mode');
+  const fs = parseFloat(localStorage.getItem('font-scale') || '1');
+  document.documentElement.style.setProperty('--font-scale', fs);
+})();
 
 // 시작
 initGoogleAuth();
