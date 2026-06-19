@@ -885,6 +885,35 @@ async function uploadHtmlBlob(blob, originalName) {
   return created.id;
 }
 
+// HTML 참고 파일을 Drive에서 불러와 UTF-8로 새 창에 표시
+async function openRefFile(q, btn) {
+  const label = q.refLabel || '참고 자료';
+  btn.textContent = '⏳ 불러오는 중...';
+  btn.disabled = true;
+  try {
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.refFileId}?alt=media`);
+    const arrayBuffer = await res.arrayBuffer();
+    // UTF-8로 디코딩
+    const html = new TextDecoder('utf-8').decode(arrayBuffer);
+    // <meta charset> 이 없으면 주입 (이미 있으면 브라우저가 무시)
+    const injected = html.replace(/(<head[^>]*>)/i, '$1\n<meta charset="utf-8">');
+    // UTF-8 명시 Blob으로 새 창 열기
+    const blob = new Blob([injected], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const winName = 'refWin_' + q.refFileId;
+    const w = window.open(url, winName,
+      'width=960,height=700,resizable=yes,scrollbars=yes,menubar=no,toolbar=no');
+    if (!w) alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+    // Blob URL은 창이 로드된 뒤 해제
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (err) {
+    alert('파일을 불러오는 데 실패했습니다: ' + err.message);
+  } finally {
+    btn.textContent = `📄 ${label}`;
+    btn.disabled = false;
+  }
+}
+
 async function fetchImageURL(fileId) {
   if (imageUrlCache.has(fileId)) return imageUrlCache.get(fileId);
   try {
@@ -1294,20 +1323,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const id = Number(openRefBtn.dataset.openRef);
     const q = byId(id);
     if (!q?.refFileId) return;
-    openRefBtn.textContent = '⏳ 불러오는 중...';
-    openRefBtn.disabled = true;
-    try {
-      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.refFileId}?alt=media`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
-      alert('파일을 불러오는 데 실패했습니다: ' + err.message);
-    } finally {
-      openRefBtn.textContent = `📄 ${escapeHTML(q.refLabel || '참고 자료')}`;
-      openRefBtn.disabled = false;
-    }
+    await openRefFile(q, openRefBtn);
     return;
   }
 
@@ -2125,20 +2141,7 @@ document.getElementById('exam-body').addEventListener('click', async (e) => {
   const id = Number(openRefBtn.dataset.openRef);
   const q = byId(id);
   if (!q?.refFileId) return;
-  openRefBtn.textContent = '⏳ 불러오는 중...';
-  openRefBtn.disabled = true;
-  try {
-    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.refFileId}?alt=media`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch (err) {
-    alert('파일을 불러오는 데 실패했습니다: ' + err.message);
-  } finally {
-    openRefBtn.textContent = `📄 ${escapeHTML(q.refLabel || '참고 자료')}`;
-    openRefBtn.disabled = false;
-  }
+  await openRefFile(q, openRefBtn);
 });
 
 function startExamMode() {
