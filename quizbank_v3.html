@@ -401,7 +401,7 @@
   }
   .streak-fire { font-size: 20px; }
 
-  /* ── HTML 링크 ── */
+  /* ── HTML 참고 파일 ── */
   .ref-link-btn {
     display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
     color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent);
@@ -409,9 +409,20 @@
     transition: all .15s; margin-top: 8px;
   }
   .ref-link-btn:hover { background: var(--accent); color: white; }
-  .ref-link-input-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-  .ref-link-input { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: inherit; background: var(--card); color: var(--ink); }
-  .ref-link-input:focus { outline: 1.5px solid var(--accent); }
+  .ref-file-zone {
+    border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
+    font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--paper);
+    text-align: center; transition: border-color .15s;
+  }
+  .ref-file-zone:hover, .ref-file-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .ref-file-chosen {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--card); font-size: 12px;
+  }
+  .ref-file-chosen .rf-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
+  .ref-file-chosen .rf-remove { border: none; background: none; color: var(--warn); cursor: pointer; font-size: 13px; padding: 2px 6px; }
+  .ref-file-uploading { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-top: 6px; }
+  .ref-label-input { margin-top: 8px; }
 
   /* ── 키보드 단축키 힌트 ── */
   .kb-hint {
@@ -568,9 +579,19 @@
     </div>
 
     <div class="field-block">
-      <label class="field-label">참고 링크 (선택) — HTML 문서나 관련 자료 URL</label>
-      <input type="text" class="text-input" id="input-ref-url" placeholder="https://example.com/reference.html">
-      <input type="text" class="text-input" id="input-ref-label" placeholder="링크 표시 이름 (예: 교재 설명 페이지)" style="margin-top:6px;">
+      <label class="field-label">참고 HTML 파일 (선택) — 교재·해설 HTML 파일을 업로드하면 카드에 버튼으로 연결됩니다</label>
+      <div class="ref-file-zone" id="ref-file-zone">
+        📄 HTML 파일을 여기에 드래그하거나 클릭해서 선택
+        <div style="margin-top:8px;"><button type="button" class="io-btn" id="btn-ref-pick-file">파일 선택</button></div>
+      </div>
+      <input type="file" id="ref-file-input" accept=".html,.htm" style="display:none;">
+      <div id="ref-file-chosen" style="display:none;" class="ref-file-chosen">
+        <span>📄</span>
+        <span class="rf-name" id="ref-file-name"></span>
+        <button class="rf-remove" id="btn-ref-remove" title="제거">✕</button>
+      </div>
+      <div class="ref-file-uploading" id="ref-file-uploading" style="display:none;"></div>
+      <input type="text" class="text-input ref-label-input" id="input-ref-label" placeholder="버튼에 표시할 이름 (예: 2021년 3회 해설)">
     </div>
 
     <div class="field-block">
@@ -645,7 +666,8 @@ let modalQImages = []; // {name, blob, url, existingFileId}
 let modalAImages = [];
 let modalStars = 3;
 let lastFocusedZoneKind = 'q';
-let activeNotePasteTarget = null; // 오답노트 paste-zone 중 현재 선택된 문제 id
+let activeNotePasteTarget = null;
+let modalRefFile = null; // {blob, name, existingFileId} — HTML 참고 파일
 
 // ── 신규 기능 상태 ──
 let fontScale = parseFloat(localStorage.getItem('font-scale') || '1');
@@ -798,7 +820,7 @@ async function loadDataFromDrive() {
     if (q.qImages === undefined) q.qImages = [];
     if (q.tags === undefined) q.tags = [];
     if (q.aImages === undefined) q.aImages = [];
-    if (q.refUrl === undefined) q.refUrl = '';
+    if (q.refFileId === undefined) q.refFileId = '';
     if (q.refLabel === undefined) q.refLabel = '';
   });
 }
@@ -845,7 +867,22 @@ async function uploadImageBlob(blob, filenamePrefix) {
     body: form,
   });
   const created = await res.json();
-  return created.id; // fileId를 저장해서 참조
+  return created.id;
+}
+
+async function uploadHtmlBlob(blob, originalName) {
+  const safeName = (originalName || 'ref').replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+  const filename = `ref_${Date.now()}_${safeName}`;
+  const metadata = { name: filename, parents: [folderId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', new Blob([blob], { type: 'text/html' }));
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    body: form,
+  });
+  const created = await res.json();
+  return created.id;
 }
 
 async function fetchImageURL(fileId) {
@@ -886,6 +923,7 @@ function collectAllImageFileIds() {
     (q.qImages || []).forEach(id => ids.add(id));
     (q.aImages || []).forEach(id => ids.add(id));
     (q.noteImages || []).forEach(id => ids.add(id));
+    if (q.refFileId) ids.add(q.refFileId);
   });
   return Array.from(ids);
 }
@@ -1083,7 +1121,7 @@ async function renderCard(deck, id, idx) {
         <div class="hidden-toggle-row">
           <button class="io-btn" data-edit="${id}">문제 수정</button>
           <button class="io-btn" data-hide="${id}">${q.hidden ? '숨기기 해제' : '문제 숨기기'}</button>
-          ${q.refUrl ? `<a class="ref-link-btn" href="${escapeHTML(q.refUrl)}" target="_blank" rel="noopener">📄 ${escapeHTML(q.refLabel || '참고 자료')}</a>` : ''}
+          ${q.refFileId ? `<button class="ref-link-btn" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
         </div>
       </div>
     </div>
@@ -1249,6 +1287,29 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const notePasteZone = e.target.closest('[data-note-paste-zone]');
   const noteSaveBtn = e.target.closest('[data-note-save]');
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
+  const openRefBtn = e.target.closest('[data-open-ref]');
+
+  if (openRefBtn) {
+    e.stopPropagation();
+    const id = Number(openRefBtn.dataset.openRef);
+    const q = byId(id);
+    if (!q?.refFileId) return;
+    openRefBtn.textContent = '⏳ 불러오는 중...';
+    openRefBtn.disabled = true;
+    try {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.refFileId}?alt=media`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      alert('파일을 불러오는 데 실패했습니다: ' + err.message);
+    } finally {
+      openRefBtn.textContent = `📄 ${escapeHTML(q.refLabel || '참고 자료')}`;
+      openRefBtn.disabled = false;
+    }
+    return;
+  }
 
   if (favBtn) { e.stopPropagation(); await toggleFavorite(Number(favBtn.dataset.fav)); return; }
   if (editBtn) { e.stopPropagation(); openModalForEdit(Number(editBtn.dataset.edit)); return; }
@@ -1550,11 +1611,14 @@ function resetModalState() {
   modalQImages = [];
   modalAImages = [];
   modalStars = 3;
+  modalRefFile = null;
   document.getElementById('input-title').value = '';
   document.getElementById('input-category-new').value = '';
   document.getElementById('input-tags').value = '';
-  document.getElementById('input-ref-url').value = '';
   document.getElementById('input-ref-label').value = '';
+  document.getElementById('ref-file-chosen').style.display = 'none';
+  document.getElementById('ref-file-zone').style.display = 'block';
+  document.getElementById('ref-file-uploading').style.display = 'none';
   renderStarPicker();
   renderThumbs('q');
   renderThumbs('a');
@@ -1685,9 +1749,14 @@ async function openModalForEdit(id) {
   document.getElementById('input-title').value = q.title || '';
   document.getElementById('input-category-select').value = q.category || '';
   document.getElementById('input-tags').value = (q.tags || []).join(', ');
-  document.getElementById('input-ref-url').value = q.refUrl || '';
   document.getElementById('input-ref-label').value = q.refLabel || '';
   modalStars = q.difficulty || 3;
+
+  // 기존 참고 파일 표시
+  if (q.refFileId) {
+    modalRefFile = { existingFileId: q.refFileId, name: q.refLabel || '참고파일.html' };
+    setRefFileChosen(q.refLabel || '기존 참고 파일');
+  }
   renderStarPicker();
 
   document.getElementById('modal-backdrop').style.display = 'flex';
@@ -1708,6 +1777,45 @@ async function openModalForEdit(id) {
 }
 function closeModal() { document.getElementById('modal-backdrop').style.display = 'none'; }
 
+// ── 참고 HTML 파일 업로드 UI ──
+function setRefFileChosen(name) {
+  document.getElementById('ref-file-zone').style.display = 'none';
+  const chosenEl = document.getElementById('ref-file-chosen');
+  chosenEl.style.display = 'flex';
+  document.getElementById('ref-file-name').textContent = name;
+}
+function clearRefFile() {
+  modalRefFile = null;
+  document.getElementById('ref-file-zone').style.display = 'block';
+  document.getElementById('ref-file-chosen').style.display = 'none';
+}
+function handleRefFile(file) {
+  if (!file) return;
+  if (!file.name.match(/\.html?$/i)) { alert('.html 또는 .htm 파일만 업로드할 수 있습니다.'); return; }
+  modalRefFile = { blob: file, name: file.name };
+  setRefFileChosen(file.name);
+}
+document.getElementById('btn-ref-pick-file').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('ref-file-input').click();
+});
+document.getElementById('ref-file-input').addEventListener('change', (e) => {
+  handleRefFile(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btn-ref-remove').addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearRefFile();
+});
+const refZone = document.getElementById('ref-file-zone');
+refZone.addEventListener('dragover', (e) => { e.preventDefault(); refZone.classList.add('dragover'); });
+refZone.addEventListener('dragleave', () => refZone.classList.remove('dragover'));
+refZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  refZone.classList.remove('dragover');
+  handleRefFile(e.dataTransfer.files[0]);
+});
+
 document.getElementById('btn-add').addEventListener('click', openModalForAdd);
 document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
 
@@ -1720,7 +1828,6 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
     .split(',')
     .map(t => t.trim())
     .filter(t => t.length > 0);
-  const refUrl = document.getElementById('input-ref-url').value.trim();
   const refLabel = document.getElementById('input-ref-label').value.trim();
 
   if (!title) { alert('문제 이름을 입력해주세요.'); return; }
@@ -1744,6 +1851,17 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
     const qIds = await resolveImageFileIds(modalQImages, 'q');
     const aIds = await resolveImageFileIds(modalAImages, 'a');
 
+    // HTML 참고 파일 업로드 처리
+    let refFileId = '';
+    if (modalRefFile) {
+      if (modalRefFile.existingFileId) {
+        refFileId = modalRefFile.existingFileId; // 기존 파일 유지
+      } else {
+        uploadingEl.textContent = '참고 HTML 파일 업로드 중...';
+        refFileId = await uploadHtmlBlob(modalRefFile.blob, modalRefFile.name);
+      }
+    }
+
     if (modalMode === 'add') {
       questions.push({
         id: nextId++, title, category, difficulty: modalStars, tags,
@@ -1751,7 +1869,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
         qImages: qIds, aImages: aIds,
         noteText: '', noteImages: [],
         rounds: {}, wrongCount: 0, lastDate: null, dueDate: null,
-        refUrl, refLabel,
+        refFileId, refLabel,
       });
     } else {
       const q = byId(modalEditId);
@@ -1759,9 +1877,11 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
       const keptA = new Set(aIds);
       for (const old of (q.qImages || [])) if (!keptQ.has(old)) await deleteDriveFile(old);
       for (const old of (q.aImages || [])) if (!keptA.has(old)) await deleteDriveFile(old);
+      // 이전 참고 파일 삭제 (교체된 경우)
+      if (q.refFileId && q.refFileId !== refFileId) await deleteDriveFile(q.refFileId);
       q.title = title; q.category = category; q.difficulty = modalStars; q.tags = tags;
       q.qImages = qIds; q.aImages = aIds;
-      q.refUrl = refUrl; q.refLabel = refLabel;
+      q.refFileId = refFileId; q.refLabel = refLabel;
     }
 
     await saveDataToDrive();
@@ -1784,6 +1904,7 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
   for (const f of (q.qImages || [])) await deleteDriveFile(f);
   for (const f of (q.aImages || [])) await deleteDriveFile(f);
   for (const f of (q.noteImages || [])) await deleteDriveFile(f);
+  if (q.refFileId) await deleteDriveFile(q.refFileId);
   questions = questions.filter(x => x.id !== modalEditId);
   await saveDataToDrive();
   closeModal();
@@ -1997,6 +2118,29 @@ document.getElementById('btn-wrong-focus').addEventListener('click', () => {
 document.getElementById('btn-exam-mode').addEventListener('click', startExamMode);
 document.getElementById('btn-exam-close').addEventListener('click', endExamMode);
 
+document.getElementById('exam-body').addEventListener('click', async (e) => {
+  const openRefBtn = e.target.closest('[data-open-ref]');
+  if (!openRefBtn) return;
+  e.stopPropagation();
+  const id = Number(openRefBtn.dataset.openRef);
+  const q = byId(id);
+  if (!q?.refFileId) return;
+  openRefBtn.textContent = '⏳ 불러오는 중...';
+  openRefBtn.disabled = true;
+  try {
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.refFileId}?alt=media`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err) {
+    alert('파일을 불러오는 데 실패했습니다: ' + err.message);
+  } finally {
+    openRefBtn.textContent = `📄 ${escapeHTML(q.refLabel || '참고 자료')}`;
+    openRefBtn.disabled = false;
+  }
+});
+
 function startExamMode() {
   // 현재 필터 기준으로 문제 추출
   const ids = questions.filter(q => {
@@ -2063,7 +2207,7 @@ async function renderExamCard() {
       <div class="exam-solution-box ${examSolutionShown[id] ? 'shown' : ''}" id="exam-sol-box">
         <div class="exam-solution-label">SOLUTION</div>
         <div id="exam-aimg"><div class="img-loading">이미지 불러오는 중...</div></div>
-        ${q.refUrl ? `<a class="ref-link-btn" href="${escapeHTML(q.refUrl)}" target="_blank" rel="noopener" style="display:inline-flex;margin-top:8px;">📄 ${escapeHTML(q.refLabel || '참고 자료')}</a>` : ''}
+        ${q.refFileId ? `<button class="ref-link-btn" data-open-ref="${id}" style="display:inline-flex;margin-top:8px;">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
       </div>
     </div>
     <div class="exam-self-grade ${examSolutionShown[id] ? 'shown' : ''}" id="exam-grade-row">
