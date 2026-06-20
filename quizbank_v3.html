@@ -417,6 +417,13 @@
     color: var(--warn); background: var(--warn-soft); border-color: var(--warn);
   }
   .note-view-btn:hover { background: var(--warn); color: white; }
+  .question-view-btn {
+    color: #4a6fa5; background: #e6edf6; border-color: #4a6fa5;
+  }
+  .question-view-btn:hover { background: #4a6fa5; color: white; }
+  body.dark-mode .question-view-btn {
+    color: #7ea3d6; background: #1e2a3a; border-color: #4a6fa5;
+  }
   .ref-file-zone {
     border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
     font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--paper);
@@ -981,6 +988,59 @@ ${bodyHTML}
   }
 }
 
+// ── 문제 읽기 (문제 이미지를 새 창으로 열기) ──
+async function openQuestionWindow(q, btn) {
+  const label = '문제 읽기';
+  if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
+  try {
+    const imgDataUrls = [];
+    for (const fileId of (q.qImages || [])) {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      imgDataUrls.push(dataUrl);
+    }
+
+    const imagesHTML = imgDataUrls.map(u => `<img src="${u}" alt="문제 이미지">`).join('');
+    const bodyHTML = imagesHTML || `<div class="empty">첨부된 문제 이미지가 없습니다.</div>`;
+
+    const doc = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>문제 — ${escapeHTML(q.title || '')}</title>
+<style>
+  body { margin:0; padding:24px; background:#1a1c22; color:#e2dfd8; font-family:-apple-system,'Malgun Gothic',sans-serif; }
+  h1 { font-size:17px; margin:0 0 18px; padding-bottom:14px; border-bottom:1px solid #353944; }
+  img { width:100%; border-radius:8px; border:1px solid #353944; display:block; margin-bottom:16px; }
+  .empty { text-align:center; color:#9b9484; padding:40px 0; }
+</style>
+</head>
+<body>
+<h1>🔍 문제 — ${escapeHTML(q.title || '(제목 없음)')}</h1>
+${bodyHTML}
+</body>
+</html>`;
+
+    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const winName = 'questionWin_' + q.id;
+    const w = window.open(url, winName,
+      'width=860,height=760,resizable=yes,scrollbars=yes,menubar=no,toolbar=no');
+    if (!w) alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (err) {
+    alert('이미지를 불러오는 데 실패했습니다: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = `🔍 ${label}`; btn.disabled = false; }
+  }
+}
+
 async function fetchImageURL(fileId) {
   if (imageUrlCache.has(fileId)) return imageUrlCache.get(fileId);
   try {
@@ -1196,6 +1256,7 @@ async function renderCard(deck, id, idx) {
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
           ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
+          ${(q.qImages && q.qImages.length > 0) ? `<button class="ref-link-btn ref-link-inline question-view-btn" data-view-question="${id}" title="문제 이미지를 새 창으로 보기">🔍 문제 읽기</button>` : ''}
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
@@ -1386,6 +1447,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
+  const viewQuestionBtn = e.target.closest('[data-view-question]');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -1402,6 +1464,15 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const q = byId(id);
     if (!q) return;
     await openNoteWindow(q, viewNoteBtn);
+    return;
+  }
+
+  if (viewQuestionBtn) {
+    e.stopPropagation();
+    const id = Number(viewQuestionBtn.dataset.viewQuestion);
+    const q = byId(id);
+    if (!q) return;
+    await openQuestionWindow(q, viewQuestionBtn);
     return;
   }
 
