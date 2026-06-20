@@ -413,6 +413,10 @@
     margin-top: 0; padding: 1px 7px; font-size: 10px; border-radius: 999px;
     font-family: var(--mono);
   }
+  .note-view-btn {
+    color: var(--warn); background: var(--warn-soft); border-color: var(--warn);
+  }
+  .note-view-btn:hover { background: var(--warn); color: white; }
   .ref-file-zone {
     border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
     font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--paper);
@@ -447,6 +451,33 @@
   }
   .kb-toggle-btn:hover { border-color: var(--accent); }
   .kb-toggle-btn.hint-open { display: none; }
+
+  /* ── 나의 정답 보기 (오답노트 이미지 라이트박스) ── */
+  .note-lightbox-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 110;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .note-lightbox {
+    background: var(--paper); border-radius: 14px; max-width: 800px; width: 100%;
+    max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .note-lightbox-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .note-lightbox-title { font-size: 16px; font-weight: 700; }
+  .note-lightbox-body {
+    overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .note-lightbox-body img {
+    width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block;
+  }
+  .note-lightbox-text {
+    white-space: pre-wrap; font-size: 13.5px; line-height: 1.6; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px;
+  }
+  .note-lightbox-empty { text-align: center; color: #9b9484; font-size: 13px; padding: 30px 0; }
 </style>
 </head>
 <body>
@@ -534,6 +565,17 @@
     <div class="exam-progress-bar-wrap"><div class="exam-progress-bar" id="exam-prog-bar"></div></div>
     <div class="exam-body" id="exam-body"></div>
     <div class="exam-footer" id="exam-footer"></div>
+  </div>
+
+  <!-- 나의 정답 보기 (오답노트 이미지 라이트박스) -->
+  <div class="note-lightbox-backdrop" id="note-lightbox-backdrop" style="display:none;">
+    <div class="note-lightbox">
+      <div class="note-lightbox-header">
+        <div class="note-lightbox-title" id="note-lightbox-title">📝 나의 정답</div>
+        <button class="io-btn" id="btn-note-lightbox-close">닫기 ✕</button>
+      </div>
+      <div class="note-lightbox-body" id="note-lightbox-body"></div>
+    </div>
   </div>
 
   <!-- 키보드 단축키 힌트 -->
@@ -918,6 +960,38 @@ async function openRefFile(q, btn) {
   }
 }
 
+// ── 나의 정답 보기 (오답노트 이미지 라이트박스) ──
+async function openNoteLightbox(q) {
+  const backdrop = document.getElementById('note-lightbox-backdrop');
+  const body = document.getElementById('note-lightbox-body');
+  const title = document.getElementById('note-lightbox-title');
+  title.textContent = `📝 나의 정답 — ${q.title || '(제목 없음)'}`;
+  body.innerHTML = '<div class="note-lightbox-empty">불러오는 중...</div>';
+  backdrop.style.display = 'flex';
+
+  const parts = [];
+  if (q.noteText && q.noteText.trim()) {
+    parts.push(`<div class="note-lightbox-text">${escapeHTML(q.noteText)}</div>`);
+  }
+  const imgUrls = [];
+  for (const fileId of (q.noteImages || [])) {
+    const url = await fetchImageURL(fileId);
+    if (url) imgUrls.push(url);
+  }
+  imgUrls.forEach(url => parts.push(`<img src="${url}" alt="나의 정답 이미지">`));
+
+  body.innerHTML = parts.length > 0
+    ? parts.join('')
+    : '<div class="note-lightbox-empty">첨부된 오답노트 이미지가 없습니다.</div>';
+}
+function closeNoteLightbox() {
+  document.getElementById('note-lightbox-backdrop').style.display = 'none';
+}
+document.getElementById('btn-note-lightbox-close').addEventListener('click', closeNoteLightbox);
+document.getElementById('note-lightbox-backdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'note-lightbox-backdrop') closeNoteLightbox();
+});
+
 async function fetchImageURL(fileId) {
   if (imageUrlCache.has(fileId)) return imageUrlCache.get(fileId);
   try {
@@ -1132,6 +1206,7 @@ async function renderCard(deck, id, idx) {
           <span class="last-date-tag">${lastDateLabel}</span>
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
+          ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
@@ -1321,6 +1396,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const noteSaveBtn = e.target.closest('[data-note-save]');
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
+  const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -1328,6 +1404,15 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const q = byId(id);
     if (!q?.refFileId) return;
     await openRefFile(q, openRefBtn);
+    return;
+  }
+
+  if (viewNoteBtn) {
+    e.stopPropagation();
+    const id = Number(viewNoteBtn.dataset.viewNoteImgs);
+    const q = byId(id);
+    if (!q) return;
+    await openNoteLightbox(q);
     return;
   }
 
