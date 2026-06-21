@@ -383,6 +383,64 @@
   .result-item .ri-mark { font-size: 18px; flex-shrink: 0; }
   .result-item .ri-title { flex: 1; min-width: 0; }
 
+  /* ── 암기카드 ── */
+  .flashcard-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 105;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .flashcard-panel {
+    background: var(--paper); border-radius: 14px; max-width: 640px; width: 100%;
+    max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .flashcard-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .flashcard-title { font-size: 16px; font-weight: 700; }
+  .flashcard-add-box {
+    padding: 16px 20px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .flashcard-text-input {
+    width: 100%; min-height: 70px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: 13.5px; font-family: inherit; background: var(--card);
+    color: var(--ink); resize: vertical; box-sizing: border-box;
+  }
+  .flashcard-text-input:focus { outline: 1.5px solid var(--accent); }
+  .flashcard-paste-zone {
+    border: 1.5px dashed var(--line); border-radius: 9px; padding: 12px 14px;
+    font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--card);
+    text-align: center; transition: border-color .15s;
+  }
+  .flashcard-paste-zone:hover, .flashcard-paste-zone:focus { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+  .flashcard-pending-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .flashcard-pending-thumbs:empty { display: none; }
+  .fc-thumb { position: relative; width: 64px; height: 64px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+  .fc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fc-thumb .fc-thumb-remove {
+    position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: #fff;
+    border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .flashcard-list { overflow-y: auto; padding: 16px 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .flashcard-empty { text-align: center; color: #9b9484; font-size: 13px; padding: 24px 0; }
+  .fc-card {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+    padding: 14px 16px; position: relative;
+  }
+  .fc-card-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.6; color: var(--ink); margin-bottom: 8px; }
+  .fc-card-text:empty { display: none; }
+  .fc-card-imgs { display: flex; flex-direction: column; gap: 8px; }
+  .fc-card-imgs img { width: 100%; border-radius: 7px; border: 1px solid var(--line); display: block; }
+  .fc-card-delete {
+    position: absolute; top: 10px; right: 10px; border: none; background: var(--warn-soft);
+    color: var(--warn); width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .fc-card-delete:hover { background: var(--warn); color: white; }
+  .fc-card-date { font-family: var(--mono); font-size: 10px; color: #9b9484; margin-top: 8px; }
+
   /* ── 카테고리 진도율 차트 ── */
   .cat-chart { max-width: 760px; margin: 0 auto; padding: 0 18px 6px; }
   .cat-chart-title { font-family: var(--mono); font-size: 12px; color: #6b6356; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
@@ -417,11 +475,11 @@
     color: var(--warn); background: var(--warn-soft); border-color: var(--warn);
   }
   .note-view-btn:hover { background: var(--warn); color: white; }
-  .question-view-btn {
+  .flashcard-view-btn {
     color: #4a6fa5; background: #e6edf6; border-color: #4a6fa5;
   }
-  .question-view-btn:hover { background: #4a6fa5; color: white; }
-  body.dark-mode .question-view-btn {
+  .flashcard-view-btn:hover { background: #4a6fa5; color: white; }
+  body.dark-mode .flashcard-view-btn {
     color: #7ea3d6; background: #1e2a3a; border-color: #4a6fa5;
   }
   .ref-file-zone {
@@ -545,6 +603,28 @@
     <div class="exam-progress-bar-wrap"><div class="exam-progress-bar" id="exam-prog-bar"></div></div>
     <div class="exam-body" id="exam-body"></div>
     <div class="exam-footer" id="exam-footer"></div>
+  </div>
+
+  <!-- 암기카드 오버레이 -->
+  <div class="flashcard-overlay" id="flashcard-overlay" style="display:none;">
+    <div class="flashcard-panel">
+      <div class="flashcard-header">
+        <div class="flashcard-title" id="flashcard-title">🗂️ 암기카드</div>
+        <button class="io-btn" id="btn-flashcard-close">닫기 ✕</button>
+      </div>
+
+      <div class="flashcard-add-box">
+        <textarea class="flashcard-text-input" id="flashcard-text-input" placeholder="암기할 내용을 입력하세요 (텍스트)"></textarea>
+        <div class="flashcard-paste-zone" id="flashcard-paste-zone" tabindex="0">
+          🖼️ 이미지를 여기에 붙여넣기(Ctrl+V) 하거나 클릭해서 선택
+          <input type="file" id="flashcard-file-input" accept="image/*" multiple style="display:none;">
+        </div>
+        <div class="flashcard-pending-thumbs" id="flashcard-pending-thumbs"></div>
+        <button class="mode-btn primary" id="btn-flashcard-add" style="width:100%;">+ 암기카드 추가</button>
+      </div>
+
+      <div class="flashcard-list" id="flashcard-list"></div>
+    </div>
   </div>
 
   <!-- 키보드 단축키 힌트 -->
@@ -684,6 +764,10 @@ let lastFocusedZoneKind = 'q';
 let activeNotePasteTarget = null;
 let modalRefFile = null; // {blob, name, existingFileId} — HTML 참고 파일
 
+// ── 암기카드 상태 ──
+let flashcardOpenForId = null; // 현재 암기카드 오버레이가 열려있는 문제 id
+let flashcardPendingImages = []; // [{blob, url}] 추가 대기중인 이미지
+
 // ── 신규 기능 상태 ──
 let fontScale = parseFloat(localStorage.getItem('font-scale') || '1');
 let darkMode = localStorage.getItem('dark-mode') === '1';
@@ -745,6 +829,7 @@ function initGoogleAuth() {
         return;
       }
       accessToken = resp.access_token;
+      scheduleTokenAutoRefresh(resp.expires_in);
       await afterSignIn();
     },
   });
@@ -781,11 +866,50 @@ async function fetchUserEmail() {
   }
 }
 
-async function driveFetch(url, options = {}) {
+// ── 토큰 자동 갱신 (세션이 길게 유지되도록) ──
+let tokenRefreshPromise = null;
+function silentRefreshToken() {
+  if (tokenRefreshPromise) return tokenRefreshPromise;
+  tokenRefreshPromise = new Promise((resolve, reject) => {
+    if (!tokenClient) { reject(new Error('로그인이 필요합니다.')); return; }
+    const prevCallback = tokenClient.callback;
+    tokenClient.callback = (resp) => {
+      tokenClient.callback = prevCallback;
+      if (resp.error) { reject(new Error(resp.error)); return; }
+      accessToken = resp.access_token;
+      scheduleTokenAutoRefresh(resp.expires_in);
+      resolve(accessToken);
+    };
+    // prompt 없이 백그라운드에서 재발급 시도 (기존 세션이 살아있으면 사용자 동작 없이 갱신됨)
+    tokenClient.requestAccessToken({ prompt: '' });
+  }).finally(() => { tokenRefreshPromise = null; });
+  return tokenRefreshPromise;
+}
+
+let tokenAutoRefreshTimer = null;
+function scheduleTokenAutoRefresh(expiresInSec) {
+  clearTimeout(tokenAutoRefreshTimer);
+  // 만료 5분 전에 미리 조용히 갱신 (총 세션을 최대 6시간까지 자동 연장)
+  const ms = Math.max((Number(expiresInSec || 3600) - 300) * 1000, 30 * 1000);
+  tokenAutoRefreshTimer = setTimeout(async () => {
+    try { await silentRefreshToken(); } catch (e) { console.warn('자동 토큰 갱신 실패:', e.message); }
+  }, ms);
+}
+
+async function driveFetch(url, options = {}, isRetry = false) {
   const res = await fetch(url, {
     ...options,
     headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` },
   });
+  if (res.status === 401 && !isRetry) {
+    // 토큰 만료 → 조용히 재발급 후 한 번 재시도
+    try {
+      await silentRefreshToken();
+      return driveFetch(url, options, true);
+    } catch (e) {
+      throw new Error('세션이 만료되어 자동 갱신에 실패했습니다. 다시 로그인해주세요.');
+    }
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Drive API 오류 (${res.status}): ${text.slice(0, 200)}`);
@@ -837,6 +961,7 @@ async function loadDataFromDrive() {
     if (q.aImages === undefined) q.aImages = [];
     if (q.refFileId === undefined) q.refFileId = '';
     if (q.refLabel === undefined) q.refLabel = '';
+    if (q.flashcards === undefined) q.flashcards = [];
   });
 }
 
@@ -929,7 +1054,181 @@ async function openRefFile(q, btn) {
   }
 }
 
-// ── 나의 정답 보기 (오답노트 이미지를 새 창으로 열기) ──
+// ── 암기카드 ──
+function openFlashcardOverlay(id) {
+  flashcardOpenForId = id;
+  flashcardPendingImages = [];
+  document.getElementById('flashcard-text-input').value = '';
+  const q = byId(id);
+  document.getElementById('flashcard-title').textContent = `🗂️ 암기카드 — ${q?.title || ''}`;
+  renderFlashcardPendingThumbs();
+  renderFlashcardList();
+  document.getElementById('flashcard-overlay').style.display = 'flex';
+  requestAnimationFrame(() => document.getElementById('flashcard-text-input').focus());
+}
+function closeFlashcardOverlay() {
+  document.getElementById('flashcard-overlay').style.display = 'none';
+  flashcardOpenForId = null;
+  flashcardPendingImages = [];
+}
+document.getElementById('btn-flashcard-close').addEventListener('click', closeFlashcardOverlay);
+document.getElementById('flashcard-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'flashcard-overlay') closeFlashcardOverlay();
+});
+
+function renderFlashcardPendingThumbs() {
+  const wrap = document.getElementById('flashcard-pending-thumbs');
+  wrap.innerHTML = flashcardPendingImages.map((item, idx) => `
+    <div class="fc-thumb">
+      <img src="${item.url}" alt="미리보기">
+      <button class="fc-thumb-remove" data-fc-remove-pending="${idx}">✕</button>
+    </div>
+  `).join('');
+}
+document.getElementById('flashcard-pending-thumbs').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-fc-remove-pending]');
+  if (!btn) return;
+  const idx = Number(btn.dataset.fcRemovePending);
+  flashcardPendingImages.splice(idx, 1);
+  renderFlashcardPendingThumbs();
+});
+
+function addFlashcardPendingImage(blob) {
+  const url = URL.createObjectURL(blob);
+  flashcardPendingImages.push({ blob, url });
+  renderFlashcardPendingThumbs();
+  const zone = document.getElementById('flashcard-paste-zone');
+  zone.classList.add('dragover');
+  setTimeout(() => zone.classList.remove('dragover'), 300);
+}
+
+const fcPasteZone = document.getElementById('flashcard-paste-zone');
+const fcFileInput = document.getElementById('flashcard-file-input');
+fcPasteZone.addEventListener('click', () => fcFileInput.click());
+fcPasteZone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fcFileInput.click(); }
+});
+fcFileInput.addEventListener('change', (e) => {
+  Array.from(e.target.files).forEach(f => addFlashcardPendingImage(f));
+  e.target.value = '';
+});
+fcPasteZone.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      addFlashcardPendingImage(item.getAsFile());
+      e.preventDefault();
+    }
+  }
+});
+document.addEventListener('paste', (e) => {
+  if (document.getElementById('flashcard-overlay').style.display !== 'flex') return;
+  if (document.activeElement === document.getElementById('flashcard-text-input')) return; // 텍스트 붙여넣기는 그대로
+  const items = e.clipboardData?.items || [];
+  let handled = false;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      addFlashcardPendingImage(item.getAsFile());
+      handled = true;
+    }
+  }
+  if (handled) e.preventDefault();
+});
+fcPasteZone.addEventListener('dragover', (e) => { e.preventDefault(); fcPasteZone.classList.add('dragover'); });
+fcPasteZone.addEventListener('dragleave', () => fcPasteZone.classList.remove('dragover'));
+fcPasteZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  fcPasteZone.classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  files.forEach(f => addFlashcardPendingImage(f));
+});
+
+document.getElementById('btn-flashcard-add').addEventListener('click', async () => {
+  const text = document.getElementById('flashcard-text-input').value.trim();
+  if (!text && flashcardPendingImages.length === 0) {
+    alert('텍스트나 이미지를 하나 이상 입력해주세요.');
+    return;
+  }
+  const id = flashcardOpenForId;
+  const q = byId(id);
+  if (!q) return;
+
+  const addBtn = document.getElementById('btn-flashcard-add');
+  addBtn.disabled = true;
+  addBtn.textContent = '업로드 중...';
+  try {
+    const imageIds = [];
+    for (const item of flashcardPendingImages) {
+      const fileId = await uploadImageBlob(item.blob, 'flashcard');
+      imageIds.push(fileId);
+    }
+    q.flashcards = q.flashcards || [];
+    q.flashcards.unshift({
+      id: 'fc_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+      text, images: imageIds, createdAt: new Date().toISOString(),
+    });
+    await saveDataToDrive();
+
+    document.getElementById('flashcard-text-input').value = '';
+    flashcardPendingImages = [];
+    renderFlashcardPendingThumbs();
+    renderFlashcardList();
+    render(); // 카드 목록의 (N) 카운트 갱신
+  } catch (err) {
+    alert('암기카드 저장에 실패했습니다: ' + err.message);
+  } finally {
+    addBtn.disabled = false;
+    addBtn.textContent = '+ 암기카드 추가';
+  }
+});
+
+async function renderFlashcardList() {
+  const q = byId(flashcardOpenForId);
+  const listEl = document.getElementById('flashcard-list');
+  if (!q || !q.flashcards || q.flashcards.length === 0) {
+    listEl.innerHTML = '<div class="flashcard-empty">아직 등록된 암기카드가 없습니다.</div>';
+    return;
+  }
+  listEl.innerHTML = q.flashcards.map(fc => `
+    <div class="fc-card" data-fc-id="${fc.id}">
+      <button class="fc-card-delete" data-fc-delete="${fc.id}" title="삭제">✕</button>
+      <div class="fc-card-text">${escapeHTML(fc.text || '')}</div>
+      <div class="fc-card-imgs" id="fc-imgs-${fc.id}"></div>
+      <div class="fc-card-date">${(fc.createdAt || '').slice(0, 16).replace('T', ' ')}</div>
+    </div>
+  `).join('');
+
+  for (const fc of q.flashcards) {
+    if (!fc.images || fc.images.length === 0) continue;
+    const imgWrap = document.getElementById(`fc-imgs-${fc.id}`);
+    if (!imgWrap) continue;
+    const urls = [];
+    for (const fileId of fc.images) {
+      const url = await fetchImageURL(fileId);
+      if (url) urls.push(url);
+    }
+    imgWrap.innerHTML = urls.map(u => `<img src="${u}" alt="암기카드 이미지">`).join('');
+  }
+}
+
+document.getElementById('flashcard-list').addEventListener('click', async (e) => {
+  const delBtn = e.target.closest('[data-fc-delete]');
+  if (!delBtn) return;
+  if (!confirm('이 암기카드를 삭제할까요?')) return;
+  const fcId = delBtn.dataset.fcDelete;
+  const q = byId(flashcardOpenForId);
+  if (!q) return;
+  const fc = (q.flashcards || []).find(f => f.id === fcId);
+  if (fc) {
+    for (const fileId of (fc.images || [])) await deleteDriveFile(fileId);
+  }
+  q.flashcards = (q.flashcards || []).filter(f => f.id !== fcId);
+  await saveDataToDrive();
+  renderFlashcardList();
+  render();
+});
+
+
 async function openNoteWindow(q, btn) {
   const label = '나의 정답 보기';
   if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
@@ -988,59 +1287,6 @@ ${bodyHTML}
   }
 }
 
-// ── 문제 읽기 (문제 이미지를 새 창으로 열기) ──
-async function openQuestionWindow(q, btn) {
-  const label = '문제 읽기';
-  if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
-  try {
-    const imgDataUrls = [];
-    for (const fileId of (q.qImages || [])) {
-      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
-      const blob = await res.blob();
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      imgDataUrls.push(dataUrl);
-    }
-
-    const imagesHTML = imgDataUrls.map(u => `<img src="${u}" alt="문제 이미지">`).join('');
-    const bodyHTML = imagesHTML || `<div class="empty">첨부된 문제 이미지가 없습니다.</div>`;
-
-    const doc = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<title>문제 — ${escapeHTML(q.title || '')}</title>
-<style>
-  body { margin:0; padding:24px; background:#1a1c22; color:#e2dfd8; font-family:-apple-system,'Malgun Gothic',sans-serif; }
-  h1 { font-size:17px; margin:0 0 18px; padding-bottom:14px; border-bottom:1px solid #353944; }
-  img { width:100%; border-radius:8px; border:1px solid #353944; display:block; margin-bottom:16px; }
-  .empty { text-align:center; color:#9b9484; padding:40px 0; }
-</style>
-</head>
-<body>
-<h1>🔍 문제 — ${escapeHTML(q.title || '(제목 없음)')}</h1>
-${bodyHTML}
-</body>
-</html>`;
-
-    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const winName = 'questionWin_' + q.id;
-    const w = window.open(url, winName,
-      'width=860,height=760,resizable=yes,scrollbars=yes,menubar=no,toolbar=no');
-    if (!w) alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-  } catch (err) {
-    alert('이미지를 불러오는 데 실패했습니다: ' + err.message);
-  } finally {
-    if (btn) { btn.textContent = `🔍 ${label}`; btn.disabled = false; }
-  }
-}
-
 async function fetchImageURL(fileId) {
   if (imageUrlCache.has(fileId)) return imageUrlCache.get(fileId);
   try {
@@ -1080,6 +1326,7 @@ function collectAllImageFileIds() {
     (q.aImages || []).forEach(id => ids.add(id));
     (q.noteImages || []).forEach(id => ids.add(id));
     if (q.refFileId) ids.add(q.refFileId);
+    (q.flashcards || []).forEach(fc => (fc.images || []).forEach(id => ids.add(id)));
   });
   return Array.from(ids);
 }
@@ -1256,7 +1503,7 @@ async function renderCard(deck, id, idx) {
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
           ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
-          ${(q.qImages && q.qImages.length > 0) ? `<button class="ref-link-btn ref-link-inline question-view-btn" data-view-question="${id}" title="문제 이미지를 새 창으로 보기">🔍 문제 읽기</button>` : ''}
+          <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 등록 및 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
@@ -1447,7 +1694,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
-  const viewQuestionBtn = e.target.closest('[data-view-question]');
+  const flashcardBtn = e.target.closest('[data-open-flashcards]');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -1467,12 +1714,10 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     return;
   }
 
-  if (viewQuestionBtn) {
+  if (flashcardBtn) {
     e.stopPropagation();
-    const id = Number(viewQuestionBtn.dataset.viewQuestion);
-    const q = byId(id);
-    if (!q) return;
-    await openQuestionWindow(q, viewQuestionBtn);
+    const id = Number(flashcardBtn.dataset.openFlashcards);
+    openFlashcardOverlay(id);
     return;
   }
 
@@ -2070,6 +2315,9 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
   for (const f of (q.aImages || [])) await deleteDriveFile(f);
   for (const f of (q.noteImages || [])) await deleteDriveFile(f);
   if (q.refFileId) await deleteDriveFile(q.refFileId);
+  for (const fc of (q.flashcards || [])) {
+    for (const f of (fc.images || [])) await deleteDriveFile(f);
+  }
   questions = questions.filter(x => x.id !== modalEditId);
   await saveDataToDrive();
   closeModal();
