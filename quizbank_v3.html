@@ -1146,6 +1146,7 @@ let ref2ExtraImages = []; // ref2 팝업 임시 이미지
 
 // ── 시험 기록 ──
 let examHistory = []; // [{date, scorePct, correct, wrong, total, elapsed, roundNum}]
+let driveRoutineStore = {}; // Drive에서 읽고 쓰는 루틴 등급/메모 저장소
 
 // ── 암기카드 상태 ──
 let flashcardOpenForId = null; // 현재 암기카드 오버레이가 열려있는 문제 id
@@ -1326,10 +1327,28 @@ async function loadDataFromDrive() {
     const fileRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?alt=media`);
     const parsed = await fileRes.json();
     questions = parsed.questions || [];
+    driveRoutineStore = parsed.routineStore || {};
+    examHistory = parsed.examHistory || [];
   } else {
     questions = [];
+    driveRoutineStore = {};
+    examHistory = [];
     dataFileId = null;
   }
+
+  // localStorage에 기존 데이터가 있으면 Drive로 마이그레이션 (1회성)
+  try {
+    const lsRoutine = localStorage.getItem('quizbank_routine_v1');
+    if (lsRoutine && Object.keys(driveRoutineStore).length === 0) {
+      driveRoutineStore = JSON.parse(lsRoutine);
+      localStorage.removeItem('quizbank_routine_v1');
+    }
+    const lsExam = localStorage.getItem('quizbank_exam_history');
+    if (lsExam && examHistory.length === 0) {
+      examHistory = JSON.parse(lsExam);
+      localStorage.removeItem('quizbank_exam_history');
+    }
+  } catch (e) { /* 마이그레이션 실패 시 무시 */ }
 
   nextId = questions.reduce((max, q) => Math.max(max, q.id), 0) + 1;
   questions.forEach(q => {
@@ -1352,7 +1371,11 @@ async function loadDataFromDrive() {
 
 async function saveDataToDrive() {
   setSyncStatus('busy', '저장 중...');
-  const body = JSON.stringify({ questions });
+  const body = JSON.stringify({
+    questions,
+    routineStore: driveRoutineStore,
+    examHistory: examHistory.slice(0, 100),
+  });
   const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
 
   try {
@@ -3251,13 +3274,14 @@ let routineTimerInterval = null;
 let routineNote = '';
 let routineTypeFilter = 'all'; // 유형 필터 상태
 // localStorage 기반 루틴 등급/메모 저장 (문제 id별)
-const ROUTINE_STORE_KEY = 'quizbank_routine_v1';
+const ROUTINE_STORE_KEY = 'quizbank_routine_v1'; // 마이그레이션 체크용으로만 유지
 
 function loadRoutineStore() {
-  try { return JSON.parse(localStorage.getItem(ROUTINE_STORE_KEY) || '{}'); } catch { return {}; }
+  return driveRoutineStore;
 }
 function saveRoutineStore(store) {
-  try { localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(store)); } catch {}
+  driveRoutineStore = store;
+  // Drive 저장은 setRoutineState 호출자가 명시적으로 saveDataToDrive()를 부름
 }
 function getRoutineState(id) {
   const store = loadRoutineStore();
@@ -3267,6 +3291,8 @@ function setRoutineState(id, data) {
   const store = loadRoutineStore();
   store[id] = { ...(store[id] || {}), ...data };
   saveRoutineStore(store);
+  // Drive에 비동기 저장 (await 없이 — UI 블로킹 방지)
+  saveDataToDrive().catch(e => console.warn('루틴 저장 실패:', e));
 }
 
 function routineTimerFmt(s) {
@@ -3639,18 +3665,16 @@ function applyRoutineAssess(r) {
   setRoutineState(routineCurrentId, { grade: ng, mc: nmc, note: routineNote });
   clearInterval(routineTimerInterval);
   routineTimerRunning = false;
-  // 루틴 메모 → 오답노트 동기화
+  // 루틴 메모 → 오답노트 동기화 (noteText는 saveDataToDrive 안에서 같이 저장됨)
   if (routineNote) {
     const qr = byId(routineCurrentId);
     if (qr) {
       qr.noteText = routineNote;
-      // 오답노트 textarea가 열려있으면 즉시 반영
       const ta = document.querySelector(`[data-note-text="${routineCurrentId}"]`);
       if (ta) ta.value = routineNote;
-      saveDataToDrive();
     }
   }
-  render(); // 카드 뱃지 즉시 갱신
+  render();
 
   // 결과 화면 렌더
   const body = document.getElementById('routine-body');
@@ -3680,13 +3704,11 @@ function applyRoutineAssess(r) {
 
 // ============ 시험 기록 ============
 function loadExamHistory() {
-  try {
-    const raw = localStorage.getItem('quizbank_exam_history');
-    examHistory = raw ? JSON.parse(raw) : [];
-  } catch { examHistory = []; }
+  // examHistory는 loadDataFromDrive에서 이미 로드됨 — 여기선 아무것도 안 해도 됨
+  if (!Array.isArray(examHistory)) examHistory = [];
 }
 function saveExamHistory() {
-  localStorage.setItem('quizbank_exam_history', JSON.stringify(examHistory.slice(0, 100)));
+  // Drive 저장은 finishExam에서 saveDataToDrive()로 처리
 }
 function renderExamHistoryPanel() {
   const body = document.getElementById('exam-hist-body');
@@ -4104,7 +4126,7 @@ async function finishExam() {
     date: new Date().toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
     scorePct, correct, wrong, total, elapsed, roundNum: examRoundNum,
   });
-  saveExamHistory();
+  await saveDataToDrive();
 
   document.getElementById('exam-prog-bar').style.width = '100%';
   document.getElementById('exam-body').innerHTML = `
