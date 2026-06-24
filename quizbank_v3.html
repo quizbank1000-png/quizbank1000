@@ -280,6 +280,194 @@
   .modal-uploading { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 10px; }
 
   footer { text-align: center; font-family: var(--mono); font-size: 11px; color: #a39c8c; padding-bottom: 30px; }
+
+  /* ── 퀵 오답 버튼 ── */
+  .quick-wrong-btn {
+    flex-shrink: 0; border: 1.5px solid var(--line); background: var(--card); color: #9b9484;
+    font-size: 13px; font-weight: 700; width: 32px; height: 32px; border-radius: 7px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s; line-height: 1;
+  }
+  .quick-wrong-btn:hover { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+  .quick-wrong-btn.flashed { border-color: var(--warn); color: white; background: var(--warn); }
+
+  /* ── 문제만 보기 / 참고HTML2 팝업 오버레이 ── */
+  .qview-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 110;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .qview-panel {
+    background: var(--paper); border-radius: 14px; max-width: 820px; width: 100%;
+    max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  }
+  .qview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .qview-title { font-size: 15px; font-weight: 700; }
+  .qview-body {
+    flex: 1; overflow-y: auto; padding: 20px 18px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .qview-paste-hint {
+    border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
+    font-size: 12px; color: #9b9484; text-align: center; cursor: pointer;
+    background: var(--paper); transition: all .15s;
+  }
+  .qview-paste-hint:hover, .qview-paste-hint.dragover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .qview-paste-hint:focus { outline: none; border-color: var(--accent); background: var(--accent-soft); }
+  .qview-imgs { display: flex; flex-direction: column; gap: 10px; }
+  .qview-imgs img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .qview-img-item { position: relative; }
+  .qview-img-remove {
+    position: absolute; top: 6px; right: 6px; background: rgba(28,34,48,0.75); color: white;
+    border: none; border-radius: 6px; font-size: 11px; padding: 4px 8px; cursor: pointer;
+  }
+  .qview-toolbar { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--card); flex-shrink: 0; }
+
+  /* ── 시험 히스토리 ── */
+  .exam-history-btn {
+    background: none; border: 1px solid var(--line); border-radius: 7px; color: #6b6356;
+    font-size: 11px; padding: 4px 10px; cursor: pointer; font-family: var(--mono);
+  }
+  .exam-history-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .exam-hist-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 115;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .exam-hist-panel {
+    background: var(--paper); border-radius: 14px; max-width: 600px; width: 100%;
+    max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .exam-hist-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .exam-hist-title { font-size: 16px; font-weight: 700; }
+  .exam-hist-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .exam-hist-row {
+    background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+  }
+  .exam-hist-score {
+    font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent);
+    min-width: 56px; text-align: center;
+  }
+  .exam-hist-score.low { color: var(--warn); }
+  .exam-hist-meta { flex: 1; }
+  .exam-hist-date { font-family: var(--mono); font-size: 12px; color: #9b9484; }
+  .exam-hist-detail { font-size: 13px; margin-top: 2px; }
+  .exam-hist-empty { text-align: center; color: #9b9484; font-size: 13px; padding: 30px 0; }
+
+  /* ── 학습 루틴 패널 ── */
+  .routine-panel {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.52); z-index: 120;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  @media (min-width: 640px) { .routine-panel { align-items: center; } }
+  .routine-box {
+    background: var(--paper); border-radius: 18px 18px 0 0; width: 100%; max-width: 680px;
+    max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.28);
+    animation: routineSlideUp .28s ease;
+  }
+  @media (min-width: 640px) { .routine-box { border-radius: 18px; max-height: 88vh; } }
+  @keyframes routineSlideUp { from { transform: translateY(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .routine-header {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+  }
+  .routine-header-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .routine-body { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .routine-grade-select { display: flex; flex-direction: column; gap: 10px; }
+  .routine-grade-btn {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+    border-radius: 10px; border: 1.5px solid var(--line); background: var(--card);
+    cursor: pointer; text-align: left; transition: all .15s; width: 100%;
+  }
+  .routine-grade-btn:hover { border-color: var(--accent); }
+  .routine-grade-badge {
+    font-family: var(--mono); font-size: 16px; font-weight: 700;
+    width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .routine-grade-badge.A { background: #FCEBEB; color: #791F1F; }
+  .routine-grade-badge.B { background: #FAEEDA; color: #633806; }
+  .routine-grade-badge.C { background: #E1F5EE; color: #085041; }
+  .routine-grade-info { flex: 1; }
+  .routine-grade-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .routine-grade-desc { font-size: 12px; color: #9b9484; line-height: 1.5; }
+  .routine-grade-time { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .routine-step-dots { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .routine-dot { height: 7px; border-radius: 4px; transition: all .25s ease; flex-shrink: 0; }
+  .routine-dot.done { background: #1D9E75; width: 7px; }
+  .routine-dot.active { background: #378ADD; width: 24px; }
+  .routine-dot.todo { background: var(--line); width: 7px; }
+  .routine-dot-label { font-size: 12px; color: #6b6356; font-weight: 600; }
+  .routine-step-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .routine-step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .routine-step-icon { font-size: 18px; color: #378ADD; flex-shrink: 0; }
+  .routine-step-title { font-size: 14px; font-weight: 700; flex: 1; }
+  .routine-step-mins { font-family: var(--mono); font-size: 12px; color: #9b9484; flex-shrink: 0; }
+  .routine-step-desc { font-size: 13px; color: #6b6356; line-height: 1.75; }
+  .routine-timer-display {
+    font-family: var(--mono); font-size: 48px; font-weight: 500; text-align: center;
+    letter-spacing: .04em; margin: 4px 0 10px; transition: color .3s;
+  }
+  .routine-timer-display.urgent { color: var(--warn); }
+  .routine-progress-bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+  .routine-progress-fill { height: 100%; border-radius: 3px; transition: width 1s linear; background: #378ADD; }
+  .routine-progress-fill.urgent { background: var(--warn); }
+  .routine-timer-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .routine-timer-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .routine-timer-btn:hover { border-color: var(--accent); }
+  .routine-timer-btn.primary { background: #378ADD; color: white; border-color: #378ADD; }
+  .routine-timer-btn.primary:hover { background: #2066b8; }
+  .routine-assess-btn {
+    width: 100%; padding: 13px 14px; border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 12px; transition: opacity .15s; border: 1.5px solid transparent;
+    margin-bottom: 8px; text-align: left;
+  }
+  .routine-assess-btn:hover { opacity: 0.85; }
+  .routine-assess-icon { font-size: 22px; flex-shrink: 0; }
+  .routine-assess-title { font-size: 14px; font-weight: 600; }
+  .routine-assess-desc { font-size: 12px; margin-top: 2px; opacity: 0.82; }
+  .routine-assess-pred { font-family: var(--mono); font-size: 12px; opacity: 0.75; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+  .rass-p { background: #E1F5EE; border-color: #5DCAA5; color: #085041; }
+  .rass-s { background: #FAEEDA; border-color: #EF9F27; color: #633806; }
+  .rass-f { background: #FCEBEB; border-color: #F09595; color: #791F1F; }
+  body.dark-mode .rass-p { background: #04342C; border-color: #1D9E75; color: #9FE1CB; }
+  body.dark-mode .rass-s { background: #412402; border-color: #BA7517; color: #FAC775; }
+  body.dark-mode .rass-f { background: #501313; border-color: #A32D2D; color: #F7C1C1; }
+  .routine-result-card { text-align: center; padding: 20px 16px; border-radius: 12px; border: 1.5px solid var(--line); }
+  .routine-result-card.up { background: #E1F5EE; border-color: #5DCAA5; color: #085041; }
+  .routine-result-card.down { background: #FCEBEB; border-color: #F09595; color: #791F1F; }
+  .routine-result-card.same { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  body.dark-mode .routine-result-card.up { background: #04342C; border-color: #1D9E75; color: #9FE1CB; }
+  body.dark-mode .routine-result-card.down { background: #501313; border-color: #A32D2D; color: #F7C1C1; }
+  .routine-result-icon { font-size: 32px; margin-bottom: 8px; }
+  .routine-result-grade { font-size: 13px; margin-bottom: 4px; opacity: 0.8; }
+  .routine-result-msg { font-size: 16px; font-weight: 700; }
+  .routine-note-label { font-family: var(--mono); font-size: 11px; color: #9b9484; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .routine-note-textarea {
+    width: 100%; min-height: 72px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: 13px; font-family: inherit; resize: vertical;
+    background: var(--paper); color: var(--ink);
+  }
+  .routine-note-textarea:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+  .exam-routine-btn {
+    flex: none; padding: 10px 16px; border-radius: 8px; border: 1.5px solid #378ADD;
+    background: #E6F1FB; color: #0C447C; font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+  }
+  .exam-routine-btn:hover { background: #378ADD; color: white; }
+  body.dark-mode .exam-routine-btn { background: #0C447C; color: #B5D4F4; border-color: #378ADD; }
+  body.dark-mode .exam-routine-btn:hover { background: #378ADD; color: white; }
+
   .hidden-toggle-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
   .backup-progress { font-family: var(--mono); font-size: 11px; color: #6b6356; }
   .io-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -574,6 +762,7 @@
       <button class="io-btn" id="btn-refresh">지금 동기화</button>
       <button class="io-btn" id="btn-backup">전체 백업 다운로드</button>
       <button class="io-btn" id="btn-exam-mode">🎯 시험 모드</button>
+      <button class="io-btn" id="btn-exam-history">📊 시험 기록</button>
       <button class="io-btn" id="btn-wrong-focus">🔥 오답 집중</button>
       <span class="backup-progress" id="backup-progress"></span>
     </div>
@@ -624,6 +813,72 @@
       </div>
 
       <div class="flashcard-list" id="flashcard-list"></div>
+    </div>
+  </div>
+
+  <!-- 문제만 보기 팝업 -->
+  <div class="qview-overlay" id="qview-overlay" style="display:none;">
+    <div class="qview-panel">
+      <div class="qview-header">
+        <div class="qview-title" id="qview-title">📋 문제만 보기</div>
+        <button class="io-btn" id="btn-qview-close">닫기 ✕</button>
+      </div>
+      <div class="qview-body" id="qview-body">
+        <div class="qview-imgs" id="qview-imgs"></div>
+        <div class="qview-paste-hint" id="qview-paste-zone" tabindex="0">
+          📋 이미지를 여기에 붙여넣기(Ctrl+V) 하거나 클릭해서 선택 — 내 풀이 메모용<br>
+          <input type="file" id="qview-file-input" accept="image/*" multiple style="display:none;">
+        </div>
+        <div class="qview-imgs" id="qview-extra-imgs"></div>
+      </div>
+      <div class="qview-toolbar">
+        <button class="io-btn" id="btn-qview-save-imgs">붙인 이미지 오답노트에 저장</button>
+        <button class="io-btn" id="btn-qview-clear">지우기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 참고HTML2 팝업 -->
+  <div class="qview-overlay" id="ref2-overlay" style="display:none;">
+    <div class="qview-panel">
+      <div class="qview-header">
+        <div class="qview-title" id="ref2-title">📄 참고 자료 2</div>
+        <button class="io-btn" id="btn-ref2-close">닫기 ✕</button>
+      </div>
+      <div class="qview-body" id="ref2-body">
+        <div class="qview-imgs" id="ref2-imgs"></div>
+        <div class="qview-paste-hint" id="ref2-paste-zone" tabindex="0">
+          📋 이미지를 여기에 붙여넣기(Ctrl+V) 하거나 클릭해서 선택<br>
+          <input type="file" id="ref2-file-input" accept="image/*" multiple style="display:none;">
+        </div>
+        <div class="qview-imgs" id="ref2-extra-imgs"></div>
+      </div>
+      <div class="qview-toolbar">
+        <button class="io-btn" id="btn-ref2-save-imgs">붙인 이미지 오답노트에 저장</button>
+        <button class="io-btn" id="btn-ref2-clear">지우기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 시험 기록 팝업 -->
+  <div class="exam-hist-overlay" id="exam-hist-overlay" style="display:none;">
+    <div class="exam-hist-panel">
+      <div class="exam-hist-header">
+        <div class="exam-hist-title">📊 시험 기록</div>
+        <button class="io-btn" id="btn-exam-hist-close">닫기 ✕</button>
+      </div>
+      <div class="exam-hist-body" id="exam-hist-body"></div>
+    </div>
+  </div>
+
+  <!-- 학습 루틴 패널 -->
+  <div class="routine-panel" id="routine-panel" style="display:none;">
+    <div class="routine-box" id="routine-box">
+      <div class="routine-header">
+        <div class="routine-header-title" id="routine-header-title">📚 학습 루틴</div>
+        <button class="io-btn" id="btn-routine-close">닫기 ✕</button>
+      </div>
+      <div class="routine-body" id="routine-body"></div>
     </div>
   </div>
 
@@ -687,6 +942,22 @@
       </div>
       <div class="ref-file-uploading" id="ref-file-uploading" style="display:none;"></div>
       <input type="text" class="text-input ref-label-input" id="input-ref-label" placeholder="버튼에 표시할 이름 (예: 2021년 3회 해설)">
+    </div>
+
+    <div class="field-block">
+      <label class="field-label">참고 HTML 파일 2 (선택) — 두 번째 참고 자료</label>
+      <div class="ref-file-zone" id="ref2-file-zone">
+        📄 HTML 파일을 여기에 드래그하거나 클릭해서 선택
+        <div style="margin-top:8px;"><button type="button" class="io-btn" id="btn-ref2-pick-file">파일 선택</button></div>
+      </div>
+      <input type="file" id="ref2-file-input-modal" accept=".html,.htm" style="display:none;">
+      <div id="ref2-file-chosen" style="display:none;" class="ref-file-chosen">
+        <span>📄</span>
+        <span class="rf-name" id="ref2-file-name"></span>
+        <button class="rf-remove" id="btn-ref2-remove" title="제거">✕</button>
+      </div>
+      <div class="ref-file-uploading" id="ref2-file-uploading" style="display:none;"></div>
+      <input type="text" class="text-input ref-label-input" id="input-ref2-label" placeholder="버튼에 표시할 이름 (예: 교재 해설 p.123)">
     </div>
 
     <div class="field-block">
@@ -763,6 +1034,15 @@ let modalStars = 3;
 let lastFocusedZoneKind = 'q';
 let activeNotePasteTarget = null;
 let modalRefFile = null; // {blob, name, existingFileId} — HTML 참고 파일
+let modalRef2File = null; // 참고 HTML 파일 2
+
+// ── qview 팝업 상태 ──
+let qviewCurrentId = null;
+let qviewExtraImages = []; // [{blob, url}] 팝업에서 붙여넣기한 이미지 (임시)
+let ref2ExtraImages = []; // ref2 팝업 임시 이미지
+
+// ── 시험 기록 ──
+let examHistory = []; // [{date, scorePct, correct, wrong, total, elapsed, roundNum}]
 
 // ── 암기카드 상태 ──
 let flashcardOpenForId = null; // 현재 암기카드 오버레이가 열려있는 문제 id
@@ -961,6 +1241,8 @@ async function loadDataFromDrive() {
     if (q.aImages === undefined) q.aImages = [];
     if (q.refFileId === undefined) q.refFileId = '';
     if (q.refLabel === undefined) q.refLabel = '';
+    if (q.ref2FileId === undefined) q.ref2FileId = '';
+    if (q.ref2Label === undefined) q.ref2Label = '';
     if (q.flashcards === undefined) q.flashcards = [];
   });
 }
@@ -1228,6 +1510,204 @@ document.getElementById('flashcard-list').addEventListener('click', async (e) =>
   render();
 });
 
+
+// ============ 문제만 보기 팝업 ============
+async function openQviewPopup(id) {
+  qviewCurrentId = id;
+  qviewExtraImages = [];
+  const q = byId(id);
+  if (!q) return;
+
+  document.getElementById('qview-title').textContent = `📋 ${q.title || '(제목 없음)'}`;
+  document.getElementById('qview-extra-imgs').innerHTML = '';
+
+  const imgWrap = document.getElementById('qview-imgs');
+  imgWrap.innerHTML = '<div class="img-loading">이미지 불러오는 중...</div>';
+  document.getElementById('qview-overlay').style.display = 'flex';
+
+  const urls = [];
+  for (const fid of (q.qImages || [])) {
+    const url = await fetchImageURL(fid);
+    if (url) urls.push(url);
+  }
+  imgWrap.innerHTML = urls.map(u => `<img src="${u}" alt="문제 이미지">`).join('') || '<div style="color:#9b9484;font-size:13px;">문제 이미지가 없습니다.</div>';
+}
+
+function renderQviewExtraImgs() {
+  const wrap = document.getElementById('qview-extra-imgs');
+  wrap.innerHTML = '';
+  qviewExtraImages.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'qview-img-item';
+    div.innerHTML = `<img src="${item.url}" alt="메모 이미지"><button class="qview-img-remove" data-qview-remove="${idx}">삭제</button>`;
+    wrap.appendChild(div);
+  });
+}
+
+document.getElementById('qview-extra-imgs').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-qview-remove]');
+  if (!btn) return;
+  const idx = Number(btn.dataset.qviewRemove);
+  qviewExtraImages.splice(idx, 1);
+  renderQviewExtraImgs();
+});
+
+function addQviewImage(blob) {
+  const url = URL.createObjectURL(blob);
+  qviewExtraImages.push({ blob, url });
+  renderQviewExtraImgs();
+}
+
+const qviewPasteZone = document.getElementById('qview-paste-zone');
+const qviewFileInput = document.getElementById('qview-file-input');
+qviewPasteZone.addEventListener('click', () => qviewFileInput.click());
+qviewPasteZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); qviewFileInput.click(); } });
+qviewFileInput.addEventListener('change', (e) => { Array.from(e.target.files).forEach(f => addQviewImage(f)); e.target.value = ''; });
+qviewPasteZone.addEventListener('dragover', (e) => { e.preventDefault(); qviewPasteZone.classList.add('dragover'); });
+qviewPasteZone.addEventListener('dragleave', () => qviewPasteZone.classList.remove('dragover'));
+qviewPasteZone.addEventListener('drop', (e) => {
+  e.preventDefault(); qviewPasteZone.classList.remove('dragover');
+  Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => addQviewImage(f));
+});
+document.addEventListener('paste', (e) => {
+  if (document.getElementById('qview-overlay').style.display !== 'flex') return;
+  const items = e.clipboardData?.items || [];
+  let handled = false;
+  for (const item of items) { if (item.type.startsWith('image/')) { addQviewImage(item.getAsFile()); handled = true; } }
+  if (handled) e.preventDefault();
+});
+
+document.getElementById('btn-qview-close').addEventListener('click', () => {
+  document.getElementById('qview-overlay').style.display = 'none';
+  qviewCurrentId = null; qviewExtraImages = [];
+});
+document.getElementById('btn-qview-clear').addEventListener('click', () => {
+  qviewExtraImages = []; renderQviewExtraImgs();
+});
+document.getElementById('btn-qview-save-imgs').addEventListener('click', async () => {
+  if (qviewExtraImages.length === 0) { alert('저장할 이미지가 없습니다.'); return; }
+  if (!qviewCurrentId) return;
+  const btn = document.getElementById('btn-qview-save-imgs');
+  btn.disabled = true; btn.textContent = '업로드 중...';
+  try {
+    const q = byId(qviewCurrentId);
+    setSyncStatus('busy', '이미지 업로드 중...');
+    for (const item of qviewExtraImages) {
+      const fileId = await uploadImageBlob(item.blob, 'note');
+      q.noteImages = q.noteImages || [];
+      q.noteImages.push(fileId);
+    }
+    await saveDataToDrive();
+    qviewExtraImages = []; renderQviewExtraImgs();
+    btn.textContent = '저장됨 ✓';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장'; }, 1500);
+  } catch (err) {
+    alert('저장 실패: ' + err.message);
+    btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장';
+  }
+});
+
+// ============ 참고HTML2 팝업 ============
+async function openRef2Popup(q, btn) {
+  ref2ExtraImages = [];
+  document.getElementById('ref2-title').textContent = `📄 ${q.ref2Label || '참고 자료 2'} — ${q.title || ''}`;
+  document.getElementById('ref2-extra-imgs').innerHTML = '';
+
+  const imgWrap = document.getElementById('ref2-imgs');
+  imgWrap.innerHTML = '';
+
+  // ref2FileId가 HTML 파일이면 새 창으로, 이미지면 인라인 표시
+  document.getElementById('ref2-overlay').style.display = 'flex';
+
+  if (q.ref2FileId) {
+    if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
+    try {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.ref2FileId}?alt=media`);
+      const blob = await res.blob();
+      const isHtml = blob.type.includes('html') || (q.ref2Label || '').match(/\.html?$/i);
+      if (isHtml) {
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, 'ref2win_' + q.id, 'width=960,height=800,resizable=yes,scrollbars=yes');
+        if (!w) alert('팝업이 차단되었습니다.');
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        document.getElementById('ref2-overlay').style.display = 'none';
+      } else {
+        const dataUrl = await new Promise((res2, rej) => {
+          const r = new FileReader(); r.onload = () => res2(r.result); r.onerror = rej; r.readAsDataURL(blob);
+        });
+        imgWrap.innerHTML = `<img src="${dataUrl}" alt="참고자료2">`;
+      }
+    } catch (err) { imgWrap.innerHTML = `<div style="color:var(--warn)">불러오기 실패: ${err.message}</div>`; }
+    finally { if (btn) { btn.textContent = `📄 ${q.ref2Label || '참고 자료 2'}`; btn.disabled = false; } }
+  }
+}
+
+function renderRef2ExtraImgs() {
+  const wrap = document.getElementById('ref2-extra-imgs');
+  wrap.innerHTML = '';
+  ref2ExtraImages.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'qview-img-item';
+    div.innerHTML = `<img src="${item.url}" alt="메모 이미지"><button class="qview-img-remove" data-ref2-remove="${idx}">삭제</button>`;
+    wrap.appendChild(div);
+  });
+}
+document.getElementById('ref2-extra-imgs').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-ref2-remove]');
+  if (!btn) return;
+  ref2ExtraImages.splice(Number(btn.dataset.ref2Remove), 1);
+  renderRef2ExtraImgs();
+});
+
+const ref2PasteZone = document.getElementById('ref2-paste-zone');
+const ref2FileInputPopup = document.getElementById('ref2-file-input');
+ref2PasteZone.addEventListener('click', () => ref2FileInputPopup.click());
+ref2FileInputPopup.addEventListener('change', (e) => {
+  Array.from(e.target.files).forEach(f => { ref2ExtraImages.push({ blob: f, url: URL.createObjectURL(f) }); });
+  renderRef2ExtraImgs(); e.target.value = '';
+});
+ref2PasteZone.addEventListener('dragover', (e) => { e.preventDefault(); ref2PasteZone.classList.add('dragover'); });
+ref2PasteZone.addEventListener('dragleave', () => ref2PasteZone.classList.remove('dragover'));
+ref2PasteZone.addEventListener('drop', (e) => {
+  e.preventDefault(); ref2PasteZone.classList.remove('dragover');
+  Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => {
+    ref2ExtraImages.push({ blob: f, url: URL.createObjectURL(f) });
+  });
+  renderRef2ExtraImgs();
+});
+document.addEventListener('paste', (e) => {
+  if (document.getElementById('ref2-overlay').style.display !== 'flex') return;
+  const items = e.clipboardData?.items || [];
+  let handled = false;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) { ref2ExtraImages.push({ blob: item.getAsFile(), url: URL.createObjectURL(item.getAsFile()) }); handled = true; }
+  }
+  if (handled) { renderRef2ExtraImgs(); e.preventDefault(); }
+});
+document.getElementById('btn-ref2-close').addEventListener('click', () => {
+  document.getElementById('ref2-overlay').style.display = 'none'; ref2ExtraImages = [];
+});
+document.getElementById('btn-ref2-clear').addEventListener('click', () => { ref2ExtraImages = []; renderRef2ExtraImgs(); });
+document.getElementById('btn-ref2-save-imgs').addEventListener('click', async () => {
+  if (ref2ExtraImages.length === 0) { alert('저장할 이미지가 없습니다.'); return; }
+  // ref2 팝업은 현재 어떤 문제와 연관인지 qviewCurrentId 대신 별도 추적 필요
+  // 팝업 제목에서 추출하는 대신, 마지막 열었던 qviewCurrentId 사용
+  if (!qviewCurrentId) { alert('문제를 특정할 수 없습니다.'); return; }
+  const btn = document.getElementById('btn-ref2-save-imgs');
+  btn.disabled = true; btn.textContent = '업로드 중...';
+  try {
+    const q = byId(qviewCurrentId);
+    setSyncStatus('busy', '이미지 업로드 중...');
+    for (const item of ref2ExtraImages) {
+      const fileId = await uploadImageBlob(item.blob, 'note');
+      q.noteImages = q.noteImages || []; q.noteImages.push(fileId);
+    }
+    await saveDataToDrive();
+    ref2ExtraImages = []; renderRef2ExtraImgs();
+    btn.textContent = '저장됨 ✓';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장'; }, 1500);
+  } catch (err) { alert('저장 실패: ' + err.message); btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장'; }
+});
 
 async function openNoteWindow(q, btn) {
   const label = '나의 정답 보기';
@@ -1501,13 +1981,16 @@ async function renderCard(deck, id, idx) {
           <span class="category-tag">${escapeHTML(q.category || '미분류')}</span>
           <span class="last-date-tag">${lastDateLabel}</span>
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
+          <button class="ref-link-btn ref-link-inline" data-open-qview="${id}" title="문제만 크게 보기 (붙여넣기 가능)">📋 문제만 보기</button>
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
+          ${q.ref2FileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref2="${id}" title="참고 HTML 파일 2 열기">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
           ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
           <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 등록 및 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
       </div>
+      <button class="quick-wrong-btn" data-quick-wrong="${id}" title="빠른 오답 기록 (다음 미기록 회독에 X 표시)">✕</button>
       <button class="fav-btn ${q.favorite ? 'active' : ''}" data-fav="${id}" title="즐겨찾기">${q.favorite ? '★' : '☆'}</button>
       <div class="due-badge ${due.cls}">${due.label}</div>
       <div class="chevron">▾</div>
@@ -1693,8 +2176,11 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const noteSaveBtn = e.target.closest('[data-note-save]');
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
+  const openRef2Btn = e.target.closest('[data-open-ref2]');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
   const flashcardBtn = e.target.closest('[data-open-flashcards]');
+  const quickWrongBtn = e.target.closest('[data-quick-wrong]');
+  const openQviewBtn = e.target.closest('[data-open-qview]');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -1702,6 +2188,41 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const q = byId(id);
     if (!q?.refFileId) return;
     await openRefFile(q, openRefBtn);
+    return;
+  }
+
+  if (openRef2Btn) {
+    e.stopPropagation();
+    const id = Number(openRef2Btn.dataset.openRef2);
+    const q = byId(id);
+    if (!q?.ref2FileId) return;
+    qviewCurrentId = id; // ref2 팝업에서 오답노트 저장 시 사용
+    await openRef2Popup(q, openRef2Btn);
+    return;
+  }
+
+  if (openQviewBtn) {
+    e.stopPropagation();
+    const id = Number(openQviewBtn.dataset.openQview);
+    openQviewPopup(id);
+    return;
+  }
+
+  if (quickWrongBtn) {
+    e.stopPropagation();
+    const id = Number(quickWrongBtn.dataset.quickWrong);
+    const q = byId(id);
+    if (!q) return;
+    // 다음 미기록 회독 찾기
+    let targetRound = 1;
+    for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+      if (!getMark(q, r)) { targetRound = r; break; }
+      if (r === TOTAL_ROUNDS) targetRound = TOTAL_ROUNDS; // 모두 기록된 경우 마지막 회독 덮어쓰기
+    }
+    await setMark(id, targetRound, 'wrong');
+    // 버튼 깜빡임 효과
+    quickWrongBtn.classList.add('flashed');
+    setTimeout(() => quickWrongBtn.classList.remove('flashed'), 600);
     return;
   }
 
@@ -2022,13 +2543,18 @@ function resetModalState() {
   modalAImages = [];
   modalStars = 3;
   modalRefFile = null;
+  modalRef2File = null;
   document.getElementById('input-title').value = '';
   document.getElementById('input-category-new').value = '';
   document.getElementById('input-tags').value = '';
   document.getElementById('input-ref-label').value = '';
+  document.getElementById('input-ref2-label').value = '';
   document.getElementById('ref-file-chosen').style.display = 'none';
   document.getElementById('ref-file-zone').style.display = 'block';
   document.getElementById('ref-file-uploading').style.display = 'none';
+  document.getElementById('ref2-file-chosen').style.display = 'none';
+  document.getElementById('ref2-file-zone').style.display = 'block';
+  document.getElementById('ref2-file-uploading').style.display = 'none';
   renderStarPicker();
   renderThumbs('q');
   renderThumbs('a');
@@ -2167,6 +2693,11 @@ async function openModalForEdit(id) {
     modalRefFile = { existingFileId: q.refFileId, name: q.refLabel || '참고파일.html' };
     setRefFileChosen(q.refLabel || '기존 참고 파일');
   }
+  // 참고 파일 2
+  if (q.ref2FileId) {
+    modalRef2File = { existingFileId: q.ref2FileId, name: q.ref2Label || '참고파일2.html' };
+    setRef2FileChosen(q.ref2Label || '기존 참고 파일 2');
+  }
   renderStarPicker();
 
   document.getElementById('modal-backdrop').style.display = 'flex';
@@ -2226,6 +2757,44 @@ refZone.addEventListener('drop', (e) => {
   handleRefFile(e.dataTransfer.files[0]);
 });
 
+// ── 참고 HTML 파일 2 업로드 UI ──
+function setRef2FileChosen(name) {
+  document.getElementById('ref2-file-zone').style.display = 'none';
+  const chosenEl = document.getElementById('ref2-file-chosen');
+  chosenEl.style.display = 'flex';
+  document.getElementById('ref2-file-name').textContent = name;
+}
+function clearRef2File() {
+  modalRef2File = null;
+  document.getElementById('ref2-file-zone').style.display = 'block';
+  document.getElementById('ref2-file-chosen').style.display = 'none';
+}
+function handleRef2File(file) {
+  if (!file) return;
+  if (!file.name.match(/\.html?$/i)) { alert('.html 또는 .htm 파일만 업로드할 수 있습니다.'); return; }
+  modalRef2File = { blob: file, name: file.name };
+  setRef2FileChosen(file.name);
+}
+document.getElementById('btn-ref2-pick-file').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('ref2-file-input-modal').click();
+});
+document.getElementById('ref2-file-input-modal').addEventListener('change', (e) => {
+  handleRef2File(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btn-ref2-remove').addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearRef2File();
+});
+const ref2ZoneModal = document.getElementById('ref2-file-zone');
+ref2ZoneModal.addEventListener('dragover', (e) => { e.preventDefault(); ref2ZoneModal.classList.add('dragover'); });
+ref2ZoneModal.addEventListener('dragleave', () => ref2ZoneModal.classList.remove('dragover'));
+ref2ZoneModal.addEventListener('drop', (e) => {
+  e.preventDefault(); ref2ZoneModal.classList.remove('dragover');
+  handleRef2File(e.dataTransfer.files[0]);
+});
+
 document.getElementById('btn-add').addEventListener('click', openModalForAdd);
 document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
 
@@ -2265,12 +2834,24 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
     let refFileId = '';
     if (modalRefFile) {
       if (modalRefFile.existingFileId) {
-        refFileId = modalRefFile.existingFileId; // 기존 파일 유지
+        refFileId = modalRefFile.existingFileId;
       } else {
         uploadingEl.textContent = '참고 HTML 파일 업로드 중...';
         refFileId = await uploadHtmlBlob(modalRefFile.blob, modalRefFile.name);
       }
     }
+
+    // HTML 참고 파일 2 업로드 처리
+    let ref2FileId = '';
+    if (modalRef2File) {
+      if (modalRef2File.existingFileId) {
+        ref2FileId = modalRef2File.existingFileId;
+      } else {
+        uploadingEl.textContent = '참고 HTML 파일 2 업로드 중...';
+        ref2FileId = await uploadHtmlBlob(modalRef2File.blob, modalRef2File.name);
+      }
+    }
+    const ref2Label = document.getElementById('input-ref2-label').value.trim();
 
     if (modalMode === 'add') {
       questions.push({
@@ -2280,6 +2861,7 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
         noteText: '', noteImages: [],
         rounds: {}, wrongCount: 0, lastDate: null, dueDate: null,
         refFileId, refLabel,
+        ref2FileId, ref2Label,
       });
     } else {
       const q = byId(modalEditId);
@@ -2289,9 +2871,11 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
       for (const old of (q.aImages || [])) if (!keptA.has(old)) await deleteDriveFile(old);
       // 이전 참고 파일 삭제 (교체된 경우)
       if (q.refFileId && q.refFileId !== refFileId) await deleteDriveFile(q.refFileId);
+      if (q.ref2FileId && q.ref2FileId !== ref2FileId) await deleteDriveFile(q.ref2FileId);
       q.title = title; q.category = category; q.difficulty = modalStars; q.tags = tags;
       q.qImages = qIds; q.aImages = aIds;
       q.refFileId = refFileId; q.refLabel = refLabel;
+      q.ref2FileId = ref2FileId; q.ref2Label = ref2Label;
     }
 
     await saveDataToDrive();
@@ -2315,6 +2899,7 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
   for (const f of (q.aImages || [])) await deleteDriveFile(f);
   for (const f of (q.noteImages || [])) await deleteDriveFile(f);
   if (q.refFileId) await deleteDriveFile(q.refFileId);
+  if (q.ref2FileId) await deleteDriveFile(q.ref2FileId);
   for (const fc of (q.flashcards || [])) {
     for (const f of (fc.images || [])) await deleteDriveFile(f);
   }
@@ -2325,9 +2910,394 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
   render();
 });
 
+// ============ 학습 루틴 ============
+const ROUTINE_STEPS = {
+  A: [
+    { t: '유형 인식', m: 5,  icon: '👁️', d: '문제를 보고 "이건 ○○ 유형"이라고 소리내어 말해보세요. 어떤 공식 흐름을 써야 할지 먼저 떠올려보세요.' },
+    { t: '능동적 이해', m: 10, icon: '📖', d: '풀이를 펼치고 읽으세요. 매 줄마다 "왜 이 공식인가?"를 스스로 설명해야 합니다. 설명 못 하면 아직 이해가 아닙니다.' },
+    { t: '뼈대 추출', m: 5,  icon: '✏️', d: '풀이를 덮으세요. 빈 종이에 ①유형명 ②공식 흐름 ③암기값 ④함정 포인트만 적으세요. 숫자는 쓰지 않아도 됩니다.' },
+    { t: '인출 연습', m: 15, icon: '✍️', d: '모든 것을 덮고 처음부터 끝까지 혼자 풀어보세요. 막혀도 30초 버티세요. 그래도 모르면 뼈대만 보고 처음부터 재시작.' },
+    { t: '오답 기록', m: 10, icon: '📋', d: '막혔던 지점을 함정 메모에 기록하고, 자기 평가를 선택하세요.', assess: true },
+  ],
+  B: [
+    { t: '유형 확인', m: 1,  icon: '👁️', d: '"이건 ○○ 유형, 흐름은 ○○"를 말로 확인하세요. 뼈대카드는 보지 않습니다.' },
+    { t: '직접 풀기', m: 12, icon: '✍️', d: '뼈대 없이 처음부터 끝까지 혼자 완성하세요. 막혀도 바로 풀이 보지 말고 30초 버티세요.' },
+    { t: '오답 확인', m: 5,  icon: '🔍', d: '풀이와 비교하세요. 틀린 계산, 잘못된 단위 변환만 확인합니다.' },
+    { t: '기록 & 평가', m: 2, icon: '📋', d: '또 막혔다면 함정 메모를 갱신하고, 자기 평가를 선택하세요.', assess: true },
+  ],
+  C: [
+    { t: '흐름 설명', m: 3, icon: '💬', d: '뼈대카드 없이 공식 흐름을 입으로 설명해보세요. "이 유형은 ①→②→③ 순서"를 완벽히 말할 수 있으면 OK.' },
+    { t: '함정 확인', m: 3, icon: '⚠️', d: '나의 함정 메모에서 이 문제 포인트를 확인하세요. 단위 변환식, 조건 적용 순서를 다시 체크.' },
+    { t: '빠른 평가', m: 2, icon: '✅', d: '얼마나 잘 됐나요? 자기 평가를 선택하면 다음 복습일이 정해집니다.', assess: true },
+  ],
+};
+
+const ROUTINE_GRADE_INFO = {
+  A: { name: '새 유형 정복 (A급)', desc: '처음 보거나 많이 틀린 유형 · 5단계 사이클', time: '45분', steps: ROUTINE_STEPS.A },
+  B: { name: '변형 연습 (B급)',   desc: '개념은 알지만 응용이 불안한 유형 · 4단계', time: '20분', steps: ROUTINE_STEPS.B },
+  C: { name: '빠른 복습 (C급)',   desc: '이미 잘 아는 유형 · 빠른 확인 3단계',      time: '8분',  steps: ROUTINE_STEPS.C },
+};
+
+// 루틴 상태
+let routineCurrentId = null;
+let routineGrade = null;       // 'A' | 'B' | 'C' | null (null = 등급 선택 화면)
+let routineStepIdx = 0;
+let routineTimerSec = 0;
+let routineTimerInit = 0;
+let routineTimerRunning = false;
+let routineTimerInterval = null;
+let routineNote = '';
+// localStorage 기반 루틴 등급/메모 저장 (문제 id별)
+const ROUTINE_STORE_KEY = 'quizbank_routine_v1';
+
+function loadRoutineStore() {
+  try { return JSON.parse(localStorage.getItem(ROUTINE_STORE_KEY) || '{}'); } catch { return {}; }
+}
+function saveRoutineStore(store) {
+  try { localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(store)); } catch {}
+}
+function getRoutineState(id) {
+  const store = loadRoutineStore();
+  return store[id] || { grade: 'A', mc: 0, note: '' };
+}
+function setRoutineState(id, data) {
+  const store = loadRoutineStore();
+  store[id] = { ...(store[id] || {}), ...data };
+  saveRoutineStore(store);
+}
+
+function routineTimerFmt(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function openRoutinePanel(id) {
+  routineCurrentId = id;
+  routineGrade = null;
+  routineStepIdx = 0;
+  clearInterval(routineTimerInterval);
+  routineTimerRunning = false;
+  const rs = getRoutineState(id);
+  routineNote = rs.note || '';
+  document.getElementById('routine-panel').style.display = 'flex';
+  renderRoutineBody();
+}
+
+document.getElementById('btn-routine-close').addEventListener('click', () => {
+  clearInterval(routineTimerInterval);
+  routineTimerRunning = false;
+  document.getElementById('routine-panel').style.display = 'none';
+});
+
+// 패널 바깥 클릭 시 닫기
+document.getElementById('routine-panel').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('routine-panel')) {
+    clearInterval(routineTimerInterval);
+    routineTimerRunning = false;
+    document.getElementById('routine-panel').style.display = 'none';
+  }
+});
+
+function renderRoutineBody() {
+  const body = document.getElementById('routine-body');
+  const q = byId(routineCurrentId);
+  const rs = getRoutineState(routineCurrentId);
+
+  // ── 등급 선택 화면 ──
+  if (!routineGrade) {
+    document.getElementById('routine-header-title').textContent = `📚 학습 루틴 — ${q ? q.title : ''}`;
+    const prevGrade = rs.grade || 'A';
+    body.innerHTML = `
+      <div style="font-size:13px;color:#9b9484;margin-bottom:4px;">이 문제의 학습 단계를 선택하세요</div>
+      ${rs.note ? `<div style="background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--warn);margin-bottom:4px;">📋 이전 메모: ${escapeHTML(rs.note)}</div>` : ''}
+      <div class="routine-grade-select">
+        ${['A','B','C'].map(g => {
+          const info = ROUTINE_GRADE_INFO[g];
+          const isPrev = g === prevGrade;
+          return `<button class="routine-grade-btn${isPrev ? '" style="border-color:var(--accent)' : ''}" data-routine-grade="${g}">
+            <div class="routine-grade-badge ${g}">${g}</div>
+            <div class="routine-grade-info">
+              <div class="routine-grade-name">${info.name}${isPrev ? ' <span style="font-size:11px;color:var(--accent);">● 지난번</span>' : ''}</div>
+              <div class="routine-grade-desc">${info.desc}</div>
+            </div>
+            <div class="routine-grade-time">${info.time}</div>
+          </button>`;
+        }).join('')}
+      </div>`;
+
+    body.querySelectorAll('[data-routine-grade]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        routineGrade = btn.dataset.routineGrade;
+        routineStepIdx = 0;
+        const steps = ROUTINE_STEPS[routineGrade];
+        routineTimerSec = steps[0].m * 60;
+        routineTimerInit = routineTimerSec;
+        routineTimerRunning = false;
+        clearInterval(routineTimerInterval);
+        setRoutineState(routineCurrentId, { grade: routineGrade });
+        renderRoutineBody();
+      });
+    });
+    return;
+  }
+
+  // ── 단계 진행 화면 ──
+  const steps = ROUTINE_STEPS[routineGrade];
+  const cur = steps[routineStepIdx];
+  const isAssess = !!cur.assess;
+  const pct = routineTimerInit > 0 ? Math.min(100, Math.round((1 - routineTimerSec / routineTimerInit) * 100)) : 0;
+  const isUrgent = routineTimerSec > 0 && routineTimerSec < 60;
+
+  document.getElementById('routine-header-title').textContent = `📚 ${routineGrade}급 루틴 · Step ${routineStepIdx + 1}/${steps.length}`;
+
+  // 점 네비게이션
+  const dotsHTML = steps.map((s, i) => {
+    const cls = i < routineStepIdx ? 'done' : i === routineStepIdx ? 'active' : 'todo';
+    return `<div class="routine-dot ${cls}"></div>${i === routineStepIdx ? `<span class="routine-dot-label">${s.t}</span>` : ''}`;
+  }).join('');
+
+  // 자가평가 예측 텍스트
+  function predText(r) {
+    const grade = routineGrade;
+    const mc = getRoutineState(routineCurrentId).mc || 0;
+    if (grade === 'A') {
+      if (r === 'p') return 'B급 · 3일 후';
+      if (r === 's') return 'A급 · 내일';
+      return 'A급 · 오늘 재도전';
+    }
+    if (grade === 'B') {
+      if (r === 'p') return mc >= 1 ? 'C급 · 7일 후' : 'B급 · 3일 후';
+      if (r === 's') return 'B급 · 2일 후';
+      return 'A급 · 내일';
+    }
+    // C
+    if (r === 'p') return 'C급 · 7일 후';
+    if (r === 's') return 'C급 · 4일 후';
+    return 'B급 · 2일 후';
+  }
+
+  body.innerHTML = `
+    <div class="routine-step-dots">${dotsHTML}</div>
+
+    <div class="routine-step-card">
+      <div class="routine-step-head">
+        <span class="routine-step-icon">${cur.icon}</span>
+        <span class="routine-step-title">Step ${routineStepIdx + 1}. ${cur.t}</span>
+        <span class="routine-step-mins">${cur.m}분 권장</span>
+      </div>
+      <div class="routine-step-desc">${cur.d}</div>
+    </div>
+
+    ${!isAssess ? `
+    <div class="routine-step-card" style="text-align:center;padding:16px 14px;">
+      <div class="routine-timer-display${isUrgent ? ' urgent' : ''}" id="routine-timer">${routineTimerFmt(routineTimerSec)}</div>
+      <div class="routine-progress-bar">
+        <div class="routine-progress-fill${isUrgent ? ' urgent' : ''}" id="routine-prog-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="routine-timer-btns">
+        ${!routineTimerRunning && routineTimerSec === routineTimerInit && routineTimerSec > 0
+          ? `<button class="routine-timer-btn primary" id="btn-routine-start">▶ 타이머 시작</button>`
+          : routineTimerRunning
+          ? `<button class="routine-timer-btn" id="btn-routine-pause">⏸ 일시정지</button>`
+          : `<button class="routine-timer-btn" id="btn-routine-resume">▶ 재개</button>`}
+        ${routineStepIdx < steps.length - 1
+          ? `<button class="routine-timer-btn primary" id="btn-routine-next">다음 단계 ▶</button>`
+          : ''}
+      </div>
+    </div>` : ''}
+
+    ${isAssess ? `
+    <div>
+      <div class="routine-note-label">함정 메모</div>
+      <textarea class="routine-note-textarea" id="routine-note" placeholder="막혔던 포인트, 단위 변환 실수, 조건 적용 순서 등...">${escapeHTML(routineNote)}</textarea>
+    </div>
+    <div style="font-size:13px;font-weight:700;text-align:center;margin-bottom:4px;">자기 평가</div>
+    ${[
+      ['p', 'rass-p', '✅', '완벽하게 재현', '막힘 없이 처음부터 끝까지 완성'],
+      ['s', 'rass-s', '🟡', '조금 막혔음', '힌트가 필요했거나 일부 실수'],
+      ['f', 'rass-f', '❌', '많이 막혔음', '공식 흐름을 못 떠올렸다'],
+    ].map(([r, cls, ico, title, desc]) =>
+      `<button class="routine-assess-btn ${cls}" data-assess="${r}">
+        <span class="routine-assess-icon">${ico}</span>
+        <div style="flex:1;">
+          <div class="routine-assess-title">${title}</div>
+          <div class="routine-assess-desc">${desc}</div>
+        </div>
+        <span class="routine-assess-pred">${predText(r)}</span>
+      </button>`
+    ).join('')}` : ''}
+
+    <button class="io-btn" id="btn-routine-back-grade" style="width:100%;margin-top:4px;">← 등급 다시 선택</button>
+  `;
+
+  // 타이머 버튼 이벤트
+  body.querySelector('#btn-routine-start')?.addEventListener('click', () => {
+    routineTimerRunning = true;
+    startRoutineTimer();
+    renderRoutineBody();
+  });
+  body.querySelector('#btn-routine-pause')?.addEventListener('click', () => {
+    routineTimerRunning = false;
+    clearInterval(routineTimerInterval);
+    renderRoutineBody();
+  });
+  body.querySelector('#btn-routine-resume')?.addEventListener('click', () => {
+    routineTimerRunning = true;
+    startRoutineTimer();
+    renderRoutineBody();
+  });
+  body.querySelector('#btn-routine-next')?.addEventListener('click', () => {
+    clearInterval(routineTimerInterval);
+    routineTimerRunning = false;
+    routineStepIdx++;
+    const nxt = steps[routineStepIdx];
+    routineTimerSec = nxt.m * 60;
+    routineTimerInit = routineTimerSec;
+    renderRoutineBody();
+  });
+
+  // 자가평가 버튼 이벤트
+  body.querySelectorAll('[data-assess]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = btn.dataset.assess;
+      const noteEl = document.getElementById('routine-note');
+      if (noteEl) routineNote = noteEl.value;
+      applyRoutineAssess(r);
+    });
+  });
+
+  // 함정 메모 실시간 저장
+  body.querySelector('#routine-note')?.addEventListener('input', (e) => { routineNote = e.target.value; });
+
+  // 등급 다시 선택
+  body.querySelector('#btn-routine-back-grade')?.addEventListener('click', () => {
+    clearInterval(routineTimerInterval);
+    routineTimerRunning = false;
+    routineGrade = null;
+    renderRoutineBody();
+  });
+}
+
+function startRoutineTimer() {
+  clearInterval(routineTimerInterval);
+  routineTimerInterval = setInterval(() => {
+    if (routineTimerSec <= 0) {
+      clearInterval(routineTimerInterval);
+      routineTimerRunning = false;
+      renderRoutineBody();
+      return;
+    }
+    routineTimerSec--;
+    // 라이브 업데이트 (re-render 없이 DOM만 갱신)
+    const timerEl = document.getElementById('routine-timer');
+    const fillEl = document.getElementById('routine-prog-fill');
+    if (timerEl) {
+      timerEl.textContent = routineTimerFmt(routineTimerSec);
+      const isUrgent = routineTimerSec < 60;
+      timerEl.className = 'routine-timer-display' + (isUrgent ? ' urgent' : '');
+    }
+    if (fillEl) {
+      const pct = routineTimerInit > 0 ? Math.min(100, Math.round((1 - routineTimerSec / routineTimerInit) * 100)) : 0;
+      fillEl.style.width = pct + '%';
+      fillEl.className = 'routine-progress-fill' + (routineTimerSec < 60 ? ' urgent' : '');
+    }
+  }, 1000);
+}
+
+function applyRoutineAssess(r) {
+  const rs = getRoutineState(routineCurrentId);
+  const grade = routineGrade;
+  const mc = rs.mc || 0;
+  let ng = grade, nmc = 0, days = 0, msg = '', type = 'same';
+
+  if (grade === 'A') {
+    if (r === 'p') { ng = 'B'; nmc = 0; days = 3; msg = 'B급으로 승급! 3일 후 복습'; type = 'up'; }
+    else if (r === 's') { ng = 'A'; nmc = 0; days = 1; msg = '내일 다시 연습'; type = 'same'; }
+    else { ng = 'A'; nmc = 0; days = 0; msg = '오늘 다시 도전!'; type = 'same'; }
+  } else if (grade === 'B') {
+    if (r === 'p') {
+      if (mc >= 1) { ng = 'C'; nmc = 0; days = 7; msg = 'C급 완전 마스터! 7일 후 복습'; type = 'up'; }
+      else { ng = 'B'; nmc = 1; days = 3; msg = '한 번 더 완벽하면 C급! 3일 후 복습'; type = 'same'; }
+    } else if (r === 's') { ng = 'B'; nmc = 0; days = 2; msg = '2일 후 다시 연습'; type = 'same'; }
+    else { ng = 'A'; nmc = 0; days = 1; msg = 'A급으로 강등 · 내일 다시'; type = 'down'; }
+  } else { // C
+    if (r === 'p') { ng = 'C'; nmc = mc + 1; days = 7; msg = '완벽! 7일 후 복습'; type = 'same'; }
+    else if (r === 's') { ng = 'C'; nmc = 0; days = 4; msg = '4일 후 복습'; type = 'same'; }
+    else { ng = 'B'; nmc = 0; days = 2; msg = 'B급으로 강등 · 2일 후'; type = 'down'; }
+  }
+
+  setRoutineState(routineCurrentId, { grade: ng, mc: nmc, note: routineNote });
+  clearInterval(routineTimerInterval);
+  routineTimerRunning = false;
+
+  // 결과 화면 렌더
+  const body = document.getElementById('routine-body');
+  const gradeChanged = ng !== grade;
+  body.innerHTML = `
+    <div class="routine-result-card ${type}">
+      <div class="routine-result-icon">${type === 'up' ? '⬆️' : type === 'down' ? '⬇️' : '✅'}</div>
+      ${gradeChanged ? `<div class="routine-result-grade">${grade}급 → ${ng}급</div>` : ''}
+      <div class="routine-result-msg">${msg}</div>
+    </div>
+    ${routineNote ? `<div style="background:var(--card);border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:13px;color:#6b6356;">
+      <div style="font-family:var(--mono);font-size:10px;color:#9b9484;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">저장된 메모</div>
+      ${escapeHTML(routineNote)}
+    </div>` : ''}
+    <button class="mode-btn primary" id="btn-routine-done" style="width:100%;padding:12px;">닫기</button>
+    <button class="io-btn" id="btn-routine-again" style="width:100%;">다시 선택하기</button>
+  `;
+  body.querySelector('#btn-routine-done')?.addEventListener('click', () => {
+    document.getElementById('routine-panel').style.display = 'none';
+  });
+  body.querySelector('#btn-routine-again')?.addEventListener('click', () => {
+    routineGrade = null;
+    routineStepIdx = 0;
+    renderRoutineBody();
+  });
+}
+
+// ============ 시험 기록 ============
+function loadExamHistory() {
+  try {
+    const raw = localStorage.getItem('quizbank_exam_history');
+    examHistory = raw ? JSON.parse(raw) : [];
+  } catch { examHistory = []; }
+}
+function saveExamHistory() {
+  localStorage.setItem('quizbank_exam_history', JSON.stringify(examHistory.slice(0, 100)));
+}
+function renderExamHistoryPanel() {
+  const body = document.getElementById('exam-hist-body');
+  if (!examHistory || examHistory.length === 0) {
+    body.innerHTML = '<div class="exam-hist-empty">아직 시험 기록이 없습니다.<br>시험 모드를 완료하면 여기에 기록됩니다.</div>';
+    return;
+  }
+  body.innerHTML = examHistory.slice().reverse().map(h => {
+    const isLow = h.scorePct < 60;
+    const m = String(Math.floor(h.elapsed / 60)).padStart(2, '0');
+    const s = String(h.elapsed % 60).padStart(2, '0');
+    return `
+      <div class="exam-hist-row">
+        <div class="exam-hist-score${isLow ? ' low' : ''}">${h.scorePct}점</div>
+        <div class="exam-hist-meta">
+          <div class="exam-hist-detail">정답 ${h.correct} / 오답 ${h.wrong} / 총 ${h.total}문제 · ${h.roundNum}회독</div>
+          <div class="exam-hist-date">${h.date}  소요 ${m}:${s}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('btn-exam-history').addEventListener('click', () => {
+  renderExamHistoryPanel();
+  document.getElementById('exam-hist-overlay').style.display = 'flex';
+});
+document.getElementById('btn-exam-hist-close').addEventListener('click', () => {
+  document.getElementById('exam-hist-overlay').style.display = 'none';
+});
+
 // ============ 초기화 ============
 function initAfterLoad() {
   currentOrder = questions.map(q => q.id);
+  loadExamHistory();
   applyDarkMode();
   applyFontScale();
   updateStreak();
@@ -2532,13 +3502,33 @@ document.getElementById('btn-exam-mode').addEventListener('click', startExamMode
 document.getElementById('btn-exam-close').addEventListener('click', endExamMode);
 
 document.getElementById('exam-body').addEventListener('click', async (e) => {
-  const openRefBtn = e.target.closest('[data-open-ref]');
-  if (!openRefBtn) return;
-  e.stopPropagation();
-  const id = Number(openRefBtn.dataset.openRef);
-  const q = byId(id);
-  if (!q?.refFileId) return;
-  await openRefFile(q, openRefBtn);
+  const openRefBtn = e.target.closest('[data-exam-open-ref]');
+  const openRef2Btn = e.target.closest('[data-exam-open-ref2]');
+  const routineBtn = e.target.closest('#exam-routine-btn');
+
+  if (openRefBtn) {
+    e.stopPropagation();
+    const id = Number(openRefBtn.dataset.examOpenRef);
+    const q = byId(id);
+    if (!q?.refFileId) return;
+    await openRefFile(q, openRefBtn);
+    return;
+  }
+  if (openRef2Btn) {
+    e.stopPropagation();
+    const id = Number(openRef2Btn.dataset.examOpenRef2);
+    const q = byId(id);
+    if (!q?.ref2FileId) return;
+    qviewCurrentId = id;
+    await openRef2Popup(q, openRef2Btn);
+    return;
+  }
+  if (routineBtn) {
+    e.stopPropagation();
+    const id = examQueue[examIdx];
+    openRoutinePanel(id);
+    return;
+  }
 });
 
 function startExamMode() {
@@ -2598,16 +3588,22 @@ async function renderExamCard() {
   body.innerHTML = `
     <div class="exam-qnum">${examIdx + 1}번 문제 · ${escapeHTML(q.category || '미분류')} · ${starString(q.difficulty || 0)}</div>
     <div class="exam-qtitle">${escapeHTML(q.title || '(제목 없음)')}</div>
+    <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="exam-routine-btn" id="exam-routine-btn">📚 학습 루틴</button>
+    </div>
     <div class="exam-img-area" id="exam-qimg"><div class="img-loading">이미지 불러오는 중...</div></div>
     <div class="exam-answer-area">
       <textarea class="exam-answer-textarea" id="exam-textarea" placeholder="여기에 풀이를 적어보세요 (선택사항)"></textarea>
     </div>
     <div class="exam-solution-reveal">
-      <button class="mode-btn" id="exam-reveal-btn" style="width:100%;padding:12px;">풀이 / 정답 보기 ▼</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="mode-btn" id="exam-reveal-btn" style="flex:1;padding:12px;">풀이 / 정답 보기 ▼</button>
+        ${q.refFileId ? `<button class="ref-link-btn" data-exam-open-ref="${id}" style="display:inline-flex;white-space:nowrap;">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
+        ${q.ref2FileId ? `<button class="ref-link-btn" data-exam-open-ref2="${id}" style="display:inline-flex;white-space:nowrap;">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
+      </div>
       <div class="exam-solution-box ${examSolutionShown[id] ? 'shown' : ''}" id="exam-sol-box">
         <div class="exam-solution-label">SOLUTION</div>
         <div id="exam-aimg"><div class="img-loading">이미지 불러오는 중...</div></div>
-        ${q.refFileId ? `<button class="ref-link-btn" data-open-ref="${id}" style="display:inline-flex;margin-top:8px;">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
       </div>
     </div>
     <div class="exam-self-grade ${examSolutionShown[id] ? 'shown' : ''}" id="exam-grade-row">
@@ -2681,6 +3677,13 @@ async function finishExam() {
     const mark = examAnswers[id];
     if (mark) await setMark(id, examRoundNum, mark);
   }
+
+  // 시험 기록 저장
+  examHistory.push({
+    date: new Date().toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
+    scorePct, correct, wrong, total, elapsed, roundNum: examRoundNum,
+  });
+  saveExamHistory();
 
   document.getElementById('exam-prog-bar').style.width = '100%';
   document.getElementById('exam-body').innerHTML = `
