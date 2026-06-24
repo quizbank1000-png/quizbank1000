@@ -466,6 +466,46 @@
     background: var(--paper); color: var(--ink);
   }
   .routine-note-textarea:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+
+  /* 루틴 유형 필터 칩 */
+  .routine-filter-chips {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 2px;
+  }
+  .routine-filter-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--line); background: var(--card); color: #6b6356;
+    font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .routine-filter-chip:hover { border-color: #1D9E75; color: #085041; }
+  .routine-filter-chip.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+  .routine-filter-chip.current:not(.active) { border-color: var(--accent); color: var(--accent); }
+  .rfc-count {
+    font-family: var(--mono); font-size: 10px; opacity: 0.75;
+  }
+
+  /* 루틴 문제 목록 */
+  .routine-qlist {
+    display: flex; flex-direction: column; gap: 4px;
+    max-height: 160px; overflow-y: auto; padding-right: 2px;
+  }
+  .routine-qlist::-webkit-scrollbar { width: 4px; }
+  .routine-qlist::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+  .routine-qlist-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    cursor: pointer; text-align: left; width: 100%; transition: all .15s; font-family: inherit;
+  }
+  .routine-qlist-item:hover { border-color: #1D9E75; }
+  .routine-qlist-item.self { border-color: var(--accent); background: var(--accent-soft); }
+  .routine-qlist-title {
+    flex: 1; font-size: 12.5px; font-weight: 500; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: var(--ink);
+  }
+  .routine-qlist-cur {
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+    background: var(--accent-soft); padding: 2px 6px; border-radius: 999px; flex-shrink: 0;
+  }
   .exam-routine-btn {
     flex: none; padding: 10px 16px; border-radius: 8px; border: 1.5px solid #378ADD;
     background: #E6F1FB; color: #0C447C; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -2970,6 +3010,7 @@ let routineTimerInit = 0;
 let routineTimerRunning = false;
 let routineTimerInterval = null;
 let routineNote = '';
+let routineTypeFilter = 'all'; // 유형 필터 상태
 // localStorage 기반 루틴 등급/메모 저장 (문제 id별)
 const ROUTINE_STORE_KEY = 'quizbank_routine_v1';
 
@@ -2997,6 +3038,7 @@ function openRoutinePanel(id) {
   routineCurrentId = id;
   routineGrade = null;
   routineStepIdx = 0;
+  routineTypeFilter = 'all';
   clearInterval(routineTimerInterval);
   routineTimerRunning = false;
   const rs = getRoutineState(id);
@@ -3029,9 +3071,72 @@ function renderRoutineBody() {
   if (!routineGrade) {
     document.getElementById('routine-header-title').textContent = `📚 학습 루틴 — ${q ? q.title : ''}`;
     const prevGrade = rs.grade || 'A';
+
+    // 유형 필터 칩 목록 생성: 현재 문제 카테고리 + 태그 + 전체 카테고리 목록
+    const allCats = [...new Set(questions.filter(x => !x.hidden).map(x => x.category).filter(Boolean))].sort();
+    // 현재 문제의 카테고리와 태그를 강조 표시용으로 수집
+    const curCat = q ? (q.category || '') : '';
+    const curTags = q ? (q.tags || []) : [];
+
+    // 각 유형의 루틴 상태 집계 (A/B/C 분포)
+    function typeStats(cat) {
+      const qs = cat === 'all'
+        ? questions.filter(x => !x.hidden)
+        : questions.filter(x => !x.hidden && x.category === cat);
+      const store = loadRoutineStore();
+      const counts = { A: 0, B: 0, C: 0 };
+      qs.forEach(x => { const g = (store[x.id] || {}).grade || 'A'; counts[g]++; });
+      return { total: qs.length, ...counts };
+    }
+
+    const filterChipsHTML = [
+      { key: 'all', label: '전체' },
+      ...allCats.map(c => ({ key: c, label: c })),
+    ].map(({ key, label }) => {
+      const isCurrent = key === curCat;
+      const isActive = routineTypeFilter === key;
+      const st = typeStats(key);
+      return `<button class="routine-filter-chip${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}"
+        data-routine-filter="${escapeHTML(key)}"
+        title="${key === 'all' ? '전체 문제' : label}">
+        ${escapeHTML(label === key && key !== 'all' ? (label.length > 6 ? label.slice(0,6)+'…' : label) : label)}
+        <span class="rfc-count">${st.total}</span>
+      </button>`;
+    }).join('');
+
+    // 필터된 문제 목록
+    const filteredQs = routineTypeFilter === 'all'
+      ? questions.filter(x => !x.hidden)
+      : questions.filter(x => !x.hidden && x.category === routineTypeFilter);
+
+    const store = loadRoutineStore();
+    const filteredListHTML = filteredQs.length === 0
+      ? `<div style="font-size:12px;color:#9b9484;text-align:center;padding:12px 0;">해당 문제 없음</div>`
+      : filteredQs.map(x => {
+          const xrs = store[x.id] || {};
+          const xg = xrs.grade || 'A';
+          const isSelf = x.id === routineCurrentId;
+          return `<button class="routine-qlist-item${isSelf ? ' self' : ''}" data-routine-pick-id="${x.id}">
+            <span class="routine-grade-badge ${xg}" style="width:26px;height:26px;font-size:12px;border-radius:7px;">${xg}</span>
+            <span class="routine-qlist-title">${escapeHTML(x.title || '(제목 없음)')}</span>
+            ${isSelf ? '<span class="routine-qlist-cur">현재</span>' : ''}
+          </button>`;
+        }).join('');
+
     body.innerHTML = `
-      <div style="font-size:13px;color:#9b9484;margin-bottom:4px;">이 문제의 학습 단계를 선택하세요</div>
-      ${rs.note ? `<div style="background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--warn);margin-bottom:4px;">📋 이전 메모: ${escapeHTML(rs.note)}</div>` : ''}
+      ${rs.note ? `<div style="background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--warn);">📋 이전 메모: ${escapeHTML(rs.note)}</div>` : ''}
+
+      <div>
+        <div class="routine-note-label" style="margin-bottom:6px;">유형 필터</div>
+        <div class="routine-filter-chips">${filterChipsHTML}</div>
+      </div>
+
+      <div>
+        <div class="routine-note-label" style="margin-bottom:6px;">문제 선택 <span style="font-weight:400;">(${filteredQs.length}개)</span></div>
+        <div class="routine-qlist">${filteredListHTML}</div>
+      </div>
+
+      <div class="routine-note-label" style="margin-bottom:6px; margin-top:4px;">등급 선택</div>
       <div class="routine-grade-select">
         ${['A','B','C'].map(g => {
           const info = ROUTINE_GRADE_INFO[g];
@@ -3047,6 +3152,28 @@ function renderRoutineBody() {
         }).join('')}
       </div>`;
 
+    // 필터 칩 클릭
+    body.querySelectorAll('[data-routine-filter]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        routineTypeFilter = btn.dataset.routineFilter;
+        renderRoutineBody();
+      });
+    });
+
+    // 문제 선택 클릭
+    body.querySelectorAll('[data-routine-pick-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newId = Number(btn.dataset.routinePickId);
+        routineCurrentId = newId;
+        const newRs = getRoutineState(newId);
+        routineNote = newRs.note || '';
+        renderRoutineBody();
+      });
+    });
+
+    // 등급 버튼 클릭
     body.querySelectorAll('[data-routine-grade]').forEach(btn => {
       btn.addEventListener('click', () => {
         routineGrade = btn.dataset.routineGrade;
@@ -3200,12 +3327,32 @@ function renderRoutineBody() {
   });
 }
 
+function playRoutineEndSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // 부드러운 3연타 알림음: 낮→중→높 음정
+    [[0, 440, 0.18], [0.22, 554, 0.18], [0.44, 660, 0.22]].forEach(([delay, freq, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + dur + 0.05);
+    });
+  } catch (e) { /* 오디오 미지원 환경 무시 */ }
+}
+
 function startRoutineTimer() {
   clearInterval(routineTimerInterval);
   routineTimerInterval = setInterval(() => {
     if (routineTimerSec <= 0) {
       clearInterval(routineTimerInterval);
       routineTimerRunning = false;
+      playRoutineEndSound();
       renderRoutineBody();
       return;
     }
