@@ -2463,11 +2463,13 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
   const openRef2Btn = e.target.closest('[data-open-ref2]');
+  const openQviewBtn = e.target.closest('[data-open-qview]');
+  const openTagsBtn = e.target.closest('[data-open-tags]');
+  const openRoutineBtn = e.target.closest('[data-open-routine]');
+  const routineGradeBadge = e.target.closest('.routine-grade-badge-head');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
   const flashcardBtn = e.target.closest('[data-open-flashcards]');
   const flashcardEditBtn = e.target.closest('[data-open-flashcard-edit]');
-  const openTagsBtn = e.target.closest('[data-open-tags]');
-  const routineGradeBadge = e.target.closest('.routine-grade-badge-head');
 
   if (openRefBtn) {
     e.stopPropagation();
