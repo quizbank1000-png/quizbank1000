@@ -281,15 +281,28 @@
 
   footer { text-align: center; font-family: var(--mono); font-size: 11px; color: #a39c8c; padding-bottom: 30px; }
 
-  /* ── 퀵 오답 버튼 ── */
-  .quick-wrong-btn {
-    flex-shrink: 0; border: 1.5px solid var(--line); background: var(--card); color: #9b9484;
-    font-size: 13px; font-weight: 700; width: 32px; height: 32px; border-radius: 7px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: all .15s; line-height: 1;
+  /* ── 버튼 행 (카드 두 번째 meta-row) ── */
+  .btn-row { margin-top: 4px; flex-wrap: wrap; gap: 4px !important; }
+
+  /* ── 루틴 등급 뱃지 (카드 헤더 우측) ── */
+  .routine-grade-badge-head {
+    flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform .15s, opacity .15s; margin-right: 2px;
   }
-  .quick-wrong-btn:hover { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
-  .quick-wrong-btn.flashed { border-color: var(--warn); color: white; background: var(--warn); }
+  .routine-grade-badge-head:hover { transform: scale(1.15); opacity: 0.85; }
+  .routine-grade-badge-head.A { background: #FCEBEB; color: #791F1F; }
+  .routine-grade-badge-head.B { background: #FAEEDA; color: #633806; }
+  .routine-grade-badge-head.C { background: #E1F5EE; color: #085041; }
+  body.dark-mode .routine-grade-badge-head.A { background: #501313; color: #F7C1C1; }
+  body.dark-mode .routine-grade-badge-head.B { background: #412402; color: #FAC775; }
+  body.dark-mode .routine-grade-badge-head.C { background: #04342C; color: #9FE1CB; }
+
+  /* ── 태그 버튼 ── */
+  .tag-view-btn { color: #6050a8; background: #eeecfb; border-color: #6050a8; }
+  .tag-view-btn:hover { background: #6050a8; color: white; }
+  body.dark-mode .tag-view-btn { color: #b8b0f0; background: #1e1a3a; border-color: #6050a8; }
 
   /* ── 문제만 보기 / 참고HTML2 팝업 오버레이 ── */
   .qview-overlay {
@@ -1427,7 +1440,91 @@ async function openRefFile(q, btn) {
 }
 
 // ── 암기카드 ──
+async function openFlashcardNewWindow(id) {
+  const q = byId(id);
+  if (!q) return;
+  const cards = q.flashcards || [];
+
+  // 각 카드 이미지 URL 미리 fetch
+  const cardData = [];
+  for (const fc of cards) {
+    const urls = [];
+    for (const fid of (fc.images || [])) {
+      const url = await fetchImageURL(fid);
+      if (url) urls.push(url);
+    }
+    cardData.push({ text: fc.text || '', urls });
+  }
+
+  const cardsJSON = JSON.stringify(cardData);
+  const winHTML = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>암기카드 — ${escapeHTML(q.title || '')}</title>
+<style>
+  *{box-sizing:border-box;} body{margin:0;padding:20px;background:#F5F4FF;font-family:system-ui,sans-serif;}
+  h2{font-size:16px;font-weight:700;margin:0 0 16px;color:#1c2230;}
+  .ctrl{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+  .btn{border:1.5px solid #534AB7;background:#E6E4FA;color:#2a2470;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;}
+  .btn:hover{background:#534AB7;color:white;}
+  .btn.primary{background:#534AB7;color:white;}
+  .counter{font-family:monospace;font-size:13px;color:#6b6356;}
+  .card-wrap{background:white;border:1.5px solid #ddd;border-radius:14px;padding:22px;min-height:180px;cursor:pointer;position:relative;box-shadow:0 2px 12px rgba(0,0,0,0.07);}
+  .card-front,.card-back{font-size:15px;line-height:1.7;color:#1c2230;}
+  .card-back{display:none;padding-top:14px;border-top:1.5px dashed #c5c0ef;margin-top:14px;}
+  .card-back.shown{display:block;}
+  .card-back img{width:100%;border-radius:8px;margin-top:8px;border:1px solid #eee;}
+  .hint{font-family:monospace;font-size:11px;color:#a39c8c;text-align:center;margin-top:10px;}
+  .empty{text-align:center;color:#9b9484;padding:60px 0;font-size:14px;}
+  .fc-num{font-family:monospace;font-size:11px;color:#a39c8c;position:absolute;top:10px;right:14px;}
+</style></head><body>
+<h2>🗂️ 암기카드 — ${escapeHTML(q.title || '')}</h2>
+<div id="app"></div>
+<script>
+const cards = ${cardsJSON};
+let idx = 0, shown = false, shuffled = [...cards.keys()];
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a;}
+function render(){
+  const app = document.getElementById('app');
+  if(!cards.length){app.innerHTML='<div class="empty">등록된 암기카드가 없습니다.</div>';return;}
+  const card = cards[shuffled[idx]];
+  const imgsHTML = card.urls.map(u=>'<img src="'+u+'" alt="카드 이미지">').join('');
+  app.innerHTML = '<div class="ctrl">'
+    +'<button class="btn" id="prev">◀ 이전</button>'
+    +'<button class="btn" id="flip">뒤집기 (Space)</button>'
+    +'<button class="btn" id="next">다음 ▶</button>'
+    +'<button class="btn" id="shuf">🔀 섞기</button>'
+    +'<span class="counter">'+( idx+1)+'/'+cards.length+'</span></div>'
+    +'<div class="card-wrap" id="cw">'
+    +'<span class="fc-num">#'+(shuffled[idx]+1)+'</span>'
+    +'<div class="card-front">'+(card.text||'(텍스트 없음)')+'</div>'
+    +'<div class="card-back'+(shown?' shown':'')+'" id="back">'+(imgsHTML||'(이미지 없음)')+'</div></div>'
+    +'<div class="hint">카드 클릭 또는 Space = 뒤집기 · ← → = 이전/다음</div>';
+  document.getElementById('prev').onclick=()=>{idx=(idx-1+cards.length)%cards.length;shown=false;render();};
+  document.getElementById('next').onclick=()=>{idx=(idx+1)%cards.length;shown=false;render();};
+  document.getElementById('flip').onclick=()=>{shown=!shown;render();};
+  document.getElementById('shuf').onclick=()=>{shuffle(shuffled);idx=0;shown=false;render();};
+  document.getElementById('cw').onclick=()=>{shown=!shown;render();};
+}
+document.addEventListener('keydown',(e)=>{
+  if(e.key===' '){e.preventDefault();shown=!shown;render();}
+  if(e.key==='ArrowLeft'){idx=(idx-1+cards.length)%cards.length;shown=false;render();}
+  if(e.key==='ArrowRight'){idx=(idx+1)%cards.length;shown=false;render();}
+});
+render();
+<\/script></body></html>`;
+
+  const blob = new Blob([winHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, `fc_${id}`, 'width=700,height=600,resizable=yes,scrollbars=yes');
+  if (!w) alert('팝업이 차단되었습니다.');
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+
 function openFlashcardOverlay(id) {
+  // btn-row에서 클릭 → 새창으로 보기
+  openFlashcardNewWindow(id);
+}
+function openFlashcardEdit(id) {
+  // 카드 body 안에서 클릭 → 기존 오버레이 (추가/삭제용)
   flashcardOpenForId = id;
   flashcardPendingImages = [];
   document.getElementById('flashcard-text-input').value = '';
@@ -1601,26 +1698,58 @@ document.getElementById('flashcard-list').addEventListener('click', async (e) =>
 });
 
 
-// ============ 문제만 보기 팝업 ============
+// ============ 문제 새창 보기 ============
 async function openQviewPopup(id) {
   qviewCurrentId = id;
-  qviewExtraImages = [];
   const q = byId(id);
   if (!q) return;
-
-  document.getElementById('qview-title').textContent = `📋 ${q.title || '(제목 없음)'}`;
-  document.getElementById('qview-extra-imgs').innerHTML = '';
-
-  const imgWrap = document.getElementById('qview-imgs');
-  imgWrap.innerHTML = '<div class="img-loading">이미지 불러오는 중...</div>';
-  document.getElementById('qview-overlay').style.display = 'flex';
 
   const urls = [];
   for (const fid of (q.qImages || [])) {
     const url = await fetchImageURL(fid);
     if (url) urls.push(url);
   }
-  imgWrap.innerHTML = urls.map(u => `<img src="${u}" alt="문제 이미지">`).join('') || '<div style="color:#9b9484;font-size:13px;">문제 이미지가 없습니다.</div>';
+
+  const imgsHTML = urls.length
+    ? urls.map(u => `<img src="${u}" style="width:100%;display:block;border-radius:8px;margin-bottom:12px;border:1px solid #ddd;" alt="문제 이미지">`).join('')
+    : '<p style="color:#9b9484;text-align:center;padding:40px 0;">문제 이미지가 없습니다.</p>';
+
+  const winHTML = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>문제 — ${escapeHTML(q.title || '')}</title>
+<style>
+  body { margin: 0; padding: 20px; background: #F5F4FF; font-family: system-ui, sans-serif; }
+  h2 { font-size: 16px; font-weight: 700; margin: 0 0 16px; color: #1c2230; }
+  .tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; background:#E1E0FA; color:#534AB7; margin-right:4px; }
+  .paste-hint { border:2px dashed #c5c0ef; border-radius:10px; padding:18px; text-align:center; color:#8b87c0; font-size:13px; margin-top:16px; cursor:pointer; }
+  .paste-hint:focus { outline: 2px solid #534AB7; }
+  #extra-imgs img { width:100%; border-radius:8px; margin-bottom:10px; border:1px solid #ddd; display:block; }
+</style></head><body>
+<h2>${escapeHTML(q.title || '(제목 없음)')}</h2>
+<div>${(q.tags||[]).map(t=>`<span class="tag">#${escapeHTML(t)}</span>`).join('')}</div>
+<div id="imgs" style="margin-top:14px;">${imgsHTML}</div>
+<div class="paste-hint" id="paste-hint" tabindex="0">📋 여기에 Ctrl+V로 이미지 붙여넣기 (풀이 메모용)</div>
+<div id="extra-imgs"></div>
+<script>
+document.getElementById('paste-hint').addEventListener('click', () => document.getElementById('paste-hint').focus());
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const url = URL.createObjectURL(item.getAsFile());
+      const img = document.createElement('img'); img.src = url;
+      document.getElementById('extra-imgs').appendChild(img);
+      e.preventDefault();
+    }
+  }
+});
+<\/script>
+</body></html>`;
+
+  const blob = new Blob([winHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, `qview_${id}`, 'width=800,height=900,resizable=yes,scrollbars=yes');
+  if (!w) alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function renderQviewExtraImgs() {
@@ -1697,7 +1826,44 @@ document.getElementById('btn-qview-save-imgs').addEventListener('click', async (
   }
 });
 
-// ============ 참고HTML2 팝업 ============
+// ============ 태그 새창 보기 ============
+function openTagsWindow(id) {
+  const q = byId(id);
+  if (!q) return;
+  const tags = q.tags || [];
+
+  // 같은 태그를 가진 문제들 집계
+  const tagStats = tags.map(t => {
+    const related = questions.filter(x => !x.hidden && (x.tags || []).includes(t));
+    return { tag: t, count: related.length, ids: related.map(x => x.id) };
+  });
+
+  const tagsHTML = tagStats.length
+    ? tagStats.map(s => `
+        <div style="background:white;border:1px solid #ddd;border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+          <div style="font-size:15px;font-weight:700;color:#534AB7;margin-bottom:4px;">#${escapeHTML(s.tag)}</div>
+          <div style="font-size:12px;color:#9b9484;">이 태그가 달린 문제 ${s.count}개</div>
+        </div>`).join('')
+    : '<p style="color:#9b9484;text-align:center;padding:40px 0;">등록된 태그가 없습니다.</p>';
+
+  const winHTML = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>태그 — ${escapeHTML(q.title || '')}</title>
+<style>
+  body{margin:0;padding:20px;background:#F5F4FF;font-family:system-ui,sans-serif;}
+  h2{font-size:16px;font-weight:700;margin:0 0 4px;color:#1c2230;}
+  .sub{font-size:12px;color:#9b9484;margin-bottom:18px;}
+</style></head><body>
+<h2>🏷️ 태그 — ${escapeHTML(q.title || '')}</h2>
+<div class="sub">${escapeHTML(q.category || '')} · 오답 ${q.wrongCount || 0}회</div>
+${tagsHTML}
+</body></html>`;
+
+  const blob = new Blob([winHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, `tags_${id}`, 'width=420,height=500,resizable=yes,scrollbars=yes');
+  if (!w) alert('팝업이 차단되었습니다.');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 async function openRef2Popup(q, btn) {
   ref2ExtraImages = [];
   document.getElementById('ref2-title').textContent = `📄 ${q.ref2Label || '참고 자료 2'} — ${q.title || ''}`;
@@ -2097,17 +2263,19 @@ async function renderCard(deck, id, idx) {
           <span class="category-tag">${escapeHTML(q.category || '미분류')}</span>
           <span class="last-date-tag">${lastDateLabel}</span>
           ${q.wrongCount ? `<span class="wrong-count-badge">오답 ${q.wrongCount}회</span>` : ''}
-          <button class="ref-link-btn ref-link-inline" data-open-qview="${id}" title="문제만 크게 보기 (붙여넣기 가능)">📋 문제만 보기</button>
+          ${staleHTML}
+        </div>
+        <div class="meta-row btn-row">
+          <button class="ref-link-btn ref-link-inline" data-open-qview="${id}" title="문제 이미지 새창으로 보기">📋 문제</button>
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
           ${q.ref2FileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref2="${id}" title="참고 HTML 파일 2 열기">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
-          ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
-          <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 등록 및 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
-          <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴 <span class="routine-grade-inline ${(loadRoutineStore()[id] || {}).grade || 'A'}">${(loadRoutineStore()[id] || {}).grade || 'A'}</span></button>
-          ${staleHTML}
-          ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
+          ${(q.noteImages && q.noteImages.length > 0) || q.noteText ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="나의 정답 새창으로 보기">📝 나의 정답</button>` : ''}
+          <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 새창으로 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
+          ${(q.tags && q.tags.length > 0) ? `<button class="ref-link-btn ref-link-inline tag-view-btn" data-open-tags="${id}" title="태그 새창으로 보기">🏷️ 태그</button>` : ''}
+          <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴</button>
         </div>
       </div>
-      <button class="quick-wrong-btn" data-quick-wrong="${id}" title="빠른 오답 기록 (다음 미기록 회독에 X 표시)">✕</button>
+      <div class="routine-grade-badge-head ${(loadRoutineStore()[id] || {}).grade || 'A'}" data-open-routine="${id}" title="루틴 등급 — 클릭하면 루틴 시작">${(loadRoutineStore()[id] || {}).grade || 'A'}</div>
       <button class="fav-btn ${q.favorite ? 'active' : ''}" data-fav="${id}" title="즐겨찾기">${q.favorite ? '★' : '☆'}</button>
       <div class="due-badge ${due.cls}">${due.label}</div>
       <div class="chevron">▾</div>
@@ -2127,6 +2295,7 @@ async function renderCard(deck, id, idx) {
         <div class="hidden-toggle-row">
           <button class="io-btn" data-edit="${id}">문제 수정</button>
           <button class="io-btn" data-hide="${id}">${q.hidden ? '숨기기 해제' : '문제 숨기기'}</button>
+          <button class="io-btn" data-open-flashcard-edit="${id}">🗂️ 암기카드 추가/수정</button>
         </div>
       </div>
     </div>
@@ -2296,9 +2465,9 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const openRef2Btn = e.target.closest('[data-open-ref2]');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
   const flashcardBtn = e.target.closest('[data-open-flashcards]');
-  const quickWrongBtn = e.target.closest('[data-quick-wrong]');
-  const openQviewBtn = e.target.closest('[data-open-qview]');
-  const openRoutineBtn = e.target.closest('[data-open-routine]');
+  const flashcardEditBtn = e.target.closest('[data-open-flashcard-edit]');
+  const openTagsBtn = e.target.closest('[data-open-tags]');
+  const routineGradeBadge = e.target.closest('.routine-grade-badge-head');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -2326,28 +2495,24 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     return;
   }
 
-  if (openRoutineBtn) {
+  if (openTagsBtn) {
     e.stopPropagation();
-    const id = Number(openRoutineBtn.dataset.openRoutine);
+    const id = Number(openTagsBtn.dataset.openTags);
+    openTagsWindow(id);
+    return;
+  }
+
+  if (routineGradeBadge) {
+    e.stopPropagation();
+    const id = Number(routineGradeBadge.dataset.openRoutine);
     openRoutinePanel(id);
     return;
   }
 
-  if (quickWrongBtn) {
+  if (openRoutineBtn) {
     e.stopPropagation();
-    const id = Number(quickWrongBtn.dataset.quickWrong);
-    const q = byId(id);
-    if (!q) return;
-    // 다음 미기록 회독 찾기
-    let targetRound = 1;
-    for (let r = 1; r <= TOTAL_ROUNDS; r++) {
-      if (!getMark(q, r)) { targetRound = r; break; }
-      if (r === TOTAL_ROUNDS) targetRound = TOTAL_ROUNDS; // 모두 기록된 경우 마지막 회독 덮어쓰기
-    }
-    await setMark(id, targetRound, 'wrong');
-    // 버튼 깜빡임 효과
-    quickWrongBtn.classList.add('flashed');
-    setTimeout(() => quickWrongBtn.classList.remove('flashed'), 600);
+    const id = Number(openRoutineBtn.dataset.openRoutine);
+    openRoutinePanel(id);
     return;
   }
 
@@ -2364,6 +2529,13 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     e.stopPropagation();
     const id = Number(flashcardBtn.dataset.openFlashcards);
     openFlashcardOverlay(id);
+    return;
+  }
+
+  if (flashcardEditBtn) {
+    e.stopPropagation();
+    const id = Number(flashcardEditBtn.dataset.openFlashcardEdit);
+    openFlashcardEdit(id);
     return;
   }
 
@@ -2408,6 +2580,9 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const id = Number(noteSaveBtn.dataset.noteSave);
     const textarea = document.querySelector(`[data-note-text="${id}"]`);
     byId(id).noteText = textarea.value;
+    // 오답노트 → 루틴 메모 동기화
+    setRoutineState(id, { note: textarea.value });
+    if (routineCurrentId === id) { routineNote = textarea.value; }
     await saveDataToDrive();
     noteSaveBtn.textContent = '저장됨 ✓';
     setTimeout(() => { noteSaveBtn.textContent = '노트 저장'; }, 1200);
@@ -3104,7 +3279,9 @@ function openRoutinePanel(id) {
   clearInterval(routineTimerInterval);
   routineTimerRunning = false;
   const rs = getRoutineState(id);
-  routineNote = rs.note || '';
+  const q = byId(id);
+  // 루틴 메모가 없으면 오답노트 텍스트를 초기값으로 사용
+  routineNote = rs.note || (q ? (q.noteText || '') : '');
   document.getElementById('routine-panel').style.display = 'flex';
   renderRoutineBody();
 }
@@ -3460,6 +3637,17 @@ function applyRoutineAssess(r) {
   setRoutineState(routineCurrentId, { grade: ng, mc: nmc, note: routineNote });
   clearInterval(routineTimerInterval);
   routineTimerRunning = false;
+  // 루틴 메모 → 오답노트 동기화
+  if (routineNote) {
+    const qr = byId(routineCurrentId);
+    if (qr) {
+      qr.noteText = routineNote;
+      // 오답노트 textarea가 열려있으면 즉시 반영
+      const ta = document.querySelector(`[data-note-text="${routineCurrentId}"]`);
+      if (ta) ta.value = routineNote;
+      saveDataToDrive();
+    }
+  }
   render(); // 카드 뱃지 즉시 갱신
 
   // 결과 화면 렌더
