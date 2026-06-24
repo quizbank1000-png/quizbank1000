@@ -575,6 +575,7 @@
       <button class="io-btn" id="btn-backup">전체 백업 다운로드</button>
       <button class="io-btn" id="btn-exam-mode">🎯 시험 모드</button>
       <button class="io-btn" id="btn-wrong-focus">🔥 오답 집중</button>
+      <button class="io-btn" id="btn-study-routine" style="background:var(--accent);color:white;border-color:var(--accent);font-weight:700;">📚 학습루틴</button>
       <span class="backup-progress" id="backup-progress"></span>
     </div>
     <div class="hidden-toggle-row" style="margin-top:6px;">
@@ -625,6 +626,15 @@
 
       <div class="flashcard-list" id="flashcard-list"></div>
     </div>
+  </div>
+
+  <!-- 학습루틴 오버레이 -->
+  <div id="lr-overlay" style="display:none; position:fixed; inset:0; z-index:200; background:var(--paper); flex-direction:column; overflow:hidden;">
+    <div id="lr-header" style="display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line); background:var(--card); flex-shrink:0;">
+      <span style="font-size:16px; font-weight:700; flex:1;">📚 학습루틴 문제은행</span>
+      <button id="btn-lr-close" style="border:1px solid var(--line); background:var(--card); color:var(--ink); padding:6px 14px; border-radius:7px; font-size:13px; cursor:pointer; font-family:inherit;">✕ 닫기</button>
+    </div>
+    <div id="lr-root" style="flex:1; overflow-y:auto; background:#f1efe8;"></div>
   </div>
 
   <!-- 키보드 단축키 힌트 -->
@@ -2729,6 +2739,584 @@ async function finishExam() {
     collapsed = !collapsed;
     localStorage.setItem('topbar-collapsed', collapsed ? '1' : '0');
     applyState();
+  });
+})();
+
+// ============ 학습루틴 ============
+(function() {
+  // ── CSS 격리 삽입 ──
+  const style = document.createElement('style');
+  style.textContent = `
+  #lr-root { font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+  #lr-root * { box-sizing: border-box; margin: 0; padding: 0; }
+  .lr-app { max-width: 540px; margin: 0 auto; padding: 0 0 80px; }
+  .lr-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 10px; padding: 1rem; margin-bottom: 0.65rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  body.dark-mode .lr-card { background: #252830; border-color: rgba(255,255,255,0.1); }
+  body.dark-mode #lr-root { background: #1a1c22 !important; }
+  body.dark-mode .lr-app { color: #f0ede8; }
+  .lr-badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; display: inline-block; white-space: nowrap; }
+  .lr-ga { background:#FCEBEB; color:#791F1F; } body.dark-mode .lr-ga { background:#501313; color:#F7C1C1; }
+  .lr-gb { background:#FAEEDA; color:#633806; } body.dark-mode .lr-gb { background:#412402; color:#FAC775; }
+  .lr-gc { background:#E1F5EE; color:#085041; } body.dark-mode .lr-gc { background:#04342C; color:#9FE1CB; }
+  .lr-nav { position: absolute; bottom: 0; left: 0; right: 0; background: #fff; border-top: 0.5px solid rgba(0,0,0,0.12); display: flex; z-index: 10; }
+  body.dark-mode .lr-nav { background: #252830; border-color: rgba(255,255,255,0.1); }
+  .lr-nav button { flex: 1; padding: 0.7rem 0 0.5rem; background: none; border: none; color: #888; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; font-family: inherit; }
+  .lr-nav button.active { color: #378ADD; }
+  .lr-nav button span.ni { font-size: 20px; }
+  .lr-view { padding: 1rem 1rem 0; }
+  .lr-view-title { font-size: 17px; font-weight: 700; margin-bottom: 1rem; }
+  .lr-grade-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.65rem; }
+  .lr-grade-stat { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center; cursor: pointer; transition: border-color 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  body.dark-mode .lr-grade-stat { background: #252830; border-color: rgba(255,255,255,0.1); }
+  .lr-grade-stat .lr-count { font-size: 28px; font-weight: 700; line-height: 1.1; margin: 0.25rem 0 0.1rem; }
+  .lr-grade-stat .lr-sub { font-size: 11px; color: #888; }
+  .lr-progress-bar { height: 6px; background: #e8e6df; border-radius: 3px; overflow: hidden; }
+  body.dark-mode .lr-progress-bar { background: #2c2c2a; }
+  .lr-progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .lr-tabs { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .lr-tab { padding: 0.3rem 0.8rem; font-size: 12px; border-radius: 6px; border: 0.5px solid rgba(0,0,0,0.12); background: transparent; color: #888; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .lr-tab.active { background: #fff; color: #1a1916; border-color: rgba(0,0,0,0.22); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  body.dark-mode .lr-tab.active { background: #252830; color: #f0ede8; }
+  .lr-problem-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; margin-bottom: 0.35rem; background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: opacity 0.15s; }
+  body.dark-mode .lr-problem-row { background: #252830; border-color: rgba(255,255,255,0.1); }
+  .lr-problem-row.not-due { opacity: 0.5; }
+  .lr-problem-row.due { border-color: rgba(0,0,0,0.22); }
+  .lr-pnum { width: 28px; height: 28px; border-radius: 50%; background: #f1efe8; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 500; color: #888; flex-shrink: 0; }
+  body.dark-mode .lr-pnum { background: #2c2c2a; }
+  .lr-pinfo { flex: 1; min-width: 0; }
+  .lr-ptitle { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lr-ptype { font-size: 11.5px; color: #888; margin-top: 2px; }
+  .lr-start-btn { padding: 0.3rem 0.8rem; font-size: 12.5px; font-weight: 500; background: #fff; border: 0.5px solid rgba(0,0,0,0.22); border-radius: 6px; color: #1a1916; flex-shrink: 0; cursor: pointer; font-family: inherit; }
+  body.dark-mode .lr-start-btn { background: #252830; color: #f0ede8; }
+  .lr-big-btn { width: 100%; padding: 0.7rem; font-size: 13.5px; font-weight: 500; background: #fff; border: 0.5px solid rgba(0,0,0,0.22); border-radius: 10px; color: #1a1916; display: flex; align-items: center; justify-content: center; gap: 0.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer; font-family: inherit; margin-bottom: 0.65rem; }
+  body.dark-mode .lr-big-btn { background: #252830; color: #f0ede8; }
+  .lr-back-btn { font-size: 12.5px; color: #888; background: none; border: none; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.7rem; padding: 0.2rem 0; cursor: pointer; font-family: inherit; }
+  .lr-step-dots { display: flex; align-items: center; gap: 0.4rem; padding: 0 0.2rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+  .lr-dot { height: 8px; border-radius: 4px; transition: all 0.3s ease; flex-shrink: 0; }
+  .lr-dot-done { background: #1D9E75; width: 8px; }
+  .lr-dot-active { background: #378ADD; width: 28px; }
+  .lr-dot-todo { background: rgba(0,0,0,0.22); width: 8px; }
+  .lr-dot-label { font-size: 11.5px; color: #888; font-weight: 500; white-space: nowrap; }
+  .lr-timer { font-size: 48px; font-weight: 500; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; text-align: center; margin-bottom: 0.55rem; }
+  .lr-timer.urgent { color: #E24B4A; }
+  .lr-timer-btns { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+  .lr-timer-btn { padding: 0.5rem 1.1rem; font-size: 13px; border-radius: 6px; border: 0.5px solid rgba(0,0,0,0.22); background: #fff; color: #1a1916; display: flex; align-items: center; gap: 0.35rem; cursor: pointer; font-family: inherit; }
+  body.dark-mode .lr-timer-btn { background: #252830; color: #f0ede8; }
+  .lr-step-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .lr-step-title { font-size: 13.5px; font-weight: 500; }
+  .lr-step-mins { font-size: 12px; color: #888; margin-left: auto; }
+  .lr-step-instr { font-size: 13px; color: #888; line-height: 1.75; padding: 0.25rem 0; }
+  .lr-assess-btn { width: 100%; padding: 0.7rem 0.9rem; margin-bottom: 0.45rem; text-align: left; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 0.7rem; border: 0.5px solid; font-family: inherit; }
+  .lr-assess-btn .aa-icon { font-size: 22px; flex-shrink: 0; }
+  .lr-assess-btn .aa-title { font-size: 13.5px; font-weight: 500; }
+  .lr-assess-btn .aa-desc { font-size: 12px; margin-top: 1px; opacity: 0.8; }
+  .lr-assess-btn .aa-pred { font-size: 11.5px; opacity: 0.7; margin-left: auto; white-space: nowrap; }
+  .lr-ass-p { background:#E1F5EE; border-color:#5DCAA5; color:#085041; } body.dark-mode .lr-ass-p { background:#04342C; border-color:#1D9E75; color:#9FE1CB; }
+  .lr-ass-s { background:#FAEEDA; border-color:#EF9F27; color:#633806; } body.dark-mode .lr-ass-s { background:#412402; border-color:#BA7517; color:#FAC775; }
+  .lr-ass-f { background:#FCEBEB; border-color:#F09595; color:#791F1F; } body.dark-mode .lr-ass-f { background:#501313; border-color:#A32D2D; color:#F7C1C1; }
+  .lr-result-card { text-align: center; padding: 1.5rem 1rem; border-radius: 10px; border: 0.5px solid; margin-bottom: 0.65rem; }
+  .lr-result-up { background:#E1F5EE; border-color:#5DCAA5; color:#085041; } body.dark-mode .lr-result-up { background:#04342C; border-color:#1D9E75; color:#9FE1CB; }
+  .lr-result-down { background:#FCEBEB; border-color:#F09595; color:#791F1F; } body.dark-mode .lr-result-down { background:#501313; border-color:#A32D2D; color:#F7C1C1; }
+  .lr-result-same { background:#f8f7f4; border-color:rgba(0,0,0,0.12); } body.dark-mode .lr-result-same { background:#242422; border-color:rgba(255,255,255,0.1); }
+  .lr-result-msg { font-size: 15px; font-weight: 500; margin: 0.5rem 0 1rem; }
+  .lr-result-grade { font-size: 12px; color: #888; margin-bottom: 0.3rem; }
+  .lr-trap-item { padding: 0.5rem 0; border-bottom: 0.5px solid rgba(0,0,0,0.12); }
+  .lr-trap-item:last-child { border-bottom: none; }
+  .lr-trap-title { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+  .lr-trap-note { font-size: 12px; color: #888; line-height: 1.6; }
+  .lr-stat-bar { height: 10px; background: #f1efe8; border-radius: 5px; overflow: hidden; margin-top: 0.2rem; }
+  body.dark-mode .lr-stat-bar { background: #2c2c2a; }
+  .lr-stat-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s ease; }
+  textarea.lr-textarea { width: 100%; min-height: 64px; font-size: 12.5px; padding: 0.5rem 0.65rem; resize: vertical; background: #f8f7f4; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 6px; color: #1a1916; font-family: inherit; }
+  body.dark-mode textarea.lr-textarea { background: #242422; border-color: rgba(255,255,255,0.1); color: #f0ede8; }
+  textarea.lr-textarea:focus { outline: none; border-color: rgba(0,0,0,0.22); }
+  .lr-empty { padding: 2rem; text-align: center; color: #888; font-size: 13px; }
+  `;
+  document.head.appendChild(style);
+
+  // ── 데이터 ──
+  const P = [
+    { id: 1, n: '01', t: '배관 허용압력 강하 R', ty: '배관·압력' },
+    { id: 2, n: '02', t: '간접가열 급탕 MTD·전열면적', ty: '급탕·열교환' },
+    { id: 3, n: '03', t: '펌프 전양정·축동력 (상당장표)', ty: '펌프·양정' },
+    { id: 4, n: '04', t: '달시공식 배관 마찰손실수두', ty: '배관·압력' },
+    { id: 5, n: '05', t: '급수량 계산 — 냉각수 보급 포함', ty: '급수량' },
+    { id: 6, n: '06', t: '급탕설비 저탕용량·가열용량', ty: '급탕·열교환' },
+    { id: 7, n: '07', t: '급수관경 결정 — 균등표 이용', ty: '관경결정' },
+    { id: 8, n: '08', t: '급수 부하단위(fu)·동시사용유량', ty: '관경결정' },
+    { id: 9, n: '09', t: '분기 배관 유속·관내경·마찰손실', ty: '배관·압력' },
+    { id: 10, n: '10', t: '비상용수·고가수조 저수량', ty: '급수량' },
+    { id: 11, n: '11', t: '동관 증기가열 코일·가닥수·증기량', ty: '급탕·열교환' },
+    { id: 12, n: '12', t: '양수펌프 양정·수동력·축동력', ty: '펌프·양정' },
+    { id: 13, n: '13', t: '저탕형 급탕 가열코일 Qs 공식', ty: '급탕·열교환' },
+    { id: 14, n: '14', t: '배수조 용량 — 오수·선큰 우수', ty: '기타' },
+    { id: 15, n: '15', t: '급수·급탕 1일량·시간최대·저탕조', ty: '급수량' },
+    { id: 16, n: '16', t: '고가수조 필요 높이', ty: '기타' },
+    { id: 17, n: '17', t: '증기가열 코일 길이·증기량', ty: '급탕·열교환' },
+    { id: 18, n: '18', t: '증기 보일러 급탕부하·상용출력·효율', ty: '급탕·열교환' },
+    { id: 19, n: '19', t: '급수·시간최대·냉각탑 보급수량', ty: '급수량' },
+    { id: 20, n: '20', t: '펌프 전양정·축동력 — 달시공식', ty: '펌프·양정' },
+    { id: 21, n: '21', t: '다층 건물 양수펌프 실양정·전양정', ty: '펌프·양정' },
+    { id: 22, n: '22', t: '급수설비 종합 — 펌프·저탕·물량산출', ty: '급수량' },
+    { id: 23, n: '23', t: '송수관로 달시공식 역산 유속·유량', ty: '배관·압력' },
+    { id: 24, n: '24', t: '배관계통 구간별 마찰손실 (상당관표)', ty: '배관·압력' },
+    { id: 25, n: '25', t: 'FU + 허용마찰손실 + 배관선도 → 관경', ty: '관경결정' },
+    { id: 26, n: '26', t: '상당관표 + 동시사용률 → 관경 결정', ty: '관경결정' },
+    { id: 27, n: '27', t: '동관 균등표 + 기구종류별 동시사용률', ty: '관경결정' },
+    { id: 28, n: '28', t: '급수부하단위(FU) + 유량선도 → 관경', ty: '관경결정' },
+    { id: 29, n: '29', t: '분기배관 유속·마찰손실·등마찰 유량분배', ty: '배관·압력' },
+    { id: 30, n: '30', t: '부스터 펌프 유량·양정·축동력', ty: '펌프·양정' },
+    { id: 31, n: '31', t: '중앙식 급탕 배관 열손실 + 순환펌프', ty: '급탕·열교환' },
+    { id: 32, n: '32', t: '급탕 팽창탱크 — 팽창량·개방형·밀폐형', ty: '급탕·열교환' },
+    { id: 33, n: '33', t: '개방형 팽창탱크 팽창관 입상 높이', ty: '급탕·열교환' },
+    { id: 34, n: '34', t: '급탕 허용마찰손실 + 관경 + 순환펌프', ty: '급탕·열교환' },
+    { id: 35, n: '35', t: '배수·통기 시스템 통기관 명칭 (암기)', ty: '기타' },
+    { id: 36, n: '36', t: '배수관 관경 결정 — FUD 단위법', ty: '기타' },
+    { id: 37, n: '37', t: '배수 횡지관·횡주관·입관 관경 — fu법', ty: '기타' },
+    { id: 38, n: '38', t: '우수관 관경 결정 — 지붕면적 기준', ty: '기타' },
+    { id: 39, n: '39', t: '화장실 배수관경 — 배수기구단위법', ty: '기타' },
+    { id: 40, n: '40', t: '병렬배관 분기 유속 — 등마찰손실 조건', ty: '배관·압력' },
+    { id: 101, n: '난방01', t: '벽체 열통과 저항 R 계산 (다층 구조체)', ty: '열관류율', ch: '난방부하' },
+    { id: 102, n: '난방02', t: '열관류율 K + 손실열량 + 표면온도 + 결로 판단', ty: '열관류율', ch: '난방부하' },
+    { id: 103, n: '난방03', t: '노점온도 + 실내측 표면온도 + 결로 판단', ty: '열관류율', ch: '난방부하' },
+    { id: 104, n: '난방04', t: '결로 방지 단열재 두께 산출', ty: '열관류율', ch: '난방부하' },
+    { id: 105, n: '난방05', t: '공기층·다층벽 열관류율·손실열량·결로 판단', ty: '열관류율', ch: '난방부하' },
+    { id: 106, n: '난방06', t: '방위계수·대기복사 보정 — 벽체 손실열량', ty: '손실열량', ch: '난방부하' },
+    { id: 107, n: '난방07', t: 'Stefan-Boltzmann 복사 난방 전열량', ty: '손실열량', ch: '난방부하' },
+    { id: 108, n: '난방08', t: '난방부하계산서 (면적·온도차·방위계수·틈새·환기)', ty: '난방부하계산서', ch: '난방부하' },
+    { id: 109, n: '난방09', t: '창면적비 — 평균 K = KW·AW + KG·AG', ty: '열관류율', ch: '난방부하' },
+    { id: 110, n: '난방10', t: '최상층 사무실 난방부하계산서 (외벽·천장·창·환기)', ty: '난방부하계산서', ch: '난방부하' },
+    { id: 111, n: '난방11', t: '건물 난방부하 + 취출공기온도 계산', ty: '난방부하계산서', ch: '난방부하' },
+    { id: 112, n: '난방12', t: '복합 문짝 평균 열관류율 (면적가중)', ty: '열관류율', ch: '난방부하' },
+    { id: 113, n: '난방13', t: '에너지성능지표 — 법적 기준 단열재 두께 역산', ty: '열관류율', ch: '난방부하' },
+    { id: 114, n: '난방14', t: '온수난방 부하계산서 + 유리창 표면온도 + 방열기 쪽수', ty: '난방부하계산서', ch: '난방부하' },
+    { id: 115, n: '난방15', t: '사무실 난방부하 + 방열기 쪽수 (온수/증기)', ty: '난방부하계산서', ch: '난방부하' },
+    { id: 116, n: '난방16', t: '온도구배법·열평형식 — 각 지점 벽면 온도', ty: '열관류율', ch: '난방부하' },
+    { id: 201, n: '프로01', t: '외기 전용 난방 — 선도 작도 + 온수코일 부하 + 증기가습량', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 202, n: '프로02', t: '혼합·가열·단열분무·재열 — 선도 + 가열코일 + 온수순환량', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 203, n: '프로03', t: '혼합온도 + 취출공기온도 + 가열코일 부하', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 204, n: '프로04', t: '온풍로 — 혼합온도·외기부하·바이패스풍량·출력', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 205, n: '프로05', t: '냉방 프로세스 — 송풍량·코일출구온도', ty: '냉방프로세스', ch: '난방프로세스' },
+    { id: 206, n: '프로06', t: '혼합공기 엔탈피·현열부하·송풍량·가습량·가열부하', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 207, n: '프로07', t: 'SHF·혼합공기·취출온도·송풍량·가열코일·가습량 종합', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 208, n: '프로08', t: '냉방 현열비·송풍량·혼합온도·엔탈피·냉각코일 부하', ty: '냉방프로세스', ch: '난방프로세스' },
+    { id: 209, n: '프로09', t: '혼합→가열→가습 상태점 온도 + SHF선·가습선 구간', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 210, n: '프로10', t: '혼합·가열·증기가습 — 상태점·가습량·가열코일 부하', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 211, n: '프로11', t: '냉방 실별 풍량·잠열부하·덕트단면적 종합', ty: '냉방프로세스', ch: '난방프로세스' },
+    { id: 212, n: '프로12', t: '증기가습 — 절대습도 증가량·가습공기 상태·건구온도', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 213, n: '프로13', t: '증기 열교환기 — 공기 가열량·증기온도·증기 소비량', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 214, n: '프로14', t: '예열→혼합→단열분무→가열 — 난방 프로세스 작도', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 215, n: '프로15', t: '난방·냉방 계통도 → 선도 작도 (바이패스 포함)', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 216, n: '프로16', t: '리턴·배기·외기 풍량 — 온도 계산 (100% 리턴/배기)', ty: '난방프로세스', ch: '난방프로세스' },
+    { id: 301, n: '냉방01', t: '상당외기온도차법 — 벽체 냉방부하 (다층 외벽)', ty: '벽체·외피부하', ch: '냉방부하' },
+    { id: 302, n: '냉방02', t: '습공기 엔탈피 공식 h = 1.01T + x(2501 + 1.85T)', ty: '엔탈피·습공기', ch: '냉방부하' },
+    { id: 303, n: '냉방03', t: '극간풍 침입외기 — 현열부하·잠열부하', ty: '침입외기부하', ch: '냉방부하' },
+    { id: 304, n: '냉방04', t: '실내 현열부하 → 송풍량 (온도차·현열비)', ty: '송풍량 계산', ch: '냉방부하' },
+    { id: 305, n: '냉방05', t: '냉수코일 냉각열량 → 냉수 순환량 (열평형식)', ty: '냉각코일', ch: '냉방부하' },
+    { id: 306, n: '냉방06', t: '틈새바람 침입공기량 → 열손실 (크랙법)', ty: '침입외기부하', ch: '냉방부하' },
+    { id: 307, n: '냉방07', t: '실내 현열부하 → 송풍량 (kW 조건, 취출온도차)', ty: '송풍량 계산', ch: '냉방부하' },
+    { id: 308, n: '냉방08', t: '냉방부하계산서 종합 (벽·유리·인체·조명·틈새)', ty: '냉방부하계산서', ch: '냉방부하' },
+    { id: 309, n: '냉방09', t: '유리창 방위별 취득열량 (관류 + 일사) 종합표', ty: '유리창부하', ch: '냉방부하' },
+    { id: 310, n: '냉방10', t: '냉방부하계산서 — 사무실 전열·틈새·인체·조명 종합', ty: '냉방부하계산서', ch: '냉방부하' },
+    { id: 311, n: '냉방11', t: '냉방부하계산서 — 서측 사무실 (일사·관류·인체·외기)', ty: '냉방부하계산서', ch: '냉방부하' },
+    { id: 312, n: '냉방12', t: '실 현열비·현열부하·송풍량·외기도입·혼합온도', ty: '송풍량 계산', ch: '냉방부하' },
+    { id: 313, n: '냉방13', t: '실내 현열·잠열부하 종합 (전등·컴퓨터·인체·침입외기)', ty: '냉방부하계산서', ch: '냉방부하' },
+    { id: 314, n: '냉방14', t: 'CLTD/CLF/SCL법 — 지붕·외벽·유리창·인체·조명·틈새', ty: 'CLTD법', ch: '냉방부하' },
+    { id: 315, n: '냉방15', t: '냉방부하계산서 최상층 — 유리창 차폐계수·방위별 계산', ty: '냉방부하계산서', ch: '냉방부하' },
+    { id: 316, n: '냉방16', t: '전열교환기 — 냉방·난방 급기온도·엔탈피·부하 감소량', ty: '전열교환기', ch: '냉방부하' },
+    { id: 401, n: '냉프로01', t: 'SHF·송풍량·혼합공기 상태·냉각코일 감습·냉각열량', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 402, n: '냉프로02', t: '예냉코일·냉각코일·재열코일 — BF·출구상태·코일부하', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 403, n: '냉프로03', t: '냉방 공기조화 상태변화 — 현열비·감습·냉각코일·재열', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 404, n: '냉프로04', t: '냉방/난방 계통도 → 공기선도 작도 (재열·증기가습)', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 405, n: '냉프로05', t: 'SHF·외기부하·취출온도·송풍량·ADP·코일장치 노점온도', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 406, n: '냉프로06', t: '냉각코일 감습·재열코일부하·냉각코일부하 (혼합-재열-취출)', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 407, n: '냉프로07', t: '혼합온도·냉각기 출구온도·SHF·송풍량·각 코일 부하', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 408, n: '냉프로08', t: 'RSHF·취출공기량·혼합공기 상태·냉각코일 감습·냉각열량', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 409, n: '냉프로09', t: '제습(냉각건조) — 총제거에너지·감습량', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 410, n: '냉프로10', t: '예냉 냉방 시스템 — 예냉·혼합·냉각·취출 상태·응축수량', ty: '냉방프로세스', ch: '냉방프로세스' },
+    { id: 411, n: '냉프로11', t: '외기량 역산 (엔탈피 기준 혼합비) + 냉각열량·감습량', ty: '냉방프로세스', ch: '냉방프로세스' },
+  ];
+
+  const ST = {
+    A: [
+      { t: '유형 인식', m: 5, ic: '👁', d: '문제를 보고 "이건 ○○ 유형"이라고 소리내어 말해보세요. 어떤 공식 흐름을 써야 할지 먼저 떠올려보세요.' },
+      { t: '능동적 이해', m: 10, ic: '📖', d: '풀이를 펼치고 읽으세요. 매 줄마다 "왜 이 공식인가?"를 스스로 설명해야 합니다. 설명 못 하면 아직 이해가 아닙니다.' },
+      { t: '뼈대 추출', m: 5, ic: '✏️', d: '풀이를 덮으세요. 빈 종이에 ①유형명 ②공식 흐름 ③암기값 ④함정 포인트만 적으세요. 숫자는 쓰지 않아도 됩니다.' },
+      { t: '인출 연습', m: 15, ic: '✍️', d: '모든 것을 덮고 처음부터 끝까지 혼자 풀어보세요. 막혀도 30초 버티세요. 그래도 모르면 뼈대만 보고 처음부터 재시작.' },
+      { t: '오답 기록', m: 10, ic: '📋', d: '막혔던 지점을 아래 함정 메모에 기록하고, 자기 평가를 선택하세요.', assess: true },
+    ],
+    B: [
+      { t: '유형 확인', m: 1, ic: '👁', d: '"이건 ○○ 유형, 흐름은 ○○"를 말로 확인하세요. 뼈대카드는 보지 않습니다.' },
+      { t: '직접 풀기', m: 12, ic: '✍️', d: '뼈대 없이 처음부터 끝까지 혼자 완성하세요. 막혀도 바로 풀이 보지 말고 30초 버티세요.' },
+      { t: '오답 확인', m: 5, ic: '🔍', d: '풀이와 비교하세요. 틀린 계산, 잘못된 단위 변환만 확인합니다.' },
+      { t: '기록 & 평가', m: 2, ic: '📋', d: '또 막혔다면 함정 메모를 갱신하고, 자기 평가를 선택하세요.', assess: true },
+    ],
+    C: [
+      { t: '흐름 설명', m: 3, ic: '💬', d: '뼈대카드 없이 공식 흐름을 입으로 설명해보세요. "이 유형은 ①→②→③ 순서"를 완벽히 말할 수 있으면 OK.' },
+      { t: '함정 확인', m: 3, ic: '⚠️', d: '나의 함정 메모에서 이 문제 포인트를 확인하세요. 단위 변환식, 조건 적용 순서를 다시 체크.' },
+      { t: '빠른 평가', m: 2, ic: '✅', d: '얼마나 잘 됐나요? 자기 평가를 선택하면 다음 복습일이 정해집니다.', assess: true },
+    ],
+  };
+
+  function getPromo(g, mc, r) {
+    if (g === 'A') {
+      if (r === 'p') return { ng: 'B', mc: 0, days: 3, msg: 'B급으로 승급! 🎉', type: 'up' };
+      if (r === 's') return { ng: 'A', mc: 0, days: 1, msg: '내일 다시 연습', type: 'same' };
+      return { ng: 'A', mc: 0, days: 0, msg: '오늘 다시 도전!', type: 'same' };
+    }
+    if (g === 'B') {
+      if (r === 'p') return mc >= 1 ? { ng: 'C', mc: 0, days: 7, msg: 'C급 완전 마스터! 🏆', type: 'up' } : { ng: 'B', mc: 1, days: 3, msg: '한 번 더 완벽하면 C급!', type: 'same' };
+      if (r === 's') return { ng: 'B', mc: 0, days: 2, msg: '2일 후 다시 연습', type: 'same' };
+      return { ng: 'A', mc: 0, days: 1, msg: 'A급으로 강등', type: 'down' };
+    }
+    if (r === 'p') return { ng: 'C', mc: mc + 1, days: 7, msg: '완벽! 7일 후 복습 ✓', type: 'same' };
+    if (r === 's') return { ng: 'C', mc: 0, days: 4, msg: '4일 후 복습', type: 'same' };
+    return { ng: 'B', mc: 0, days: 2, msg: 'B급으로 강등', type: 'down' };
+  }
+  function predTxt(g, mc, r) {
+    const { ng, days } = getPromo(g, mc, r);
+    const ds = days === 0 ? '오늘 재도전' : days === 1 ? '내일' : days + '일 후';
+    return (ng !== g ? ng + '급 · ' : '') + ds;
+  }
+  function addDaysISO(n) { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(23, 59, 59, 999); return d.toISOString(); }
+  function fmt(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+
+  const STORE_KEY = 'kbsa-pbk-v2';
+  const def = id => ({ id, grade: 'A', mc: 0, last: null, next: null, note: '', sessions: 0 });
+
+  // ── 상태 ──
+  let view = 'home', ps = {}, loaded = false;
+  let sid = null, si = 0, tl = 0, running = false, note = '', result = null;
+  let tab = 'due', chFilter = 'all';
+  let tmrInterval = null, initTl = 0;
+
+  try { const s = localStorage.getItem(STORE_KEY); if (s) ps = JSON.parse(s); } catch (e) {}
+  loaded = true;
+  function savePs() { try { localStorage.setItem(STORE_KEY, JSON.stringify(ps)); } catch (e) {} }
+
+  function gp(id) { return ps[id] || def(id); }
+  const todayEnd = () => { const d = new Date(); d.setHours(23,59,59,999); return d; };
+  function isDue(p) { const s = gp(p.id); if (!s.last) return true; return new Date(s.next || 0) <= todayEnd(); }
+  function getDue() { return P.filter(isDue); }
+  function getCnt() { const c = {A:0,B:0,C:0}; P.forEach(p => c[gp(p.id).grade]++); return c; }
+  const chList = ['all', '위생설비', '난방부하', '난방프로세스', '냉방부하', '냉방프로세스'];
+
+  // ── 타이머 ──
+  function startTimer(secs) {
+    clearInterval(tmrInterval); tl = secs; initTl = secs; running = false; render();
+  }
+  function beginStep() { running = true; startTick(); render(); }
+  function startTick() {
+    clearInterval(tmrInterval);
+    tmrInterval = setInterval(() => {
+      if (!running) return;
+      tl--;
+      if (tl <= 0) { tl = 0; clearInterval(tmrInterval); running = false; }
+      renderTimerOnly();
+    }, 1000);
+  }
+
+  // ── 학습 흐름 ──
+  function startStudy(id) {
+    const s = gp(id);
+    sid = id; si = 0; note = s.note || ''; result = null; running = false;
+    startTimer(ST[s.grade][0].m * 60);
+    view = 'study'; render();
+  }
+  function goNext() {
+    clearInterval(tmrInterval); running = false;
+    si++;
+    const sp = P.find(p => p.id === sid);
+    const steps = ST[gp(sid).grade];
+    startTimer(steps[si].m * 60);
+    view = 'study'; render();
+  }
+  function assess(r) {
+    clearInterval(tmrInterval); running = false;
+    const s = gp(sid);
+    const { ng, mc, days, msg, type } = getPromo(s.grade, s.mc, r);
+    const now = new Date().toISOString();
+    ps[sid] = { ...s, grade: ng, mc, last: now, next: days === 0 ? now : addDaysISO(days), note, sessions: (s.sessions || 0) + 1 };
+    savePs();
+    result = { msg, type, ng, og: s.grade };
+    render();
+  }
+  function exitStudy() {
+    clearInterval(tmrInterval); running = false; sid = null; result = null;
+    view = 'list'; render();
+  }
+
+  // ── 렌더링 ──
+  function badge(g, small) {
+    const sz = small ? 'font-size:10px;padding:1px 5px;' : '';
+    return `<span class="lr-badge lr-g${g.toLowerCase()}" style="${sz}">${g}급</span>`;
+  }
+
+  function renderTimerOnly() {
+    const el = document.getElementById('lr-timer-display');
+    if (el) { el.textContent = fmt(tl); el.className = 'lr-timer' + (tl > 0 && tl < 60 ? ' urgent' : ''); }
+    const fill = document.getElementById('lr-timer-fill');
+    if (fill) { const pct = initTl > 0 ? Math.min(100, Math.round((1 - tl / initTl) * 100)) : 0; fill.style.width = pct + '%'; fill.style.background = tl < 60 ? '#E24B4A' : '#378ADD'; }
+  }
+
+  function getListData() {
+    const due = getDue();
+    const cnt = getCnt();
+    let base = tab === 'due' ? due : tab === 'A' ? P.filter(p => gp(p.id).grade === 'A') : tab === 'B' ? P.filter(p => gp(p.id).grade === 'B') : tab === 'C' ? P.filter(p => gp(p.id).grade === 'C') : P;
+    return base.filter(p => {
+      if (chFilter === 'all') return true;
+      if (chFilter === '위생설비') return !p.ch;
+      return p.ch === chFilter;
+    });
+  }
+
+  function render() {
+    const root = document.getElementById('lr-root');
+    if (!root) return;
+    const due = getDue();
+    const cnt = getCnt();
+    const studied = P.filter(p => gp(p.id).last).length;
+    const todayStr2 = new Date().toDateString();
+    const doneToday = P.filter(p => { const s = gp(p.id); return s.last && new Date(s.last).toDateString() === todayStr2; }).length;
+
+    let html = `<div class="lr-app" style="position:relative; min-height:100%;">`;
+
+    // ── HOME ──
+    if (view === 'home') {
+      html += `<div class="lr-view">
+        <div class="lr-view-title">건축설비기사 실기</div>
+        <div class="lr-grade-grid">
+          ${['A','B','C'].map(g => `
+            <div class="lr-grade-stat" data-lr-goto-grade="${g}">
+              <span class="lr-badge lr-g${g.toLowerCase()}" style="font-size:10.5px;">${g}급 · ${g==='A'?'45분':g==='B'?'20분':'8분'}</span>
+              <div class="lr-count">${cnt[g]}</div>
+              <div class="lr-sub">${g==='A'?'새 유형':g==='B'?'변형 연습':'마스터'}</div>
+            </div>`).join('')}
+        </div>
+        <div class="lr-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem;">
+            <span style="font-size:13px;font-weight:500;">📅 오늘 복습 예정</span>
+            <span style="font-size:13px;color:#888;">${doneToday} / ${due.length} 완료</span>
+          </div>
+          <div class="lr-progress-bar" style="margin-bottom:.4rem;">
+            <div class="lr-progress-fill" style="background:#1D9E75;width:${due.length?Math.round(doneToday/due.length*100):0}%;"></div>
+          </div>
+          <div style="font-size:12px;color:#888;">A급 ${due.filter(p=>gp(p.id).grade==='A').length} · B급 ${due.filter(p=>gp(p.id).grade==='B').length} · C급 ${due.filter(p=>gp(p.id).grade==='C').length}</div>
+        </div>
+        <div class="lr-card">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.5rem;">🎯 오늘의 목표</div>
+          ${[['A','새 유형 2~3개 · 45분 풀 사이클'],['B','변형 연습 6~8개 · 20분씩'],['C','빠른 복습 3~4개 · 8분씩']].map(([g,d]) =>
+            `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;">
+              <span class="lr-badge lr-g${g.toLowerCase()}" style="font-size:10.5px;min-width:28px;text-align:center;">${g}</span>
+              <span style="font-size:12.5px;color:#888;">${d}</span>
+            </div>`).join('')}
+        </div>
+        <div class="lr-card" style="margin-top:.5rem;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:.4rem;">
+            <span style="font-weight:500;">📚 전체 진도</span>
+            <span style="color:#888;">${studied} / ${P.length}</span>
+          </div>
+          <div class="lr-progress-bar" style="margin-bottom:.6rem;">
+            <div class="lr-progress-fill" style="background:#378ADD;width:${Math.round(studied/P.length*100)}%;"></div>
+          </div>
+          ${[['위생설비','위생설비 (40문제)',p=>!p.ch],['난방부하','난방부하 (16문제)',p=>p.ch==='난방부하'],['난방프로세스','난방 프로세스 (16문제)',p=>p.ch==='난방프로세스'],['냉방부하','냉방부하 (16문제)',p=>p.ch==='냉방부하'],['냉방프로세스','냉방 프로세스 (11문제)',p=>p.ch==='냉방프로세스']].map(([k,label,fn]) => {
+            const tot = P.filter(fn).length;
+            const done2 = P.filter(fn).filter(p=>gp(p.id).last).length;
+            return `<div style="margin-bottom:.4rem;">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#888;margin-bottom:.2rem;"><span>${label}</span><span>${done2}/${tot}</span></div>
+              <div class="lr-progress-bar"><div class="lr-progress-fill" style="background:#378ADD;width:${tot?Math.round(done2/tot*100):0}%;"></div></div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${due.length > 0 ? `<button class="lr-big-btn" data-lr-start-due="1">▶ 공부 시작 (${due.length}문제 대기)</button>` : ''}
+      </div>`;
+    }
+
+    // ── LIST ──
+    else if (view === 'list') {
+      const listData = getListData();
+      html += `<div class="lr-view">
+        <div class="lr-view-title">문제 목록</div>
+        <div class="lr-tabs">
+          ${['due','A','B','C','all'].map(t => `<button class="lr-tab${tab===t?' active':''}" data-lr-tab="${t}">${t==='due'?'오늘예정 '+due.length:t==='all'?'전체':t+'급 '+cnt[t]}</button>`).join('')}
+        </div>
+        <div class="lr-tabs" style="margin-bottom:.5rem;">
+          ${chList.map(c => `<button class="lr-tab${chFilter===c?' active':''}" data-lr-ch="${c}" style="font-size:11px;">${c==='all'?'전체':c==='위생설비'?'위생':c==='난방부하'?'난방부하':c==='난방프로세스'?'난방프로':c==='냉방부하'?'냉방부하':'냉방프로'}</button>`).join('')}
+        </div>
+        ${listData.length === 0 ? '<div class="lr-empty">해당 문제 없음</div>' : listData.map(p => {
+          const s = gp(p.id); const d2 = isDue(p);
+          const numColor = p.ch==='난방부하'?'color:#d97706':p.ch==='난방프로세스'?'color:#7c3aed':'';
+          return `<div class="lr-problem-row${d2?' due':' not-due'}">
+            <div class="lr-pnum" style="${numColor}">${p.n}</div>
+            <div class="lr-pinfo">
+              <div class="lr-ptitle">${p.t}</div>
+              <div class="lr-ptype">${p.ty}${s.note?' · 메모 있음':''}</div>
+            </div>
+            ${badge(s.grade)}
+            ${d2 ? `<button class="lr-start-btn" data-lr-start="${p.id}">시작</button>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // ── STUDY ──
+    else if (view === 'study' && sid) {
+      const sp = P.find(p => p.id === sid);
+      const sps = gp(sid);
+      const steps = ST[sps.grade];
+      const cur = steps[si] || {};
+      const pct2 = initTl > 0 ? Math.min(100, Math.round((1 - tl / initTl) * 100)) : 0;
+
+      html += `<div class="lr-view">
+        <button class="lr-back-btn" data-lr-exit>← 목록으로</button>
+        ${result ? `
+          <div class="lr-result-card lr-result-${result.type}">
+            <div style="font-size:36px;">${result.type==='up'?'⬆️':result.type==='down'?'⬇️':'✅'}</div>
+            ${result.og !== result.ng ? `<div class="lr-result-grade">${result.og}급 → ${result.ng}급</div>` : ''}
+            <div class="lr-result-msg">${result.msg}</div>
+            <button class="lr-big-btn" data-lr-exit style="margin-bottom:0;">목록으로 돌아가기</button>
+          </div>` : `
+          <div class="lr-card" style="padding:.8rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+              ${badge(sps.grade)}
+              <span style="font-size:12px;color:#888;">총 ${steps.reduce((a,s2)=>a+s2.m,0)}분</span>
+              ${sps.mc > 0 ? `<span style="font-size:11.5px;color:#888;margin-left:auto;">연속 성공 ${sps.mc}회</span>` : ''}
+            </div>
+            <div style="font-size:14.5px;font-weight:500;">${sp.n}. ${sp.t}</div>
+            <div style="font-size:12px;color:#888;margin-top:3px;">${sp.ty}</div>
+          </div>
+          <div class="lr-step-dots">
+            ${steps.map((s2,i) => `
+              <div style="display:flex;align-items:center;gap:.35rem;">
+                <div class="lr-dot ${i<si?'lr-dot-done':i===si?'lr-dot-active':'lr-dot-todo'}"></div>
+                ${i===si?`<span class="lr-dot-label">${s2.t}</span>`:''}
+              </div>`).join('')}
+          </div>
+          <div class="lr-card">
+            <div class="lr-step-header">
+              <span style="font-size:18px;">${cur.ic||'⭕'}</span>
+              <span class="lr-step-title">Step ${si+1}. ${cur.t}</span>
+              <span class="lr-step-mins">${cur.m}분 권장</span>
+            </div>
+            <div class="lr-step-instr">${cur.d}</div>
+          </div>
+          ${!cur.assess ? `
+            <div class="lr-card" style="text-align:center;padding:1.2rem 1rem;">
+              <div class="lr-timer${tl>0&&tl<60?' urgent':''}" id="lr-timer-display">${fmt(tl)}</div>
+              <div class="lr-progress-bar" style="margin-bottom:.85rem;">
+                <div class="lr-progress-fill" id="lr-timer-fill" style="background:${tl<60?'#E24B4A':'#378ADD'};width:${pct2}%;transition:width 1s linear;"></div>
+              </div>
+              <div class="lr-timer-btns">
+                ${!running && tl === initTl && tl > 0 ? `<button class="lr-timer-btn" data-lr-begin>▶ 타이머 시작</button>` : ''}
+                ${running ? `<button class="lr-timer-btn" data-lr-pause>⏸ 일시정지</button>` : ''}
+                ${!running && tl > 0 && tl < initTl ? `<button class="lr-timer-btn" data-lr-begin>▶ 재개</button>` : ''}
+                ${si < steps.length - 1 ? `<button class="lr-timer-btn" data-lr-next>다음 단계 →</button>` : ''}
+              </div>
+            </div>` : `
+            <div>
+              <div style="margin-bottom:.65rem;">
+                <div style="font-size:12px;color:#888;margin-bottom:.3rem;font-weight:500;">함정 메모</div>
+                <textarea class="lr-textarea" id="lr-note-textarea" placeholder="막혔던 포인트, 단위 변환 실수 등...">${note}</textarea>
+              </div>
+              <div style="font-size:13.5px;font-weight:500;text-align:center;margin-bottom:.55rem;">자기 평가</div>
+              ${[['p','lr-ass-p','✅','완벽하게 재현','막힘 없이 처음부터 끝까지 완성'],['s','lr-ass-s','➖','조금 막혔음','힌트가 필요했거나 일부 실수'],['f','lr-ass-f','❌','많이 막혔음','공식 흐름을 못 떠올렸다']].map(([r,cls,ico,title,desc]) =>
+                `<button class="lr-assess-btn ${cls}" data-lr-assess="${r}" data-lr-grade="${sps.grade}" data-lr-mc="${sps.mc}">
+                  <span class="aa-icon">${ico}</span>
+                  <div style="flex:1;">
+                    <div class="aa-title">${title}</div>
+                    <div class="aa-desc">${desc}</div>
+                  </div>
+                  <span class="aa-pred">${predTxt(sps.grade, sps.mc, r)}</span>
+                </button>`).join('')}
+            </div>`}
+        `}
+      </div>`;
+    }
+
+    // ── STATS ──
+    else if (view === 'stats') {
+      const studied2 = P.filter(p => gp(p.id).last).length;
+      html += `<div class="lr-view">
+        <div class="lr-view-title">통계</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.65rem;">
+          ${[['📚','전체 문제',P.length],['✅','학습 완료',studied2],['📅','오늘 예정',due.length],['⭐','C급 마스터',cnt.C]].map(([ic,l,v]) =>
+            `<div class="lr-card" style="margin-bottom:0;">
+              <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.3rem;color:#888;font-size:12px;">${ic} ${l}</div>
+              <div style="font-size:26px;font-weight:700;">${v}</div>
+            </div>`).join('')}
+        </div>
+        <div class="lr-card">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.7rem;">등급 분포</div>
+          ${[['A','새 유형 정복 중','#E24B4A'],['B','변형 연습 중','#EF9F27'],['C','완전 마스터','#1D9E75']].map(([g,d,cl]) =>
+            `<div style="margin-bottom:.6rem;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:.2rem;">
+                <div style="display:flex;align-items:center;gap:.4rem;">${badge(g,true)} <span style="color:#888;">${d}</span></div>
+                <span style="color:#888;">${cnt[g]}문제</span>
+              </div>
+              <div class="lr-stat-bar"><div class="lr-stat-bar-fill" style="background:${cl};width:${P.length?Math.round(cnt[g]/P.length*100):0}%;"></div></div>
+            </div>`).join('')}
+        </div>
+        ${P.filter(p => gp(p.id).note).length > 0 ? `
+        <div class="lr-card">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.5rem;">📋 함정 메모 모음</div>
+          ${P.filter(p => gp(p.id).note).map(p =>
+            `<div class="lr-trap-item">
+              <div class="lr-trap-title">${p.n}. ${p.t} ${badge(gp(p.id).grade, true)}</div>
+              <div class="lr-trap-note">${gp(p.id).note}</div>
+            </div>`).join('')}
+        </div>` : ''}
+      </div>`;
+    }
+
+    // ── NAV ──
+    html += `<nav class="lr-nav" style="position:sticky;bottom:0;">
+      ${[['home','🏠','대시보드'],['list','📋','문제목록'],['stats','📊','통계']].map(([v,ic,lb]) =>
+        `<button class="${view===v?'active':''}" data-lr-nav="${v}"><span class="ni">${ic}</span>${lb}</button>`).join('')}
+    </nav>`;
+
+    html += `</div>`;
+    root.innerHTML = html;
+
+    // ── 이벤트 위임 ──
+    root.addEventListener('click', handleLrClick, { once: true });
+    // textarea 실시간 저장
+    const ta = document.getElementById('lr-note-textarea');
+    if (ta) ta.addEventListener('input', e => { note = e.target.value; });
+  }
+
+  function handleLrClick(e) {
+    const t = e.target;
+    if (t.dataset.lrNav) { view = t.dataset.lrNav; render(); return; }
+    if (t.closest('[data-lr-goto-grade]')) { tab = t.closest('[data-lr-goto-grade]').dataset.lrGotoGrade; view = 'list'; render(); return; }
+    if (t.dataset.lrTab) { tab = t.dataset.lrTab; render(); return; }
+    if (t.dataset.lrCh) { chFilter = t.dataset.lrCh; render(); return; }
+    if (t.dataset.lrStart) { startStudy(Number(t.dataset.lrStart)); return; }
+    if (t.closest('[data-lr-start-due]')) { tab = 'due'; view = 'list'; render(); return; }
+    if (t.closest('[data-lr-exit]')) { exitStudy(); return; }
+    if (t.closest('[data-lr-begin]')) { beginStep(); return; }
+    if (t.closest('[data-lr-pause]')) { running = false; clearInterval(tmrInterval); render(); return; }
+    if (t.closest('[data-lr-next]')) { goNext(); return; }
+    if (t.dataset.lrAssess) {
+      // 메모 저장
+      const ta2 = document.getElementById('lr-note-textarea');
+      if (ta2) note = ta2.value;
+      assess(t.dataset.lrAssess);
+      return;
+    }
+    // re-attach listener
+    const root2 = document.getElementById('lr-root');
+    if (root2) root2.addEventListener('click', handleLrClick, { once: true });
+  }
+
+  // ── 오버레이 열기/닫기 ──
+  document.getElementById('btn-study-routine').addEventListener('click', () => {
+    const ov = document.getElementById('lr-overlay');
+    ov.style.display = 'flex';
+    render();
+  });
+  document.getElementById('btn-lr-close').addEventListener('click', () => {
+    clearInterval(tmrInterval); running = false;
+    document.getElementById('lr-overlay').style.display = 'none';
   });
 })();
 
