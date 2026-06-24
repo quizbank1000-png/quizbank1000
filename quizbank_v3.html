@@ -362,17 +362,24 @@
 
   /* ── 학습 루틴 패널 ── */
   .routine-panel {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.52); z-index: 120;
-    display: flex; align-items: flex-end; justify-content: center;
+    position: fixed; inset: 0; background: transparent; z-index: 120;
+    pointer-events: none;
   }
-  @media (min-width: 640px) { .routine-panel { align-items: center; } }
   .routine-box {
+    position: absolute; bottom: 0; left: 0; right: 0;
     background: var(--paper); border-radius: 18px 18px 0 0; width: 100%; max-width: 680px;
-    max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
-    box-shadow: 0 -8px 40px rgba(0,0,0,0.28);
+    margin: 0 auto; max-height: 72vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 -4px 32px rgba(0,0,0,0.22); pointer-events: all;
+    border-top: 2px solid #1D9E75;
     animation: routineSlideUp .28s ease;
   }
-  @media (min-width: 640px) { .routine-box { border-radius: 18px; max-height: 88vh; } }
+  @media (min-width: 760px) {
+    .routine-box {
+      position: absolute; bottom: 24px; right: 24px; left: auto;
+      width: 380px; max-width: 380px; border-radius: 16px;
+      border: 2px solid #1D9E75; max-height: 80vh;
+    }
+  }
   @keyframes routineSlideUp { from { transform: translateY(60px); opacity: 0; } to { transform: none; opacity: 1; } }
   .routine-header {
     display: flex; align-items: center; gap: 10px; padding: 14px 18px;
@@ -669,6 +676,13 @@
   .flashcard-view-btn:hover { background: #4a6fa5; color: white; }
   body.dark-mode .flashcard-view-btn {
     color: #7ea3d6; background: #1e2a3a; border-color: #4a6fa5;
+  }
+  .routine-card-btn {
+    color: #085041; background: #E1F5EE; border-color: #1D9E75;
+  }
+  .routine-card-btn:hover { background: #1D9E75; color: white; }
+  body.dark-mode .routine-card-btn {
+    color: #9FE1CB; background: #04342C; border-color: #1D9E75;
   }
   .ref-file-zone {
     border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
@@ -1986,6 +2000,7 @@ async function renderCard(deck, id, idx) {
           ${q.ref2FileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref2="${id}" title="참고 HTML 파일 2 열기">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
           ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
           <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 등록 및 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
+          <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴</button>
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
@@ -2181,6 +2196,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const flashcardBtn = e.target.closest('[data-open-flashcards]');
   const quickWrongBtn = e.target.closest('[data-quick-wrong]');
   const openQviewBtn = e.target.closest('[data-open-qview]');
+  const openRoutineBtn = e.target.closest('[data-open-routine]');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -2205,6 +2221,13 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     e.stopPropagation();
     const id = Number(openQviewBtn.dataset.openQview);
     openQviewPopup(id);
+    return;
+  }
+
+  if (openRoutineBtn) {
+    e.stopPropagation();
+    const id = Number(openRoutineBtn.dataset.openRoutine);
+    openRoutinePanel(id);
     return;
   }
 
@@ -3504,7 +3527,6 @@ document.getElementById('btn-exam-close').addEventListener('click', endExamMode)
 document.getElementById('exam-body').addEventListener('click', async (e) => {
   const openRefBtn = e.target.closest('[data-exam-open-ref]');
   const openRef2Btn = e.target.closest('[data-exam-open-ref2]');
-  const routineBtn = e.target.closest('#exam-routine-btn');
 
   if (openRefBtn) {
     e.stopPropagation();
@@ -3521,12 +3543,6 @@ document.getElementById('exam-body').addEventListener('click', async (e) => {
     if (!q?.ref2FileId) return;
     qviewCurrentId = id;
     await openRef2Popup(q, openRef2Btn);
-    return;
-  }
-  if (routineBtn) {
-    e.stopPropagation();
-    const id = examQueue[examIdx];
-    openRoutinePanel(id);
     return;
   }
 });
@@ -3588,9 +3604,6 @@ async function renderExamCard() {
   body.innerHTML = `
     <div class="exam-qnum">${examIdx + 1}번 문제 · ${escapeHTML(q.category || '미분류')} · ${starString(q.difficulty || 0)}</div>
     <div class="exam-qtitle">${escapeHTML(q.title || '(제목 없음)')}</div>
-    <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="exam-routine-btn" id="exam-routine-btn">📚 학습 루틴</button>
-    </div>
     <div class="exam-img-area" id="exam-qimg"><div class="img-loading">이미지 불러오는 중...</div></div>
     <div class="exam-answer-area">
       <textarea class="exam-answer-textarea" id="exam-textarea" placeholder="여기에 풀이를 적어보세요 (선택사항)"></textarea>
