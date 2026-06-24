@@ -724,6 +724,33 @@
   body.dark-mode .routine-card-btn {
     color: #9FE1CB; background: #04342C; border-color: #1D9E75;
   }
+
+  /* 루틴 A/B/C 뱃지 (카드 인라인) */
+  .routine-grade-inline {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 5px; vertical-align: middle; margin-left: 2px;
+  }
+  .routine-grade-inline.A { background: #FCEBEB; color: #791F1F; }
+  .routine-grade-inline.B { background: #FAEEDA; color: #633806; }
+  .routine-grade-inline.C { background: #E1F5EE; color: #085041; }
+  body.dark-mode .routine-grade-inline.A { background: #501313; color: #F7C1C1; }
+  body.dark-mode .routine-grade-inline.B { background: #412402; color: #FAC775; }
+  body.dark-mode .routine-grade-inline.C { background: #04342C; color: #9FE1CB; }
+
+  /* 루틴 topbar 필터 칩 */
+  .routine-topbar-chip {
+    font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: #6b6356;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .routine-topbar-chip:hover { border-color: #1D9E75; }
+  .routine-topbar-chip.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+  .routine-topbar-chip.rg-A.active { background: #b6492f; border-color: #b6492f; color: white; }
+  .routine-topbar-chip.rg-B.active { background: #c47a15; border-color: #c47a15; color: white; }
+  .routine-topbar-chip.rg-C.active { background: #0f6e56; border-color: #0f6e56; color: white; }
+  .routine-topbar-count {
+    font-family: var(--mono); font-size: 11px; color: #9b9484; margin-left: 2px;
+  }
   .ref-file-zone {
     border: 1.5px dashed var(--line); border-radius: 9px; padding: 14px 16px;
     font-size: 12.5px; color: #6b6356; cursor: pointer; background: var(--paper);
@@ -819,6 +846,14 @@
       <button class="io-btn" id="btn-exam-history">📊 시험 기록</button>
       <button class="io-btn" id="btn-wrong-focus">🔥 오답 집중</button>
       <span class="backup-progress" id="backup-progress"></span>
+    </div>
+    <div class="hidden-toggle-row" id="routine-filter-row" style="margin-top:4px;align-items:center;gap:6px;">
+      <span style="font-family:var(--mono);font-size:11px;color:#9b9484;flex-shrink:0;">📚 루틴</span>
+      <button class="routine-topbar-chip active" id="rf-all" data-rf="all">전체</button>
+      <button class="routine-topbar-chip rg-A" id="rf-A" data-rf="A">A급</button>
+      <button class="routine-topbar-chip rg-B" id="rf-B" data-rf="B">B급</button>
+      <button class="routine-topbar-chip rg-C" id="rf-C" data-rf="C">C급</button>
+      <span class="routine-topbar-count" id="routine-topbar-count"></span>
     </div>
     <div class="hidden-toggle-row" style="margin-top:6px;">
       <button class="dark-toggle" id="btn-dark-mode" title="다크모드 전환">🌙</button>
@@ -1079,6 +1114,7 @@ let favOnly = false;
 let showHidden = false;
 let dashOpen = false;
 let tagSearch = '';
+let routineGroupFilter = 'all'; // 루틴 그룹 필터: 'all'|'A'|'B'|'C'
 
 let modalMode = 'add';
 let modalEditId = null;
@@ -1992,6 +2028,9 @@ function render() {
   deck.innerHTML = '';
   currentOrder = getOrderedIds();
 
+  // 루틴 그룹 필터용 store 로드 (render마다 한번만)
+  const rStore = loadRoutineStore();
+
   let visibleIds = currentOrder.filter(id => {
     const q = byId(id);
     if (!q) return false;
@@ -2002,8 +2041,31 @@ function render() {
     if (wrongOnly && lastRoundMark(q) !== 'wrong') return false;
     if (favOnly && !q.favorite) return false;
     if (!matchesTagSearch(q, tagSearch)) return false;
+    if (routineGroupFilter !== 'all') {
+      const qg = (rStore[id] || {}).grade || 'A';
+      if (qg !== routineGroupFilter) return false;
+    }
     return true;
   });
+
+  // 루틴 topbar 칩 상태 업데이트
+  ['all','A','B','C'].forEach(g => {
+    const btn = document.getElementById('rf-' + g);
+    if (btn) btn.className = 'routine-topbar-chip' +
+      (g === 'A' ? ' rg-A' : g === 'B' ? ' rg-B' : g === 'C' ? ' rg-C' : '') +
+      (routineGroupFilter === g ? ' active' : '');
+  });
+  const countEl = document.getElementById('routine-topbar-count');
+  if (countEl) {
+    if (routineGroupFilter !== 'all') {
+      const total = questions.filter(q => !q.hidden && (rStore[q.id] || {}).grade === routineGroupFilter).length;
+      countEl.textContent = `${total}문제`;
+    } else {
+      const counts = { A: 0, B: 0, C: 0 };
+      questions.filter(q => !q.hidden).forEach(q => { const g = (rStore[q.id] || {}).grade || 'A'; counts[g]++; });
+      countEl.textContent = `A:${counts.A} B:${counts.B} C:${counts.C}`;
+    }
+  }
 
   if (visibleIds.length === 0) {
     deck.innerHTML = `<div class="empty-msg">해당하는 문제가 없습니다. 필터를 확인하거나 문제를 추가해보세요.</div>`;
@@ -2040,7 +2102,7 @@ async function renderCard(deck, id, idx) {
           ${q.ref2FileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref2="${id}" title="참고 HTML 파일 2 열기">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
           ${(q.noteImages && q.noteImages.length > 0) ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="오답노트에 첨부한 이미지 보기">📝 나의 정답 보기</button>` : ''}
           <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 등록 및 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
-          <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴</button>
+          <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴 <span class="routine-grade-inline ${(loadRoutineStore()[id] || {}).grade || 'A'}">${(loadRoutineStore()[id] || {}).grade || 'A'}</span></button>
           ${staleHTML}
           ${(q.tags || []).map(t => `<span class="tag-pill">#${escapeHTML(t)}</span>`).join('')}
         </div>
@@ -3398,6 +3460,7 @@ function applyRoutineAssess(r) {
   setRoutineState(routineCurrentId, { grade: ng, mc: nmc, note: routineNote });
   clearInterval(routineTimerInterval);
   routineTimerRunning = false;
+  render(); // 카드 뱃지 즉시 갱신
 
   // 결과 화면 렌더
   const body = document.getElementById('routine-body');
@@ -3579,6 +3642,14 @@ document.getElementById('btn-wrong-focus').addEventListener('click', () => {
   document.getElementById('btn-fav').classList.remove('active');
   document.getElementById('btn-due').classList.remove('active');
   render();
+});
+
+// ============ 루틴 그룹 필터 ============
+['all','A','B','C'].forEach(g => {
+  document.getElementById('rf-' + g)?.addEventListener('click', () => {
+    routineGroupFilter = g;
+    render();
+  });
 });
 
 // ============ 키보드 단축키 ============
