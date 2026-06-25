@@ -940,28 +940,6 @@
     </div>
   </div>
 
-  <!-- 참고HTML2 팝업 -->
-  <div class="qview-overlay" id="ref2-overlay" style="display:none;">
-    <div class="qview-panel">
-      <div class="qview-header">
-        <div class="qview-title" id="ref2-title">📄 참고 자료 2</div>
-        <button class="io-btn" id="btn-ref2-close">닫기 ✕</button>
-      </div>
-      <div class="qview-body" id="ref2-body">
-        <div class="qview-imgs" id="ref2-imgs"></div>
-        <div class="qview-paste-hint" id="ref2-paste-zone" tabindex="0">
-          📋 이미지를 여기에 붙여넣기(Ctrl+V) 하거나 클릭해서 선택<br>
-          <input type="file" id="ref2-file-input" accept="image/*" multiple style="display:none;">
-        </div>
-        <div class="qview-imgs" id="ref2-extra-imgs"></div>
-      </div>
-      <div class="qview-toolbar">
-        <button class="io-btn" id="btn-ref2-save-imgs">붙인 이미지 오답노트에 저장</button>
-        <button class="io-btn" id="btn-ref2-clear">지우기</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 시험 기록 팝업 -->
   <div class="exam-hist-overlay" id="exam-hist-overlay" style="display:none;">
     <div class="exam-hist-panel">
@@ -1142,7 +1120,6 @@ let modalRef2File = null; // 참고 HTML 파일 2
 // ── qview 팝업 상태 ──
 let qviewCurrentId = null;
 let qviewExtraImages = []; // [{blob, url}] 팝업에서 붙여넣기한 이미지 (임시)
-let ref2ExtraImages = []; // ref2 팝업 임시 이미지
 
 // ── 시험 기록 ──
 let examHistory = []; // [{date, scorePct, correct, wrong, total, elapsed, roundNum}]
@@ -1888,105 +1865,25 @@ ${tagsHTML}
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 async function openRef2Popup(q, btn) {
-  ref2ExtraImages = [];
-  document.getElementById('ref2-title').textContent = `📄 ${q.ref2Label || '참고 자료 2'} — ${q.title || ''}`;
-  document.getElementById('ref2-extra-imgs').innerHTML = '';
-
-  const imgWrap = document.getElementById('ref2-imgs');
-  imgWrap.innerHTML = '';
-
-  // ref2FileId가 HTML 파일이면 새 창으로, 이미지면 인라인 표시
-  document.getElementById('ref2-overlay').style.display = 'flex';
-
-  if (q.ref2FileId) {
-    if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
-    try {
-      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.ref2FileId}?alt=media`);
-      const blob = await res.blob();
-      const isHtml = blob.type.includes('html') || (q.ref2Label || '').match(/\.html?$/i);
-      if (isHtml) {
-        const url = URL.createObjectURL(blob);
-        const w = window.open(url, 'ref2win_' + q.id, 'width=960,height=800,resizable=yes,scrollbars=yes');
-        if (!w) alert('팝업이 차단되었습니다.');
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-        document.getElementById('ref2-overlay').style.display = 'none';
-      } else {
-        const dataUrl = await new Promise((res2, rej) => {
-          const r = new FileReader(); r.onload = () => res2(r.result); r.onerror = rej; r.readAsDataURL(blob);
-        });
-        imgWrap.innerHTML = `<img src="${dataUrl}" alt="참고자료2">`;
-      }
-    } catch (err) { imgWrap.innerHTML = `<div style="color:var(--warn)">불러오기 실패: ${err.message}</div>`; }
-    finally { if (btn) { btn.textContent = `📄 ${q.ref2Label || '참고 자료 2'}`; btn.disabled = false; } }
-  }
-}
-
-function renderRef2ExtraImgs() {
-  const wrap = document.getElementById('ref2-extra-imgs');
-  wrap.innerHTML = '';
-  ref2ExtraImages.forEach((item, idx) => {
-    const div = document.createElement('div');
-    div.className = 'qview-img-item';
-    div.innerHTML = `<img src="${item.url}" alt="메모 이미지"><button class="qview-img-remove" data-ref2-remove="${idx}">삭제</button>`;
-    wrap.appendChild(div);
-  });
-}
-document.getElementById('ref2-extra-imgs').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-ref2-remove]');
-  if (!btn) return;
-  ref2ExtraImages.splice(Number(btn.dataset.ref2Remove), 1);
-  renderRef2ExtraImgs();
-});
-
-const ref2PasteZone = document.getElementById('ref2-paste-zone');
-const ref2FileInputPopup = document.getElementById('ref2-file-input');
-ref2PasteZone.addEventListener('click', () => ref2FileInputPopup.click());
-ref2FileInputPopup.addEventListener('change', (e) => {
-  Array.from(e.target.files).forEach(f => { ref2ExtraImages.push({ blob: f, url: URL.createObjectURL(f) }); });
-  renderRef2ExtraImgs(); e.target.value = '';
-});
-ref2PasteZone.addEventListener('dragover', (e) => { e.preventDefault(); ref2PasteZone.classList.add('dragover'); });
-ref2PasteZone.addEventListener('dragleave', () => ref2PasteZone.classList.remove('dragover'));
-ref2PasteZone.addEventListener('drop', (e) => {
-  e.preventDefault(); ref2PasteZone.classList.remove('dragover');
-  Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => {
-    ref2ExtraImages.push({ blob: f, url: URL.createObjectURL(f) });
-  });
-  renderRef2ExtraImgs();
-});
-document.addEventListener('paste', (e) => {
-  if (document.getElementById('ref2-overlay').style.display !== 'flex') return;
-  const items = e.clipboardData?.items || [];
-  let handled = false;
-  for (const item of items) {
-    if (item.type.startsWith('image/')) { ref2ExtraImages.push({ blob: item.getAsFile(), url: URL.createObjectURL(item.getAsFile()) }); handled = true; }
-  }
-  if (handled) { renderRef2ExtraImgs(); e.preventDefault(); }
-});
-document.getElementById('btn-ref2-close').addEventListener('click', () => {
-  document.getElementById('ref2-overlay').style.display = 'none'; ref2ExtraImages = [];
-});
-document.getElementById('btn-ref2-clear').addEventListener('click', () => { ref2ExtraImages = []; renderRef2ExtraImgs(); });
-document.getElementById('btn-ref2-save-imgs').addEventListener('click', async () => {
-  if (ref2ExtraImages.length === 0) { alert('저장할 이미지가 없습니다.'); return; }
-  // ref2 팝업은 현재 어떤 문제와 연관인지 qviewCurrentId 대신 별도 추적 필요
-  // 팝업 제목에서 추출하는 대신, 마지막 열었던 qviewCurrentId 사용
-  if (!qviewCurrentId) { alert('문제를 특정할 수 없습니다.'); return; }
-  const btn = document.getElementById('btn-ref2-save-imgs');
-  btn.disabled = true; btn.textContent = '업로드 중...';
+  const label = q.ref2Label || '참고 자료 2';
+  if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
   try {
-    const q = byId(qviewCurrentId);
-    setSyncStatus('busy', '이미지 업로드 중...');
-    for (const item of ref2ExtraImages) {
-      const fileId = await uploadImageBlob(item.blob, 'note');
-      q.noteImages = q.noteImages || []; q.noteImages.push(fileId);
-    }
-    await saveDataToDrive();
-    ref2ExtraImages = []; renderRef2ExtraImgs();
-    btn.textContent = '저장됨 ✓';
-    setTimeout(() => { btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장'; }, 1500);
-  } catch (err) { alert('저장 실패: ' + err.message); btn.disabled = false; btn.textContent = '붙인 이미지 오답노트에 저장'; }
-});
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${q.ref2FileId}?alt=media`);
+    const arrayBuffer = await res.arrayBuffer();
+    const html = new TextDecoder('utf-8').decode(arrayBuffer);
+    const injected = html.replace(/(<head[^>]*>)/i, '$1\n<meta charset="utf-8">');
+    const blob = new Blob([injected], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, 'ref2Win_' + q.ref2FileId,
+      'width=960,height=700,resizable=yes,scrollbars=yes,menubar=no,toolbar=no');
+    if (!w) alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (err) {
+    alert('파일을 불러오는 데 실패했습니다: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = `📄 ${label}`; btn.disabled = false; }
+  }
+}
 
 async function openNoteWindow(q, btn) {
   const label = '나의 정답 보기';
