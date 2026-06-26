@@ -1118,8 +1118,9 @@ let modalQImages = []; // {name, blob, url, existingFileId}
 let modalAImages = [];
 let modalStars = 3;
 let lastFocusedZoneKind = 'q';
-let activeNotePasteTarget = null;
-let activeAnswerPasteTarget = null;
+let activeNotePasteTarget = null;   // 하위 호환용 (카드 닫힐 때 null 처리에 사용)
+let activeAnswerPasteTarget = null; // 하위 호환용
+let activePasteTarget = null; // { id, kind: 'note'|'answer' } — 마지막 포커스 기준
 let modalRefFile = null; // {blob, name, existingFileId} — HTML 참고 파일
 let modalRef2File = null; // 참고 HTML 파일 2
 
@@ -2597,6 +2598,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (notePickFileBtn) {
     e.stopPropagation();
     const id = Number(notePickFileBtn.dataset.notePickFile);
+    activePasteTarget = { id, kind: 'note' };
     activeNotePasteTarget = id;
     document.querySelector(`[data-note-file-input="${id}"]`).click();
     return;
@@ -2605,6 +2607,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (notePasteZone) {
     e.stopPropagation();
     const id = Number(notePasteZone.dataset.notePasteZone);
+    activePasteTarget = { id, kind: 'note' };
     activeNotePasteTarget = id;
     notePasteZone.focus();
     return;
@@ -2637,6 +2640,8 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (answerPickFileBtn) {
     e.stopPropagation();
     const id = Number(answerPickFileBtn.dataset.answerPickFile);
+    activePasteTarget = { id, kind: 'answer' };
+    activeAnswerPasteTarget = id;
     document.querySelector(`[data-answer-file-input="${id}"]`)?.click();
     return;
   }
@@ -2644,6 +2649,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   if (answerPasteZone) {
     e.stopPropagation();
     const id = Number(answerPasteZone.dataset.answerPasteZone);
+    activePasteTarget = { id, kind: 'answer' };
     activeAnswerPasteTarget = id;
     answerPasteZone.focus();
     return;
@@ -2686,6 +2692,8 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     if (openSet.has(id)) {
       openSet.delete(id);
       if (activeNotePasteTarget === id) activeNotePasteTarget = null;
+      if (activeAnswerPasteTarget === id) activeAnswerPasteTarget = null;
+      if (activePasteTarget?.id === id) activePasteTarget = null;
     } else {
       openSet.add(id);
     }
@@ -2762,18 +2770,28 @@ document.addEventListener('paste', async (e) => {
   if (backdrop.style.display === 'flex') return;
 
   const active = document.activeElement;
-  const focusedOnNoteTextarea = active && active.matches && active.matches('[data-note-text]');
-  const focusedOnAnswerTextarea = active && active.matches && active.matches('[data-answer-text]');
-  const focusedOnAnswerZone = active && active.matches && active.matches('[data-answer-paste-zone]');
 
-  // 정답노트 붙여넣기 대상 결정
-  let isAnswerTarget = false;
+  // 포커스된 요소 기준으로 대상 결정 (포커스가 activePasteTarget보다 우선)
   let targetId = null;
-  if (focusedOnAnswerTextarea) { isAnswerTarget = true; targetId = Number(active.dataset.answerText); }
-  else if (focusedOnAnswerZone) { isAnswerTarget = true; targetId = Number(active.dataset.answerPasteZone); }
-  else if (activeAnswerPasteTarget !== null) { isAnswerTarget = true; targetId = activeAnswerPasteTarget; }
-  else if (focusedOnNoteTextarea) { targetId = Number(active.dataset.noteText); }
-  else { targetId = activeNotePasteTarget; }
+  let isAnswerTarget = false;
+
+  if (active && active.matches) {
+    if (active.matches('[data-answer-text]')) {
+      isAnswerTarget = true; targetId = Number(active.dataset.answerText);
+    } else if (active.matches('[data-answer-paste-zone]')) {
+      isAnswerTarget = true; targetId = Number(active.dataset.answerPasteZone);
+    } else if (active.matches('[data-note-text]')) {
+      isAnswerTarget = false; targetId = Number(active.dataset.noteText);
+    } else if (active.matches('[data-note-paste-zone]')) {
+      isAnswerTarget = false; targetId = Number(active.dataset.notePasteZone);
+    }
+  }
+
+  // 포커스 없으면 마지막 클릭한 activePasteTarget 사용
+  if (targetId === null && activePasteTarget !== null) {
+    targetId = activePasteTarget.id;
+    isAnswerTarget = activePasteTarget.kind === 'answer';
+  }
 
   if (targetId === null || targetId === undefined) return;
 
@@ -2799,7 +2817,9 @@ document.addEventListener('paste', async (e) => {
         const card = document.querySelector(`[data-id="${targetId}"]`)?.closest('.card');
         if (card) {
           await renderCardImages(card, byId(targetId), targetId);
-          const zoneAttr = isAnswerTarget ? `[data-answer-paste-zone="${targetId}"]` : `[data-note-paste-zone="${targetId}"]`;
+          const zoneAttr = isAnswerTarget
+            ? `[data-answer-paste-zone="${targetId}"]`
+            : `[data-note-paste-zone="${targetId}"]`;
           const zone = card.querySelector(zoneAttr);
           if (zone) { zone.classList.add('dragover'); setTimeout(() => zone.classList.remove('dragover'), 300); }
         }
@@ -2831,6 +2851,7 @@ document.getElementById('deck').addEventListener('drop', async (e) => {
   zone.classList.remove('dragover');
   const isAnswer = !!answerZone;
   const id = isAnswer ? Number(answerZone.dataset.answerPasteZone) : Number(noteZone.dataset.notePasteZone);
+  activePasteTarget = { id, kind: isAnswer ? 'answer' : 'note' };
   if (isAnswer) activeAnswerPasteTarget = id; else activeNotePasteTarget = id;
   const q = byId(id);
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
