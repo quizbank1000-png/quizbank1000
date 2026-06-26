@@ -723,6 +723,11 @@
     color: var(--warn); background: var(--warn-soft); border-color: var(--warn);
   }
   .note-view-btn:hover { background: var(--warn); color: white; }
+  .answer-view-btn {
+    color: #085041; background: #E1F5EE; border-color: #1D9E75;
+  }
+  .answer-view-btn:hover { background: #1D9E75; color: white; }
+  body.dark-mode .answer-view-btn { color: #9FE1CB; background: #04342C; border-color: #1D9E75; }
   .flashcard-view-btn {
     color: #4a6fa5; background: #e6edf6; border-color: #4a6fa5;
   }
@@ -934,7 +939,7 @@
         <div class="qview-imgs" id="qview-extra-imgs"></div>
       </div>
       <div class="qview-toolbar">
-        <button class="io-btn" id="btn-qview-save-imgs">붙인 이미지 오답노트에 저장</button>
+        <button class="io-btn" id="btn-qview-save-imgs">붙인 이미지 뼈대카드에 저장</button>
         <button class="io-btn" id="btn-qview-clear">지우기</button>
       </div>
     </div>
@@ -1114,6 +1119,7 @@ let modalAImages = [];
 let modalStars = 3;
 let lastFocusedZoneKind = 'q';
 let activeNotePasteTarget = null;
+let activeAnswerPasteTarget = null;
 let modalRefFile = null; // {blob, name, existingFileId} — HTML 참고 파일
 let modalRef2File = null; // 참고 HTML 파일 2
 
@@ -1335,6 +1341,8 @@ async function loadDataFromDrive() {
     if (q.wrongCount === undefined) q.wrongCount = Object.values(q.rounds).filter(m => m === 'wrong').length;
     if (q.noteText === undefined) q.noteText = '';
     if (q.noteImages === undefined) q.noteImages = [];
+    if (q.answerText === undefined) q.answerText = '';
+    if (q.answerImages === undefined) q.answerImages = [];
     if (q.qImages === undefined) q.qImages = [];
     if (q.tags === undefined) q.tags = [];
     if (q.aImages === undefined) q.aImages = [];
@@ -1886,7 +1894,7 @@ async function openRef2Popup(q, btn) {
 }
 
 async function openNoteWindow(q, btn) {
-  const label = '나의 정답 보기';
+  const label = '뼈대카드 보기';
   if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
   try {
     const imgDataUrls = [];
@@ -1905,16 +1913,16 @@ async function openNoteWindow(q, btn) {
     const noteTextHTML = (q.noteText && q.noteText.trim())
       ? `<div class="note-text">${escapeHTML(q.noteText)}</div>`
       : '';
-    const imagesHTML = imgDataUrls.map(u => `<img src="${u}" alt="나의 정답 이미지">`).join('');
+    const imagesHTML = imgDataUrls.map(u => `<img src="${u}" alt="뼈대카드 이미지">`).join('');
     const bodyHTML = (noteTextHTML || imagesHTML)
       ? `${noteTextHTML}${imagesHTML}`
-      : `<div class="empty">첨부된 오답노트 이미지가 없습니다.</div>`;
+      : `<div class="empty">등록된 뼈대카드 내용이 없습니다.</div>`;
 
     const doc = `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>나의 정답 — ${escapeHTML(q.title || '')}</title>
+<title>뼈대카드 — ${escapeHTML(q.title || '')}</title>
 <style>
   body { margin:0; padding:24px; background:#1a1c22; color:#e2dfd8; font-family:-apple-system,'Malgun Gothic',sans-serif; }
   h1 { font-size:17px; margin:0 0 18px; padding-bottom:14px; border-bottom:1px solid #353944; }
@@ -1924,7 +1932,7 @@ async function openNoteWindow(q, btn) {
 </style>
 </head>
 <body>
-<h1>📝 나의 정답 — ${escapeHTML(q.title || '(제목 없음)')}</h1>
+<h1>📝 뼈대카드 — ${escapeHTML(q.title || '(제목 없음)')}</h1>
 ${bodyHTML}
 </body>
 </html>`;
@@ -1940,6 +1948,69 @@ ${bodyHTML}
     alert('이미지를 불러오는 데 실패했습니다: ' + err.message);
   } finally {
     if (btn) { btn.textContent = `📝 ${label}`; btn.disabled = false; }
+  }
+}
+
+async function openAnswerWindow(q, btn) {
+  const label = '정답카드 보기';
+  if (btn) { btn.textContent = '⏳ 불러오는 중...'; btn.disabled = true; }
+  try {
+    const imgDataUrls = [];
+    for (const fileId of (q.answerImages || [])) {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      imgDataUrls.push(dataUrl);
+    }
+
+    const answerTextHTML = (q.answerText && q.answerText.trim())
+      ? `<div class="note-text">${escapeHTML(q.answerText)}</div>`
+      : '';
+    const imagesHTML = imgDataUrls.map(u => `<img src="${u}" alt="정답카드 이미지">`).join('');
+    const bodyHTML = (answerTextHTML || imagesHTML)
+      ? `${answerTextHTML}${imagesHTML}`
+      : `<div class="empty">등록된 정답카드 내용이 없습니다.</div>`;
+
+    const doc = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>정답카드 — ${escapeHTML(q.title || '')}</title>
+<style>
+  *{box-sizing:border-box;} body{margin:0;padding:0;background:#0f1117;color:#e8e4d8;font-family:system-ui,sans-serif;}
+  header{background:#1c2230;border-bottom:2px solid #1D9E75;padding:16px 24px;position:sticky;top:0;z-index:10;}
+  h1{margin:0;font-size:17px;font-weight:700;color:#9FE1CB;}
+  .sub{font-size:12px;color:#6b6356;margin-top:3px;}
+  main{padding:20px 24px;max-width:860px;margin:0 auto;}
+  .note-text{white-space:pre-wrap;font-size:14px;line-height:1.7;background:#252830;border:1px solid #353944;border-radius:9px;padding:16px 18px;margin-bottom:16px;}
+  img{width:100%;border-radius:9px;margin-bottom:14px;display:block;border:1px solid #353944;}
+  .empty{text-align:center;color:#6b6356;padding:60px 0;font-size:14px;}
+</style>
+</head>
+<body>
+<header>
+<h1>✅ 정답카드 — ${escapeHTML(q.title || '(제목 없음)')}</h1>
+<div class="sub">${escapeHTML(q.category || '')} · 오답 ${q.wrongCount || 0}회</div>
+</header>
+<main>${bodyHTML}</main>
+</body>
+</html>`;
+
+    const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, 'answerWin_' + q.id,
+      'width=860,height=760,resizable=yes,scrollbars=yes,menubar=no,toolbar=no');
+    if (!w) alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (err) {
+    alert('이미지를 불러오는 데 실패했습니다: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = `✅ ${label}`; btn.disabled = false; }
   }
 }
 
@@ -2189,7 +2260,8 @@ async function renderCard(deck, id, idx) {
           <button class="ref-link-btn ref-link-inline" data-open-qview="${id}" title="문제 이미지 새창으로 보기">📋 문제</button>
           ${q.refFileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref="${id}" title="참고 HTML 파일 열기">📄 ${escapeHTML(q.refLabel || '참고 자료')}</button>` : ''}
           ${q.ref2FileId ? `<button class="ref-link-btn ref-link-inline" data-open-ref2="${id}" title="참고 HTML 파일 2 열기">📄 ${escapeHTML(q.ref2Label || '참고 자료 2')}</button>` : ''}
-          ${(q.noteImages && q.noteImages.length > 0) || q.noteText ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="나의 정답 새창으로 보기">📝 나의 정답</button>` : ''}
+          ${(q.noteImages && q.noteImages.length > 0) || q.noteText ? `<button class="ref-link-btn ref-link-inline note-view-btn" data-view-note-imgs="${id}" title="뼈대카드 새창으로 보기">📝 뼈대카드</button>` : ''}
+          ${(q.answerImages && q.answerImages.length > 0) || q.answerText ? `<button class="ref-link-btn ref-link-inline answer-view-btn" data-view-answer="${id}" title="정답카드 새창으로 보기">✅ 정답카드</button>` : ''}
           <button class="ref-link-btn ref-link-inline flashcard-view-btn" data-open-flashcards="${id}" title="암기카드 새창으로 보기">🗂️ 암기카드${(q.flashcards && q.flashcards.length > 0) ? ` (${q.flashcards.length})` : ''}</button>
           ${(q.tags && q.tags.length > 0) ? `<button class="ref-link-btn ref-link-inline tag-view-btn" data-open-tags="${id}" title="태그 새창으로 보기">🏷️ 태그</button>` : ''}
           <button class="ref-link-btn ref-link-inline routine-card-btn" data-open-routine="${id}" title="학습 루틴 시작">📚 학습 루틴</button>
@@ -2258,8 +2330,21 @@ async function renderCardImages(card, q, id) {
       if (url) {
         const wrap = document.createElement('div');
         wrap.className = 'note-image-item';
-        wrap.innerHTML = `<img src="${url}" alt="오답노트 이미지"><button class="note-image-remove" data-remove-note-img="${id}" data-fileid="${fileId}">삭제</button>`;
+        wrap.innerHTML = `<img src="${url}" alt="뼈대카드 이미지"><button class="note-image-remove" data-remove-note-img="${id}" data-fileid="${fileId}">삭제</button>`;
         noteSlot.appendChild(wrap);
+      }
+    }
+  }
+  const answerSlot = card.querySelector(`[data-answerimgs="${id}"]`);
+  if (answerSlot && !answerSlot.dataset.loaded) {
+    answerSlot.dataset.loaded = '1';
+    for (const fileId of (q.answerImages || [])) {
+      const url = await fetchImageURL(fileId);
+      if (url) {
+        const wrap = document.createElement('div');
+        wrap.className = 'note-image-item';
+        wrap.innerHTML = `<img src="${url}" alt="정답카드 이미지"><button class="note-image-remove" data-remove-answer-img="${id}" data-fileid="${fileId}">삭제</button>`;
+        answerSlot.appendChild(wrap);
       }
     }
   }
@@ -2302,10 +2387,10 @@ function trackerHTML(q) {
 function noteSectionHTML(q) {
   return `
     <div class="note-section">
-      <div class="tracker-label">오답노트</div>
-      <textarea class="note-textarea" data-note-text="${q.id}" placeholder="틀린 이유, 헷갈린 부분 등을 적어두세요">${escapeHTML(q.noteText || '')}</textarea>
+      <div class="tracker-label">뼈대카드</div>
+      <textarea class="note-textarea" data-note-text="${q.id}" placeholder="공식 흐름, 핵심 뼈대, 암기 포인트를 적어두세요">${escapeHTML(q.noteText || '')}</textarea>
       <div class="note-toolbar">
-        <button class="io-btn" data-note-save="${q.id}">노트 저장</button>
+        <button class="io-btn" data-note-save="${q.id}">저장</button>
       </div>
       <div class="paste-zone note-paste-zone" data-note-paste-zone="${q.id}" tabindex="0">
         클릭해서 이 영역을 붙여넣기 대상으로 지정 (PDF에서 복사한 내용을 Ctrl+V)
@@ -2313,6 +2398,20 @@ function noteSectionHTML(q) {
       </div>
       <input type="file" data-note-file-input="${q.id}" accept="image/*" multiple style="display:none;">
       <div class="note-images" data-noteimgs="${q.id}"></div>
+    </div>
+
+    <div class="note-section" style="margin-top:12px;">
+      <div class="tracker-label">정답노트</div>
+      <textarea class="note-textarea" data-answer-text="${q.id}" placeholder="풀이 과정, 나의 정답을 적어두세요">${escapeHTML(q.answerText || '')}</textarea>
+      <div class="note-toolbar">
+        <button class="io-btn" data-answer-save="${q.id}">저장</button>
+      </div>
+      <div class="paste-zone note-paste-zone" data-answer-paste-zone="${q.id}" tabindex="0">
+        클릭해서 이 영역을 붙여넣기 대상으로 지정 (PDF에서 복사한 내용을 Ctrl+V)
+        <div class="zone-filebtn-row"><button type="button" class="io-btn" data-answer-pick-file="${q.id}">파일에서 선택</button></div>
+      </div>
+      <input type="file" data-answer-file-input="${q.id}" accept="image/*" multiple style="display:none;">
+      <div class="note-images" data-answerimgs="${q.id}"></div>
     </div>`;
 }
 
@@ -2381,6 +2480,10 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const notePasteZone = e.target.closest('[data-note-paste-zone]');
   const noteSaveBtn = e.target.closest('[data-note-save]');
   const noteImgRemoveBtn = e.target.closest('[data-remove-note-img]');
+  const answerPickFileBtn = e.target.closest('[data-answer-pick-file]');
+  const answerPasteZone = e.target.closest('[data-answer-paste-zone]');
+  const answerSaveBtn = e.target.closest('[data-answer-save]');
+  const answerImgRemoveBtn = e.target.closest('[data-remove-answer-img]');
   const openRefBtn = e.target.closest('[data-open-ref]');
   const openRef2Btn = e.target.closest('[data-open-ref2]');
   const openQviewBtn = e.target.closest('[data-open-qview]');
@@ -2388,6 +2491,7 @@ document.getElementById('deck').addEventListener('click', async (e) => {
   const openRoutineBtn = e.target.closest('[data-open-routine]');
   const routineGradeBadge = e.target.closest('.routine-grade-badge-head');
   const viewNoteBtn = e.target.closest('[data-view-note-imgs]');
+  const viewAnswerBtn = e.target.closest('[data-view-answer]');
   const flashcardBtn = e.target.closest('[data-open-flashcards]');
   const flashcardEditBtn = e.target.closest('[data-open-flashcard-edit]');
 
@@ -2447,6 +2551,15 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     return;
   }
 
+  if (viewAnswerBtn) {
+    e.stopPropagation();
+    const id = Number(viewAnswerBtn.dataset.viewAnswer);
+    const q = byId(id);
+    if (!q) return;
+    await openAnswerWindow(q, viewAnswerBtn);
+    return;
+  }
+
   if (flashcardBtn) {
     e.stopPropagation();
     const id = Number(flashcardBtn.dataset.openFlashcards);
@@ -2502,12 +2615,53 @@ document.getElementById('deck').addEventListener('click', async (e) => {
     const id = Number(noteSaveBtn.dataset.noteSave);
     const textarea = document.querySelector(`[data-note-text="${id}"]`);
     byId(id).noteText = textarea.value;
-    // 오답노트 → 루틴 메모 동기화
     setRoutineState(id, { note: textarea.value });
     if (routineCurrentId === id) { routineNote = textarea.value; }
     await saveDataToDrive();
     noteSaveBtn.textContent = '저장됨 ✓';
-    setTimeout(() => { noteSaveBtn.textContent = '노트 저장'; }, 1200);
+    setTimeout(() => { noteSaveBtn.textContent = '저장'; }, 1200);
+    return;
+  }
+
+  if (answerSaveBtn) {
+    e.stopPropagation();
+    const id = Number(answerSaveBtn.dataset.answerSave);
+    const textarea = document.querySelector(`[data-answer-text="${id}"]`);
+    byId(id).answerText = textarea.value;
+    await saveDataToDrive();
+    answerSaveBtn.textContent = '저장됨 ✓';
+    setTimeout(() => { answerSaveBtn.textContent = '저장'; }, 1200);
+    return;
+  }
+
+  if (answerPickFileBtn) {
+    e.stopPropagation();
+    const id = Number(answerPickFileBtn.dataset.answerPickFile);
+    document.querySelector(`[data-answer-file-input="${id}"]`)?.click();
+    return;
+  }
+
+  if (answerPasteZone) {
+    e.stopPropagation();
+    const id = Number(answerPasteZone.dataset.answerPasteZone);
+    activeAnswerPasteTarget = id;
+    answerPasteZone.focus();
+    return;
+  }
+
+  if (answerImgRemoveBtn) {
+    e.stopPropagation();
+    const id = Number(answerImgRemoveBtn.dataset.removeAnswerImg);
+    const fileId = answerImgRemoveBtn.dataset.fileid;
+    const q = byId(id);
+    q.answerImages = (q.answerImages || []).filter(f => f !== fileId);
+    await deleteDriveFile(fileId);
+    await saveDataToDrive();
+    render();
+    requestAnimationFrame(async () => {
+      const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+      if (card) await renderCardImages(card, byId(id), id);
+    });
     return;
   }
 
@@ -2564,6 +2718,27 @@ document.getElementById('deck').addEventListener('change', async (e) => {
   }
 
   const input = e.target.closest('[data-note-file-input]');
+  const answerInput = e.target.closest('[data-answer-file-input]');
+
+  if (answerInput) {
+    const id = Number(answerInput.dataset.answerFileInput);
+    const q = byId(id);
+    setSyncStatus('busy', '이미지 업로드 중...');
+    for (const file of answerInput.files) {
+      const fileId = await uploadImageBlob(file, 'note');
+      q.answerImages = q.answerImages || [];
+      q.answerImages.push(fileId);
+    }
+    await saveDataToDrive();
+    answerInput.value = '';
+    render();
+    requestAnimationFrame(async () => {
+      const card = document.querySelector(`[data-id="${id}"]`)?.closest('.card');
+      if (card) await renderCardImages(card, byId(id), id);
+    });
+    return;
+  }
+
   if (!input) return;
   const id = Number(input.dataset.noteFileInput);
   const q = byId(id);
@@ -2584,11 +2759,21 @@ document.getElementById('deck').addEventListener('change', async (e) => {
 
 document.addEventListener('paste', async (e) => {
   const backdrop = document.getElementById('modal-backdrop');
-  if (backdrop.style.display === 'flex') return; // 모달이 열려있으면 모달 전용 paste 핸들러가 처리
+  if (backdrop.style.display === 'flex') return;
 
   const active = document.activeElement;
-  const focusedOnTextarea = active && active.matches && active.matches('[data-note-text]');
-  const targetId = focusedOnTextarea ? Number(active.dataset.noteText) : activeNotePasteTarget;
+  const focusedOnNoteTextarea = active && active.matches && active.matches('[data-note-text]');
+  const focusedOnAnswerTextarea = active && active.matches && active.matches('[data-answer-text]');
+  const focusedOnAnswerZone = active && active.matches && active.matches('[data-answer-paste-zone]');
+
+  // 정답노트 붙여넣기 대상 결정
+  let isAnswerTarget = false;
+  let targetId = null;
+  if (focusedOnAnswerTextarea) { isAnswerTarget = true; targetId = Number(active.dataset.answerText); }
+  else if (focusedOnAnswerZone) { isAnswerTarget = true; targetId = Number(active.dataset.answerPasteZone); }
+  else if (activeAnswerPasteTarget !== null) { isAnswerTarget = true; targetId = activeAnswerPasteTarget; }
+  else if (focusedOnNoteTextarea) { targetId = Number(active.dataset.noteText); }
+  else { targetId = activeNotePasteTarget; }
 
   if (targetId === null || targetId === undefined) return;
 
@@ -2601,19 +2786,22 @@ document.addEventListener('paste', async (e) => {
       setSyncStatus('busy', '이미지 업로드 중...');
       const fileId = await uploadImageBlob(blob, 'note');
       const q = byId(targetId);
-      q.noteImages = q.noteImages || [];
-      q.noteImages.push(fileId);
+      if (isAnswerTarget) {
+        q.answerImages = q.answerImages || [];
+        q.answerImages.push(fileId);
+      } else {
+        q.noteImages = q.noteImages || [];
+        q.noteImages.push(fileId);
+      }
       await saveDataToDrive();
       render();
       requestAnimationFrame(async () => {
         const card = document.querySelector(`[data-id="${targetId}"]`)?.closest('.card');
         if (card) {
           await renderCardImages(card, byId(targetId), targetId);
-          const zone = card.querySelector(`[data-note-paste-zone="${targetId}"]`);
-          if (zone) {
-            zone.classList.add('dragover');
-            setTimeout(() => zone.classList.remove('dragover'), 300);
-          }
+          const zoneAttr = isAnswerTarget ? `[data-answer-paste-zone="${targetId}"]` : `[data-note-paste-zone="${targetId}"]`;
+          const zone = card.querySelector(zoneAttr);
+          if (zone) { zone.classList.add('dragover'); setTimeout(() => zone.classList.remove('dragover'), 300); }
         }
       });
     }
@@ -2622,33 +2810,36 @@ document.addEventListener('paste', async (e) => {
 });
 
 document.getElementById('deck').addEventListener('dragover', (e) => {
-  const zone = e.target.closest('[data-note-paste-zone]');
+  const zone = e.target.closest('[data-note-paste-zone],[data-answer-paste-zone]');
   if (!zone) return;
   e.preventDefault();
   zone.classList.add('dragover');
 });
 
 document.getElementById('deck').addEventListener('dragleave', (e) => {
-  const zone = e.target.closest('[data-note-paste-zone]');
+  const zone = e.target.closest('[data-note-paste-zone],[data-answer-paste-zone]');
   if (!zone) return;
   zone.classList.remove('dragover');
 });
 
 document.getElementById('deck').addEventListener('drop', async (e) => {
-  const zone = e.target.closest('[data-note-paste-zone]');
+  const noteZone = e.target.closest('[data-note-paste-zone]');
+  const answerZone = e.target.closest('[data-answer-paste-zone]');
+  const zone = noteZone || answerZone;
   if (!zone) return;
   e.preventDefault();
   zone.classList.remove('dragover');
-  const id = Number(zone.dataset.notePasteZone);
-  activeNotePasteTarget = id;
+  const isAnswer = !!answerZone;
+  const id = isAnswer ? Number(answerZone.dataset.answerPasteZone) : Number(noteZone.dataset.notePasteZone);
+  if (isAnswer) activeAnswerPasteTarget = id; else activeNotePasteTarget = id;
   const q = byId(id);
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
   if (files.length === 0) return;
   setSyncStatus('busy', '이미지 업로드 중...');
   for (const file of files) {
     const fileId = await uploadImageBlob(file, 'note');
-    q.noteImages = q.noteImages || [];
-    q.noteImages.push(fileId);
+    if (isAnswer) { q.answerImages = q.answerImages || []; q.answerImages.push(fileId); }
+    else { q.noteImages = q.noteImages || []; q.noteImages.push(fileId); }
   }
   await saveDataToDrive();
   render();
