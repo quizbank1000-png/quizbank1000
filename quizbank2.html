@@ -1892,20 +1892,25 @@ function renderSolveView(){
   problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
   switchTab('problem');
-  renderPasteZone(document.getElementById('problemPaste'), p.problemImgs, (imgs)=>{
-    p.problemImgs = imgs; saveState(); renderSolveView();
-  }, '문제 이미지', '🖼️');
-  renderPasteZone(document.getElementById('solutionPaste'), p.solutionImgs, (imgs)=>{
-    p.solutionImgs = imgs; saveState(); renderSolveView();
-  }, '풀이/정답 이미지', '✅');
-  renderPasteZone(document.getElementById('myAnswerPaste'), p.myAnswerImgs, (imgs)=>{
-    p.myAnswerImgs = imgs; saveState(); renderSolveView();
-  }, '나의 답안 이미지', '✍️');
+  bindPasteZone(document.getElementById('problemPaste'), p, 'problemImgs', '문제 이미지', '🖼️');
+  bindPasteZone(document.getElementById('solutionPaste'), p, 'solutionImgs', '풀이/정답 이미지', '✅');
+  bindPasteZone(document.getElementById('myAnswerPaste'), p, 'myAnswerImgs', '나의 답안 이미지', '✍️');
   renderClueStrip(p);
   renderHistoryBox(p);
   updateTimerDisplay();
   if(p.runningStartedAt) startTicking(); else stopTicking();
   applyExamModeUI();
+}
+
+/* 이미지 붙여넣기/삭제 후에도 현재 탭·스크롤 위치를 유지하기 위해
+   renderSolveView() 전체를 다시 그리지 않고 해당 paste zone만 갱신한다 */
+function bindPasteZone(zoneEl, p, field, label, icon){
+  function onChange(imgs){
+    p[field] = imgs;
+    saveState();
+    renderPasteZone(zoneEl, p[field], onChange, label, icon);
+  }
+  renderPasteZone(zoneEl, p[field], onChange, label, icon);
 }
 
 function renderPasteZone(zoneEl, imgs, onChange, label, icon){
