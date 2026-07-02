@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>퀴즈뱅크2 - 년도/회차별 단서카드 훈련</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @font-face {
+    font-family: 'Pretendard';
+    src: local('Pretendard');
+  }
+  :root{
+    --blue-900:#0a2351;
+    --blue-700:#13407a;
+    --blue-500:#1f5fb8;
+    --blue-300:#5b9bdc;
+    --blue-100:#eaf2fc;
+    --bg:#f4f7fb;
+    --card-bg:#ffffff;
+    --ink:#1c2530;
+    --ink-soft:#5b6573;
+    --line:#dfe6f0;
+    --orange:#e07a2c;
+    --orange-soft:#fdeee0;
+    --red:#d4453a;
+    --red-soft:#fbe7e5;
+    --green:#2d8a5f;
+    --green-soft:#e3f4ec;
+    --yellow:#e0b020;
+    --yellow-soft:#fbf3da;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(10,35,81,0.07);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: 'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .app{
+    display:flex;
+    min-height:100vh;
+  }
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:240px;
+    flex-shrink:0;
+    background: var(--blue-900);
+    color:#fff;
+    padding:18px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .sidebar h1{
+    font-size:16px;
+    margin:0 0 4px 0;
+    font-weight:800;
+    letter-spacing:-0.3px;
+  }
+  .sidebar .sub{
+    font-size:11px;
+    color:#a9c2e8;
+    margin-bottom:6px;
+  }
+  .nav-group{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .nav-btn{
+    text-align:left;
+    background:transparent;
+    border:none;
+    color:#cfe0f7;
+    padding:9px 10px;
+    border-radius:9px;
+    font-size:13.5px;
+    cursor:pointer;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .nav-btn:hover{ background: rgba(255,255,255,0.08); }
+  .nav-btn.active{ background: var(--blue-500); color:#fff; }
+  .round-select-box{
+    background: rgba(255,255,255,0.06);
+    border-radius:10px;
+    padding:10px;
+  }
+  .round-select-box label{
+    font-size:11px;
+    color:#a9c2e8;
+    display:block;
+    margin-bottom:6px;
+  }
+  select, input[type=text], input[type=number], textarea{
+    width:100%;
+    font-family: inherit;
+    font-size:13px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    padding:8px 9px;
+    background:#fff;
+    color:var(--ink);
+  }
+  .sidebar select{ background:#0e2f63; color:#fff; border:1px solid #28508f; }
+  .round-actions{ display:flex; gap:6px; margin-top:8px; }
+  .mini-btn{
+    flex:1;
+    background: var(--blue-500);
+    border:none;
+    color:#fff;
+    padding:6px 4px;
+    border-radius:7px;
+    font-size:11.5px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  .mini-btn.secondary{ background: rgba(255,255,255,0.12); }
+  .problem-list{
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .problem-chip{
+    background: rgba(255,255,255,0.06);
+    border:1px solid transparent;
+    border-radius:8px;
+    padding:8px 9px;
+    cursor:pointer;
+    font-size:12.5px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .problem-chip:hover{ background: rgba(255,255,255,0.12); }
+  .problem-chip.active{ background:#fff; color:var(--blue-900); font-weight:800; }
+  .problem-chip .tag{
+    font-size:10px;
+    background: var(--blue-500);
+    color:#fff;
+    border-radius:5px;
+    padding:1px 5px;
+  }
+  .problem-chip.active .tag{ background: var(--blue-100); color:var(--blue-700); }
+  .stat-foot{
+    font-size:11px;
+    color:#8fb0dd;
+    border-top:1px solid rgba(255,255,255,0.12);
+    padding-top:10px;
+  }
+
+  /* ---------- Main ---------- */
+  .main{
+    flex:1;
+    padding:22px 28px;
+    overflow-y:auto;
+  }
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .topbar h2{
+    font-size:19px;
+    margin:0;
+    font-weight:800;
+  }
+  .topbar .meta{
+    font-size:12.5px;
+    color: var(--ink-soft);
+    margin-top:3px;
+  }
+  .badge{
+    display:inline-block;
+    background: var(--blue-100);
+    color: var(--blue-700);
+    font-size:11px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:6px;
+    margin-right:5px;
+  }
+
+  /* ---- 문제풀이 화면 ---- */
+  .solve-toolbar{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .tool-btn{
+    border:1.5px solid var(--blue-500);
+    background:#fff;
+    color: var(--blue-700);
+    padding:8px 14px;
+    border-radius:9px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .tool-btn:hover{ background: var(--blue-100); }
+  .tool-btn.primary{ background: var(--blue-500); color:#fff; }
+  .tool-btn.primary:hover{ background: var(--blue-700); }
+  .tool-btn.orange{ border-color: var(--orange); color: var(--orange); }
+  .tool-btn.orange:hover{ background: var(--orange-soft); }
+  .tool-btn.green{ border-color: var(--green); color: var(--green); }
+  .tool-btn.green:hover{ background: var(--green-soft); }
+  .tool-btn.purple{ border-color: #7048b0; color: #7048b0; }
+  .tool-btn.purple:hover{ background: #f1ebfa; }
+  .tool-btn.teal{ border-color: #0b8a8a; color: #0b8a8a; }
+  .tool-btn.teal:hover{ background: #e0f5f5; }
+  .timer-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-left:auto;
+    background:#fff;
+    border:1.5px solid var(--line);
+    border-radius:9px;
+    padding:4px 6px 4px 12px;
+  }
+  .timer-display{
+    font-variant-numeric: tabular-nums;
+    font-size:15px;
+    font-weight:800;
+    color: var(--ink-soft);
+    min-width:58px;
+  }
+  .timer-display.running{ color: var(--red); }
+  .tool-btn.timer-start{ border-color: var(--green); color:#fff; background: var(--green); }
+  .tool-btn.timer-start:hover{ background:#22754f; }
+  .tool-btn.timer-start:disabled{ opacity:0.4; cursor:default; }
+  .tool-btn.timer-stop{ border-color: var(--red); color:#fff; background: var(--red); }
+  .tool-btn.timer-stop:hover{ background:#b5362c; }
+  .tool-btn.timer-stop:disabled{ opacity:0.4; cursor:default; }
+
+  .view-tabs{
+    display:flex;
+    gap:4px;
+    margin-bottom:10px;
+  }
+  .view-tab{
+    padding:8px 16px;
+    border-radius:9px 9px 0 0;
+    background: #e4ebf5;
+    color: var(--ink-soft);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    border:1px solid var(--line);
+    border-bottom:none;
+  }
+  .view-tab.active{
+    background:#fff;
+    color: var(--blue-700);
+  }
+
+  .paste-card{
+    background: var(--card-bg);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    min-height:340px;
+    padding:18px;
+  }
+  .paste-zone{
+    min-height:300px;
+    border:2px dashed #c4d3e8;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    color:#9aabc2;
+    font-size:13.5px;
+    gap:6px;
+    position:relative;
+    overflow:auto;
+    padding:10px;
+  }
+  .paste-zone:focus{ outline:2px solid var(--blue-300); }
+  .paste-zone img{
+    max-width:100%;
+    border-radius:6px;
+  }
+  .paste-zone .hint-icon{ font-size:26px; }
+  .paste-zone .clear-img-btn{
+    position:absolute;
+    top:8px; right:8px;
+    background: rgba(20,30,50,0.55);
+    color:#fff;
+    border:none;
+    border-radius:7px;
+    font-size:11px;
+    padding:5px 9px;
+    cursor:pointer;
+  }
+
+  .clue-strip{
+    margin-top:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .clue-chip{
+    background: var(--yellow-soft);
+    border:1px solid #efd98a;
+    color:#7a5d0a;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12px;
+    font-weight:600;
+    max-width:260px;
+  }
+  .clue-chip.memo{
+    background:#f1ebfa;
+    border:1px solid #cdb3ef;
+    color:#5a3a8c;
+  }
+  .clue-chip.template{
+    background:#dff5f5;
+    border:1px solid #9adada;
+    color:#0a5c5c;
+  }
+  .clue-chip img{ max-width:100%; border-radius:5px; margin-top:4px; display:block; }
+  .clue-chip b{ display:block; font-size:12px; color:#5c4400; }
+  .clue-chip.memo b{ color:#42266b; }
+  .clue-chip.template b{ color:#073f3f; }
+  .clue-chip span{ font-size:11.5px; color:#8a6c1c; }
+  .clue-chip.memo span{ color:#6c4f99; }
+  .clue-chip.template span{ color:#157070; }
+
+  .mini-paste{
+    min-height:90px;
+    border:1.5px dashed #c4d3e8;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    color:#9aabc2;
+    font-size:11.5px;
+    gap:4px;
+    position:relative;
+    overflow:auto;
+    padding:6px;
+    cursor:text;
+  }
+  .mini-paste:focus{ outline:2px solid var(--blue-300); }
+  .mini-paste img{ max-width:100%; border-radius:5px; }
+  .mini-paste .clear-img-btn{
+    position:absolute; top:4px; right:4px;
+    background: rgba(20,30,50,0.55); color:#fff; border:none;
+    border-radius:6px; font-size:10px; padding:3px 6px; cursor:pointer;
+  }
+  .type-toggle{ display:flex; gap:6px; margin-bottom:6px; }
+  .type-toggle .toggle-chip{ flex:1; text-align:center; }
+
+  /* ---- Modal ---- */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(10,20,40,0.45);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:#fff;
+    border-radius:14px;
+    width:440px;
+    max-width:92vw;
+    padding:22px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.25);
+  }
+  .modal h3{
+    margin:0 0 4px 0;
+    font-size:16px;
+    color: var(--blue-900);
+  }
+  .modal .desc{
+    font-size:12px;
+    color: var(--ink-soft);
+    margin-bottom:14px;
+  }
+  .field{ margin-bottom:12px; }
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    margin-bottom:5px;
+    color: var(--ink);
+  }
+  .modal-actions{
+    display:flex;
+    gap:8px;
+    margin-top:16px;
+    justify-content:flex-end;
+  }
+  .btn{
+    border:none;
+    border-radius:8px;
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn.cancel{ background:#eef1f5; color:#666; }
+  .btn.confirm{ background: var(--blue-500); color:#fff; }
+  .btn.confirm.red{ background: var(--red); }
+  .chiprow{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .toggle-chip{
+    border:1.5px solid var(--line);
+    background:#fff;
+    padding:7px 12px;
+    border-radius:20px;
+    font-size:12.5px;
+    cursor:pointer;
+    font-weight:600;
+    color: var(--ink-soft);
+  }
+  .toggle-chip.sel{
+    border-color: var(--blue-500);
+    background: var(--blue-100);
+    color: var(--blue-700);
+  }
+  .tagcloud{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .tag-pill{
+    background: var(--orange-soft);
+    color: var(--orange);
+    border:1px solid #f0caa4;
+    border-radius:14px;
+    padding:5px 11px;
+    font-size:12px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  .tag-pill.sel{ background: var(--orange); color:#fff; }
+
+  /* ---- 단서카드함 ---- */
+  .filter-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .filter-row select, .filter-row input{ width:auto; min-width:120px; }
+  .card-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+    gap:14px;
+  }
+  .flash{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow: var(--shadow);
+    height:160px;
+    perspective:1000px;
+    cursor:pointer;
+  }
+  .flash-inner{
+    position:relative;
+    width:100%; height:100%;
+    transition: transform 0.5s;
+    transform-style:preserve-3d;
+  }
+  .flash.flipped .flash-inner{ transform: rotateY(180deg); }
+  .flash-face{
+    position:absolute; inset:0;
+    backface-visibility:hidden;
+    border-radius:12px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+  }
+  .flash-front{ background: var(--blue-100); }
+  .flash-back{
+    background: var(--blue-900);
+    color:#fff;
+    transform: rotateY(180deg);
+  }
+  .flash-front .kw{
+    font-size:13.5px;
+    font-weight:700;
+    color: var(--blue-900);
+    line-height:1.4;
+  }
+  .flash-front .kw img, .flash-back .recall img{
+    max-width:100%;
+    max-height:60px;
+    object-fit:contain;
+    border-radius:5px;
+    margin-top:4px;
+    display:block;
+  }
+  .flash.memo .flash-front{ background:#f1ebfa; }
+  .flash.memo .flash-front .kw{ color:#42266b; }
+  .flash.memo .flash-back{ background:#3a2461; }
+  .flash.template .flash-front{ background:#dff5f5; }
+  .flash.template .flash-front .kw{ color:#073f3f; }
+  .flash.template .flash-back{ background:#0a4a4a; }
+  .type-pip{
+    font-size:9.5px;
+    font-weight:800;
+    padding:1px 6px;
+    border-radius:5px;
+    background: var(--blue-500);
+    color:#fff;
+    display:inline-block;
+    margin-bottom:5px;
+  }
+  .flash.memo .type-pip{ background:#7048b0; }
+  .flash.template .type-pip{ background:#0b8a8a; }
+  .review-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .review-btn{
+    border:none;
+    border-radius:6px;
+    font-size:11px;
+    font-weight:800;
+    padding:4px 9px;
+    cursor:pointer;
+  }
+  .review-btn.ok{ background:#1f8a52; color:#fff; }
+  .review-btn.no{ background:#c84438; color:#fff; }
+  .review-stat{
+    font-size:10px;
+    font-weight:700;
+  }
+  .flash-back .recall{
+    font-size:13px;
+    font-weight:700;
+    line-height:1.5;
+  }
+  .flash-foot{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:10.5px;
+  }
+  .flash-front .flash-foot{ color: var(--blue-700); }
+  .flash-back .flash-foot{ color: #b9cdf0; }
+  .weak-btn{
+    background: rgba(212,69,58,0.12);
+    color: var(--red);
+    border:none;
+    border-radius:6px;
+    font-size:10.5px;
+    padding:3px 7px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  .flash-back .weak-btn{ background: rgba(255,255,255,0.18); color:#fff; }
+  .weak-mark{ color: var(--red); font-weight:800; }
+
+  /* ---- 함정유형 / 오답노트 ---- */
+  .trap-tag-list{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+  .trap-tag-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:11px;
+    padding:12px 16px;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    min-width:150px;
+  }
+  .trap-tag-card.active{ border-color: var(--orange); background: var(--orange-soft); }
+  .trap-tag-card .name{ font-weight:800; font-size:13.5px; color: var(--ink); }
+  .trap-tag-card .count{ font-size:11.5px; color: var(--ink-soft); margin-top:3px; }
+
+  .trap-problem-row{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+  }
+  .trap-problem-row:hover{ border-color: var(--blue-300); }
+  .reason-badge{
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:6px;
+  }
+  .reason-badge.공식모름{ background:#fde2e1; color:var(--red); }
+  .reason-badge.단서못읽음{ background:#fdf0d2; color:#8a6500; }
+  .reason-badge.암기못함{ background:#e1ecfd; color:#1f5fb8; }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    gap:14px;
+    margin-bottom:20px;
+  }
+  .stat-box{
+    background:#fff;
+    border-radius:12px;
+    box-shadow: var(--shadow);
+    padding:16px;
+    text-align:center;
+  }
+  .stat-box .num{ font-size:26px; font-weight:800; }
+  .stat-box .lbl{ font-size:12px; color: var(--ink-soft); margin-top:4px; }
+  .stat-box.공식모름 .num{ color: var(--red); }
+  .stat-box.단서못읽음 .num{ color: var(--yellow); }
+  .stat-box.암기못함 .num{ color: var(--blue-500); }
+
+  .empty{
+    text-align:center;
+    padding:60px 20px;
+    color:#a0adc0;
+    font-size:13.5px;
+  }
+  .small-note{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
+
+  /* ---------- Google Drive 로그인 게이트 ---------- */
+  .gate{
+    position:fixed; inset:0;
+    background: linear-gradient(160deg, var(--blue-900), #122a52);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:200;
+  }
+  .gate-box{
+    background:#fff;
+    border-radius:18px;
+    padding:36px 34px;
+    width:420px;
+    max-width:90vw;
+    box-shadow:0 16px 50px rgba(0,0,0,0.3);
+    text-align:center;
+  }
+  .gate-box h1{
+    font-size:19px;
+    margin:0 0 10px 0;
+    color: var(--blue-900);
+  }
+  .gate-box p{
+    font-size:12.5px;
+    color: var(--ink-soft);
+    line-height:1.6;
+    margin-bottom:22px;
+  }
+  .gate-btn{
+    width:100%;
+    background: var(--blue-500);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:13px;
+    font-size:14px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .gate-btn:disabled{ opacity:0.45; cursor:default; }
+  .gate-btn:hover:not(:disabled){ background: var(--blue-700); }
+  .gate-status{
+    font-size:12px;
+    color: var(--ink-soft);
+    margin-top:12px;
+    min-height:16px;
+  }
+  .gate-warn{
+    font-size:12px;
+    color: var(--red);
+    margin-top:6px;
+    min-height:16px;
+  }
+  .config-box{
+    margin-top:18px;
+    text-align:left;
+    background: var(--bg);
+    border-radius:10px;
+    padding:14px;
+  }
+  .config-box label{
+    display:block;
+    font-size:11.5px;
+    font-weight:700;
+    margin-bottom:6px;
+    color: var(--ink-soft);
+  }
+  .config-box .save-row{ margin-top:8px; }
+  .io-btn{
+    background: var(--blue-100);
+    color: var(--blue-700);
+    border:none;
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .io-btn:hover{ background: var(--blue-300); color:#fff; }
+
+  .sync-bar{
+    background: rgba(255,255,255,0.06);
+    border-radius:10px;
+    padding:9px 11px;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    flex-wrap:wrap;
+    font-size:11px;
+    color:#cfe0f7;
+  }
+  .sync-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:#9b9484;
+    display:inline-block;
+    flex-shrink:0;
+  }
+  .sync-dot.ok{ background:#3ec07a; }
+  .sync-dot.busy{ background:#d8a826; animation: pulse 1s infinite; }
+  .sync-dot.err{ background:#e2554a; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  .sync-bar #user-email{
+    font-size:10px;
+    color:#9fb6dc;
+    word-break:break-all;
+    width:100%;
+  }
+  .sync-bar .io-btn{
+    background: rgba(255,255,255,0.12);
+    color:#fff;
+    font-size:10.5px;
+    padding:5px 9px;
+    margin-left:auto;
+  }
+  .sync-bar .io-btn:hover{ background: rgba(255,255,255,0.22); }
+
+  .history-box{
+    margin-top:16px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow: var(--shadow);
+    padding:14px 16px;
+  }
+  .history-box h4{
+    margin:0 0 10px 0;
+    font-size:13.5px;
+    color: var(--blue-900);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .history-box h4 .count-pill{
+    background: var(--blue-100);
+    color: var(--blue-700);
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:10px;
+    font-weight:800;
+  }
+  .history-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 0;
+    border-bottom:1px dashed var(--line);
+    font-size:12.5px;
+  }
+  .history-row:last-child{ border-bottom:none; }
+  .history-row .idx{
+    font-weight:800;
+    color: var(--blue-500);
+    width:46px;
+    flex-shrink:0;
+  }
+  .history-row .date{ color: var(--ink-soft); flex:1; }
+  .history-row .dur{
+    font-weight:800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    background: var(--blue-100);
+    padding:2px 8px;
+    border-radius:6px;
+  }
+  .result-badge{
+    font-size:11px;
+    font-weight:800;
+    padding:3px 9px;
+    border-radius:7px;
+    cursor:pointer;
+    border:none;
+    margin-left:8px;
+  }
+  .result-badge.correct{ background: var(--green-soft); color: var(--green); }
+  .result-badge.wrong{ background: var(--red-soft); color: var(--red); }
+  .result-badge.pending{ background:#eef1f5; color:#8a93a3; }
+  .problem-chip .review-count{
+    font-size:9.5px;
+    background: rgba(255,255,255,0.18);
+    border-radius:5px;
+    padding:1px 5px;
+    margin-left:4px;
+  }
+  .problem-chip.active .review-count{ background: var(--blue-100); color: var(--blue-700); }
+</style>
+</head>
+<body>
+
+<!-- ===================== GOOGLE DRIVE 로그인 게이트 ===================== -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h1>📚 퀴즈뱅크2</h1>
+    <p>
+      구글 드라이브에 로그인하면 회차·문제·단서카드·암기카드·템플릿카드·풀이 이미지·회독 이력이 드라이브에 저장됩니다.<br>
+      같은 구글 계정으로 다른 기기(태블릿/PC)에서 로그인하면 이어서 사용할 수 있어요.
+    </p>
+    <button class="gate-btn" id="btn-signin" disabled>구글 계정으로 로그인</button>
+    <div class="gate-status" id="gate-status">초기화 중...</div>
+    <div class="gate-warn" id="gate-warn"></div>
+
+    <div class="config-box" id="config-box" style="display:none;">
+      <label>Google OAuth 클라이언트 ID</label>
+      <input type="text" id="input-client-id" placeholder="xxxxxxxx.apps.googleusercontent.com">
+      <div class="save-row">
+        <button class="io-btn" id="btn-save-client-id">저장하고 다시 시도</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none;">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <div class="sidebar">
+    <div>
+      <h1>📚 퀴즈뱅크2</h1>
+      <div class="sub">년도·회차별 단서카드 훈련</div>
+    </div>
+
+    <div class="sync-bar">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span id="sync-text">동기화 대기 중</span>
+      <span id="user-email"></span>
+      <button class="io-btn" id="btn-signout">로그아웃</button>
+    </div>
+
+    <div class="nav-group">
+      <button class="nav-btn active" data-view="solve">📝 회차 풀이</button>
+      <button class="nav-btn" data-view="clues">🗂 단서카드함</button>
+      <button class="nav-btn" data-view="traps">⚠️ 함정유형별 모아보기</button>
+      <button class="nav-btn" data-view="stats">📊 오답노트/통계</button>
+    </div>
+
+    <div class="round-select-box">
+      <label>년도 + 회차</label>
+      <select id="roundSelect"></select>
+      <div class="round-actions">
+        <button class="mini-btn" id="addRoundBtn">+ 회차 추가</button>
+        <button class="mini-btn secondary" id="delRoundBtn">삭제</button>
+      </div>
+    </div>
+
+    <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+      <label>문제 목록</label>
+      <div class="problem-list" id="problemList"></div>
+      <button class="mini-btn" id="addProblemBtn" style="margin-top:8px;">+ 문제 추가</button>
+    </div>
+
+    <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
+  </div>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+
+    <!-- ---------- VIEW: 회차 풀이 ---------- -->
+    <div id="view-solve">
+      <div class="topbar">
+        <div>
+          <h2 id="problemTitle">문제를 선택하거나 추가하세요</h2>
+          <div class="meta" id="problemMeta"></div>
+        </div>
+      </div>
+
+      <div id="solveBody" style="display:none;">
+        <div class="view-tabs">
+          <div class="view-tab active" id="tabProblem">📄 문제</div>
+          <div class="view-tab" id="tabSolution">✅ 풀이/정답</div>
+          <div class="view-tab" id="tabMyAnswer">✍️ 나의 답안</div>
+        </div>
+
+        <div class="solve-toolbar">
+          <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
+          <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
+          <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
+          <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
+          <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
+          <div class="timer-group">
+            <span class="timer-display" id="timerDisplay">00:00</span>
+            <button class="tool-btn timer-start" id="startSolveBtn">▶ 풀이시작</button>
+            <button class="tool-btn timer-stop" id="submitSolveBtn" disabled>⏹ 답안제출</button>
+          </div>
+        </div>
+
+        <div class="paste-card">
+          <div id="problemPane">
+            <div class="paste-zone" id="problemPaste" tabindex="0">
+              <div class="hint-icon">🖼️</div>
+              <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
+            </div>
+          </div>
+          <div id="solutionPane" style="display:none;">
+            <div class="paste-zone" id="solutionPaste" tabindex="0">
+              <div class="hint-icon">✅</div>
+              <div>PDF에서 캡쳐한 <b>풀이과정/정답 이미지</b>를 여기에 Ctrl+V로 붙여넣으세요</div>
+            </div>
+          </div>
+          <div id="myAnswerPane" style="display:none;">
+            <div class="paste-zone" id="myAnswerPaste" tabindex="0">
+              <div class="hint-icon">✍️</div>
+              <div>직접 푼 <b>나의 답안</b>을 사진 찍어 Ctrl+V로 붙여넣으세요</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="clue-strip" id="clueStrip"></div>
+        <div class="history-box" id="historyBox" style="display:none;">
+          <h4>⏱ 회독 이력 (풀이 소요시간) <span class="count-pill" id="historyCount">0회독</span></h4>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
+      <div class="empty" id="solveEmpty">왼쪽에서 회차를 선택하고 "+ 문제 추가"를 눌러 시작하세요.</div>
+    </div>
+
+    <!-- ---------- VIEW: 단서카드함 ---------- -->
+    <div id="view-clues" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h2>🗂 단서카드함 / 암기카드함</h2>
+          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드를 구분해서 볼 수 있습니다</div>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="clueTypeFilter">
+          <option value="">전체 (단서+암기+템플릿)</option>
+          <option value="clue">💡 단서카드만</option>
+          <option value="memo">🧠 암기카드만</option>
+          <option value="template">📐 템플릿카드만</option>
+        </select>
+        <select id="clueFieldFilter"><option value="">전체 분야</option></select>
+        <select id="clueRoundFilter"><option value="">전체 회차</option></select>
+        <select id="clueProblemFilter"><option value="">전체 문제</option></select>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
+          <input type="checkbox" id="weakOnly" style="width:auto;"> 약한 카드만 보기
+        </label>
+      </div>
+      <div class="card-grid" id="clueGrid"></div>
+      <div class="empty" id="clueEmpty" style="display:none;">등록된 단서카드가 없습니다. 문제를 풀면서 "단서카드 등록"으로 채워보세요.</div>
+    </div>
+
+    <!-- ---------- VIEW: 함정유형별 ---------- -->
+    <div id="view-traps" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h2>⚠️ 함정유형별 모아보기</h2>
+          <div class="meta">오답메모에서 등록한 함정유형 태그별로 문제를 모아봅니다</div>
+        </div>
+      </div>
+      <div class="trap-tag-list" id="trapTagList"></div>
+      <div id="trapProblemList"></div>
+      <div class="empty" id="trapEmpty" style="display:none;">등록된 함정유형이 없습니다. 오답메모에서 함정유형 태그를 추가해보세요.</div>
+    </div>
+
+    <!-- ---------- VIEW: 오답노트/통계 ---------- -->
+    <div id="view-stats" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h2>📊 오답노트 / 통계</h2>
+          <div class="meta">막힌 이유를 추적해서 어디에 시간을 더 써야 할지 확인하세요</div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box 공식모름"><div class="num" id="statFormula">0</div><div class="lbl">공식모름</div></div>
+        <div class="stat-box 단서못읽음"><div class="num" id="statClue">0</div><div class="lbl">단서못읽음</div></div>
+        <div class="stat-box 암기못함"><div class="num" id="statMemo">0</div><div class="lbl">암기못함</div></div>
+      </div>
+      <div id="wrongList"></div>
+      <div class="empty" id="statsEmpty" style="display:none;">아직 오답메모가 없습니다.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- 회차 추가 모달 -->
+<div class="overlay" id="overlayRound">
+  <div class="modal">
+    <h3>+ 새 회차 추가</h3>
+    <div class="desc">년도와 회차를 입력하세요</div>
+    <div class="field">
+      <label>예: 2024년 2회</label>
+      <input type="text" id="newRoundName" placeholder="2024년 2회">
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayRound">취소</button>
+      <button class="btn confirm" id="confirmRound">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 문제 추가 모달 -->
+<div class="overlay" id="overlayProblem">
+  <div class="modal">
+    <h3>+ 새 문제 추가</h3>
+    <div class="field">
+      <label>문제번호</label>
+      <input type="text" id="newProblemNum" placeholder="예: 4">
+    </div>
+    <div class="field">
+      <label>분야</label>
+      <select id="newProblemField">
+        <option>열설비</option><option>공기조화</option><option>위생설비</option>
+        <option>소방</option><option>전기</option><option>가스</option><option>기타</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayProblem">취소</button>
+      <button class="btn confirm" id="confirmProblem">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 단서카드/암기카드 등록 모달 -->
+<div class="overlay" id="overlayClue">
+  <div class="modal">
+    <h3 id="clueModalTitle">💡 단서카드 등록</h3>
+    <div class="desc" id="clueModalDesc">문제 속 키워드/조건문을 보고 → 떠올려야 할 공식·판단을 적어두세요</div>
+    <div class="field">
+      <label id="clueKwLabel">키워드 / 조건문 (카드 앞면)</label>
+      <textarea id="clueKeyword" rows="2" placeholder="예: 공기층의 열저항이 별도로 주어짐"></textarea>
+      <div class="mini-paste" id="clueKwImgZone" tabindex="0" style="margin-top:6px;">
+        <span>📎 이미지 붙여넣기 (선택, Ctrl+V)</span>
+      </div>
+    </div>
+    <div class="field">
+      <label id="clueRcLabel">떠올릴 것 / 공식 (카드 뒷면)</label>
+      <textarea id="clueRecall" rows="2" placeholder="예: 두께/λ로 계산하지 말고 그대로 가산"></textarea>
+      <div class="mini-paste" id="clueRcImgZone" tabindex="0" style="margin-top:6px;">
+        <span>📎 이미지 붙여넣기 (선택, Ctrl+V)</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayClue">취소</button>
+      <button class="btn confirm" id="confirmClue">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 오답메모 모달 -->
+<div class="overlay" id="overlayWrong">
+  <div class="modal">
+    <h3>❌ 오답메모</h3>
+    <div class="desc">막힌 이유를 골라주세요</div>
+    <div class="field">
+      <label>막힌 이유</label>
+      <div class="chiprow" id="reasonChips">
+        <div class="toggle-chip" data-val="공식모름">공식모름</div>
+        <div class="toggle-chip" data-val="단서못읽음">단서못읽음</div>
+        <div class="toggle-chip" data-val="암기못함">암기못함</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>함정유형 태그 (여러 개 선택/직접 추가 가능)</label>
+      <div class="tagcloud" id="trapTagCloud"></div>
+      <input type="text" id="newTrapTag" placeholder="새 태그 입력 후 Enter" style="margin-top:8px;">
+    </div>
+    <div class="field">
+      <label>메모 (선택)</label>
+      <textarea id="wrongMemo" rows="2" placeholder="간단 메모"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayWrong">취소</button>
+      <button class="btn confirm red" id="confirmWrong">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 풀이 결과 선택 모달 -->
+<div class="overlay" id="overlayResult">
+  <div class="modal">
+    <h3>⏹ 답안 제출 완료</h3>
+    <div class="desc" id="resultDesc">소요시간 00:00 · 이번 회독 결과는요?</div>
+    <div class="modal-actions" style="justify-content:center; gap:14px;">
+      <button class="btn confirm" id="resultCorrectBtn" style="background:var(--green); padding:12px 26px; font-size:14px;">✅ 맞음</button>
+      <button class="btn confirm red" id="resultWrongBtn" style="padding:12px 26px; font-size:14px;">❌ 틀림</button>
+    </div>
+    <div style="text-align:center; margin-top:10px;">
+      <button class="btn cancel" id="resultSkipBtn" style="font-size:12px;">나중에 표시 (건너뛰기)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 오답메모 저장 후 단서카드 연결 제안 -->
+<div class="overlay" id="overlayLinkClue">
+  <div class="modal">
+    <h3>💡 이 함정, 단서카드로 남길까요?</h3>
+    <div class="desc">방금 기록한 함정을 바로 단서카드로 등록하면 다음에 더 빨리 떠올릴 수 있어요</div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayLinkClue">아니요</button>
+      <button class="btn confirm" id="goMakeClue">네, 등록할게요</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   퀴즈뱅크2 — 데이터 모델
+   state = {
+     rounds: {
+       "2024년 2회": {
+         problems: [
+           { id, num, field, problemImg, solutionImg,
+             clueCards: [{id, keyword, recall, weak, createdAt}],
+             wrongNotes: [{id, reason, trapTags:[], memo, createdAt}],
+             solvedCorrect: bool
+           }
+         ]
+       }
+     },
+     currentRound: "...",
+     currentProblemId: "..."
+   }
+============================================================ */
+
+let state = {
+  rounds: {},
+  currentRound: null,
+  currentProblemId: null
+};
+
+let pendingWrongProblemRef = null; // {round, id} for link-to-clue flow
+
+function uid(){ return 'id'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+
+/* ============================================================
+   Google Drive 동기화 (quizbank_v3.html과 동일한 방식)
+   - Google Identity Services(GIS) 토큰 클라이언트 사용
+   - scope: drive.file (이 앱이 만든 파일만 접근)
+   - 드라이브에 전용 폴더를 만들고 그 안에 data.json 1개로 저장
+============================================================ */
+const DRIVE_FOLDER_NAME = '건축설비기사_퀴즈뱅크2_데이터';
+const DATA_FILE_NAME = 'quizbank2_data.json';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const CLIENT_ID_STORAGE_KEY = 'quizbank2_drive_client_id';
+
+let accessToken = null;
+let tokenClient = null;
+let folderId = null;
+let dataFileId = null;
+let userEmail = '';
+
+function setSyncStatus(state_, text){
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-text');
+  if(dot) dot.className = 'sync-dot ' + (state_||'');
+  if(label) label.textContent = text||'';
+}
+
+/* ---------------- Google OAuth ---------------- */
+function getStoredClientId(){
+  return localStorage.getItem(CLIENT_ID_STORAGE_KEY) || '';
+}
+
+function initGoogleAuth(){
+  const clientId = getStoredClientId();
+  const statusEl = document.getElementById('gate-status');
+  const signinBtn = document.getElementById('btn-signin');
+
+  if(!clientId){
+    statusEl.textContent = '먼저 Google OAuth 클라이언트 ID를 입력해주세요.';
+    document.getElementById('config-box').style.display = 'block';
+    signinBtn.disabled = true;
+    return;
+  }
+
+  if(!window.google || !window.google.accounts){
+    statusEl.textContent = 'Google 로그인 스크립트를 불러오는 중입니다...';
+    setTimeout(initGoogleAuth, 300);
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: async (resp)=>{
+      if(resp.error){
+        document.getElementById('gate-warn').textContent = '로그인 실패: ' + resp.error;
+        return;
+      }
+      accessToken = resp.access_token;
+      scheduleTokenAutoRefresh(resp.expires_in);
+      await afterSignIn();
+    },
+  });
+
+  statusEl.textContent = '로그인할 준비가 되었습니다.';
+  signinBtn.disabled = false;
+}
+
+async function afterSignIn(){
+  setSyncStatus('busy', '드라이브 폴더 확인 중...');
+  try{
+    await fetchUserEmail();
+    await ensureFolder();
+    await loadDataFromDrive();
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('user-email').textContent = userEmail;
+    await initAppUI();
+    setSyncStatus('ok', '동기화 완료');
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '오류: ' + e.message);
+    document.getElementById('gate-warn').textContent = '드라이브 연결 중 오류가 발생했습니다: ' + e.message;
+  }
+}
+
+async function fetchUserEmail(){
+  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if(res.ok){
+    const data = await res.json();
+    userEmail = data.email || '';
+  }
+}
+
+/* ---- 토큰 자동 갱신 (세션 길게 유지) ---- */
+let tokenRefreshPromise = null;
+function silentRefreshToken(){
+  if(tokenRefreshPromise) return tokenRefreshPromise;
+  tokenRefreshPromise = new Promise((resolve, reject)=>{
+    if(!tokenClient){ reject(new Error('로그인이 필요합니다.')); return; }
+    const prevCallback = tokenClient.callback;
+    tokenClient.callback = (resp)=>{
+      tokenClient.callback = prevCallback;
+      if(resp.error){ reject(new Error(resp.error)); return; }
+      accessToken = resp.access_token;
+      scheduleTokenAutoRefresh(resp.expires_in);
+      resolve(accessToken);
+    };
+    tokenClient.requestAccessToken({ prompt: '' });
+  }).finally(()=>{ tokenRefreshPromise = null; });
+  return tokenRefreshPromise;
+}
+
+let tokenAutoRefreshTimer = null;
+function scheduleTokenAutoRefresh(expiresInSec){
+  clearTimeout(tokenAutoRefreshTimer);
+  const ms = Math.max((Number(expiresInSec||3600) - 300) * 1000, 30*1000);
+  tokenAutoRefreshTimer = setTimeout(async ()=>{
+    try{ await silentRefreshToken(); }catch(e){ console.warn('자동 토큰 갱신 실패:', e.message); }
+  }, ms);
+}
+
+async function driveFetch(url, options={}, isRetry=false){
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers||{}), Authorization: `Bearer ${accessToken}` },
+  });
+  if(res.status===401 && !isRetry){
+    try{
+      await silentRefreshToken();
+      return driveFetch(url, options, true);
+    }catch(e){
+      throw new Error('세션이 만료되어 자동 갱신에 실패했습니다. 다시 로그인해주세요.');
+    }
+  }
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error(`Drive API 오류 (${res.status}): ${text.slice(0,200)}`);
+  }
+  return res;
+}
+
+async function ensureFolder(){
+  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  if(data.files && data.files.length>0){
+    folderId = data.files[0].id;
+    return;
+  }
+  const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  const created = await createRes.json();
+  folderId = created.id;
+}
+
+async function loadDataFromDrive(){
+  const q = encodeURIComponent(`name='${DATA_FILE_NAME}' and '${folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  if(data.files && data.files.length>0){
+    dataFileId = data.files[0].id;
+    const fileRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?alt=media`);
+    const parsed = await fileRes.json();
+    state = {
+      rounds: parsed.rounds || {},
+      currentRound: parsed.currentRound || null,
+      currentProblemId: parsed.currentProblemId || null,
+    };
+  } else {
+    dataFileId = null;
+    state = { rounds:{}, currentRound:null, currentProblemId:null };
+  }
+  if(!state.rounds) state.rounds = {};
+
+  // 같은 브라우저에 예전 window.storage(체험판) 데이터가 남아있으면 1회성 마이그레이션
+  try{
+    if(window.storage && Object.keys(state.rounds).length===0){
+      const old = await window.storage.get('quizbank2-state', false).catch(()=>null);
+      if(old && old.value){
+        const oldState = JSON.parse(old.value);
+        if(oldState && oldState.rounds && Object.keys(oldState.rounds).length>0){
+          state = oldState;
+          await saveDataToDrive();
+        }
+      }
+    }
+  }catch(e){ /* 마이그레이션 실패는 무시 */ }
+}
+
+async function saveDataToDrive(){
+  setSyncStatus('busy', '저장 중...');
+  const body = JSON.stringify({
+    rounds: state.rounds,
+    currentRound: state.currentRound,
+    currentProblemId: state.currentProblemId,
+  });
+  const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
+
+  try{
+    if(dataFileId){
+      await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${dataFileId}?uploadType=media`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body,
+      });
+    } else {
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+      form.append('file', new Blob([body], {type:'application/json'}));
+      const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method:'POST',
+        body: form,
+      });
+      const created = await res.json();
+      dataFileId = created.id;
+    }
+    setSyncStatus('ok', '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'));
+  }catch(e){
+    setSyncStatus('err', '저장 실패: ' + e.message);
+    console.error(e);
+  }
+}
+
+/* saveState()는 기존 코드 전체에서 그대로 호출되므로, 내부 구현만 Drive 저장으로 연결 */
+async function saveState(){
+  await saveDataToDrive();
+}
+
+function seedDemo(){
+  state = {
+    rounds: {
+      "2023년 2회": {
+        problems: [
+          {
+            id: uid(), num:"4", field:"공기조화", problemImg:null, solutionImg:null, myAnswerImg:null,
+            solveSessions:[
+              {id:uid(), startedAt:Date.now()-90000000, submittedAt:Date.now()-90000000+11*60000, durationSec:11*60, result:'wrong'},
+              {id:uid(), startedAt:Date.now()-40000000, submittedAt:Date.now()-40000000+7*60000+20, durationSec:7*60+20, result:'correct'}
+            ],
+            runningStartedAt:null,
+            clueCards: [
+              {id:uid(), type:'clue', keyword:"바닥 하부층 및 인접실과 동일조건이다", recall:"그 면은 온도차 없음 → 부하 0 (단, '천장포함' 명시되면 천장은 별도 계산)", keywordImg:null, recallImg:null, weak:0, reviewHistory:[], createdAt:Date.now()},
+              {id:uid(), type:'clue', keyword:"상당외기온도차(ETD) 5.7℃로 동일", recall:"외벽 전도부하는 (실내-외기) 대신 ETD를 사용", keywordImg:null, recallImg:null, weak:0, reviewHistory:[], createdAt:Date.now()},
+              {id:uid(), type:'memo', keyword:"1mAq를 kPa로 환산하면?", recall:"약 9.8kPa (물의 비중량 g≈9.8 적용)", keywordImg:null, recallImg:null, weak:0, reviewHistory:[], createdAt:Date.now()},
+              {id:uid(), type:'template', keyword:"열관류율(K) 계산 골격", recall:"R = 1/hi + Σ(두께/λ) + (공기층저항) + 1/ho  →  K = 1/R", keywordImg:null, recallImg:null, weak:0, reviewHistory:[], createdAt:Date.now()}
+            ],
+            wrongNotes: [],
+            solvedCorrect:false
+          }
+        ]
+      }
+    },
+    currentRound: "2023년 2회",
+    currentProblemId: null
+  };
+  state.currentProblemId = state.rounds["2023년 2회"].problems[0].id;
+}
+
+/* ---------------- DOM refs ---------------- */
+const roundSelect = document.getElementById('roundSelect');
+const problemList = document.getElementById('problemList');
+const sideStat = document.getElementById('sideStat');
+
+const views = {
+  solve: document.getElementById('view-solve'),
+  clues: document.getElementById('view-clues'),
+  traps: document.getElementById('view-traps'),
+  stats: document.getElementById('view-stats'),
+};
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    Object.values(views).forEach(v=>v.style.display='none');
+    const key = btn.dataset.view;
+    views[key].style.display='block';
+    if(key==='clues') renderClueBank();
+    if(key==='traps') renderTrapView();
+    if(key==='stats') renderStats();
+  });
+});
+
+/* ---------------- Round logic ---------------- */
+function getRound(){ return state.rounds[state.currentRound]; }
+function getProblem(){
+  const r = getRound();
+  if(!r) return null;
+  return r.problems.find(p=>p.id===state.currentProblemId) || null;
+}
+
+function renderRoundSelect(){
+  roundSelect.innerHTML='';
+  Object.keys(state.rounds).forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name; opt.textContent=name;
+    if(name===state.currentRound) opt.selected=true;
+    roundSelect.appendChild(opt);
+  });
+}
+roundSelect.addEventListener('change', ()=>{
+  state.currentRound = roundSelect.value;
+  const r = getRound();
+  state.currentProblemId = r && r.problems.length ? r.problems[0].id : null;
+  renderProblemList();
+  renderSolveView();
+  saveState();
+});
+
+document.getElementById('addRoundBtn').addEventListener('click', ()=>{
+  document.getElementById('newRoundName').value='';
+  openModal('overlayRound');
+});
+document.getElementById('confirmRound').addEventListener('click', ()=>{
+  const name = document.getElementById('newRoundName').value.trim();
+  if(!name) return;
+  if(!state.rounds[name]) state.rounds[name] = {problems:[]};
+  state.currentRound = name;
+  state.currentProblemId = null;
+  renderRoundSelect();
+  renderProblemList();
+  renderSolveView();
+  saveState();
+  closeModal('overlayRound');
+});
+document.getElementById('delRoundBtn').addEventListener('click', ()=>{
+  if(!state.currentRound) return;
+  if(!confirm(`"${state.currentRound}" 회차를 삭제할까요? 안의 모든 문제/카드가 삭제됩니다.`)) return;
+  delete state.rounds[state.currentRound];
+  const keys = Object.keys(state.rounds);
+  state.currentRound = keys.length ? keys[0] : null;
+  state.currentProblemId = null;
+  renderRoundSelect();
+  renderProblemList();
+  renderSolveView();
+  saveState();
+});
+
+/* ---------------- Problem list ---------------- */
+function renderProblemList(){
+  problemList.innerHTML='';
+  const r = getRound();
+  if(!r){ return; }
+  r.problems.forEach(p=>{
+    const chip = document.createElement('div');
+    chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'');
+    const sessCount = (p.solveSessions||[]).length;
+    chip.innerHTML = `<span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span><span class="tag">${p.field}</span>`;
+    chip.addEventListener('click', ()=>{
+      state.currentProblemId = p.id;
+      renderProblemList();
+      renderSolveView();
+      saveState();
+    });
+    problemList.appendChild(chip);
+  });
+}
+
+document.getElementById('addProblemBtn').addEventListener('click', ()=>{
+  if(!state.currentRound){ alert('먼저 회차를 추가/선택하세요.'); return; }
+  document.getElementById('newProblemNum').value='';
+  openModal('overlayProblem');
+});
+document.getElementById('confirmProblem').addEventListener('click', ()=>{
+  const num = document.getElementById('newProblemNum').value.trim() || '?';
+  const field = document.getElementById('newProblemField').value;
+  const r = getRound();
+  const p = { id:uid(), num, field, problemImg:null, solutionImg:null, myAnswerImg:null, clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+  r.problems.push(p);
+  state.currentProblemId = p.id;
+  renderProblemList();
+  renderSolveView();
+  saveState();
+  closeModal('overlayProblem');
+});
+
+/* ---------------- Solve view ---------------- */
+const problemTitle = document.getElementById('problemTitle');
+const problemMeta = document.getElementById('problemMeta');
+const solveBody = document.getElementById('solveBody');
+const solveEmpty = document.getElementById('solveEmpty');
+const tabProblem = document.getElementById('tabProblem');
+const tabSolution = document.getElementById('tabSolution');
+const problemPane = document.getElementById('problemPane');
+const solutionPane = document.getElementById('solutionPane');
+const clueStrip = document.getElementById('clueStrip');
+
+tabProblem.addEventListener('click', ()=>switchTab('problem'));
+tabSolution.addEventListener('click', ()=>switchTab('solution'));
+const tabMyAnswer = document.getElementById('tabMyAnswer');
+const myAnswerPane = document.getElementById('myAnswerPane');
+tabMyAnswer.addEventListener('click', ()=>switchTab('myAnswer'));
+function switchTab(which){
+  tabProblem.classList.toggle('active', which==='problem');
+  tabSolution.classList.toggle('active', which==='solution');
+  tabMyAnswer.classList.toggle('active', which==='myAnswer');
+  problemPane.style.display = which==='problem' ? 'block':'none';
+  solutionPane.style.display = which==='solution' ? 'block':'none';
+  myAnswerPane.style.display = which==='myAnswer' ? 'block':'none';
+}
+
+function renderSolveView(){
+  const p = getProblem();
+  if(!p){
+    solveBody.style.display='none';
+    solveEmpty.style.display='block';
+    problemTitle.textContent = '문제를 선택하거나 추가하세요';
+    problemMeta.textContent = '';
+    stopTicking();
+    updateTimerDisplay();
+    return;
+  }
+  solveBody.style.display='block';
+  solveEmpty.style.display='none';
+  problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
+  problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
+  switchTab('problem');
+  renderPasteZone(document.getElementById('problemPaste'), p.problemImg, (dataUrl)=>{
+    p.problemImg = dataUrl; saveState();
+  }, '문제 이미지', '🖼️');
+  renderPasteZone(document.getElementById('solutionPaste'), p.solutionImg, (dataUrl)=>{
+    p.solutionImg = dataUrl; saveState();
+  }, '풀이/정답 이미지', '✅');
+  renderPasteZone(document.getElementById('myAnswerPaste'), p.myAnswerImg, (dataUrl)=>{
+    p.myAnswerImg = dataUrl; saveState();
+  }, '나의 답안 이미지', '✍️');
+  renderClueStrip(p);
+  renderHistoryBox(p);
+  updateTimerDisplay();
+  if(p.runningStartedAt) startTicking(); else stopTicking();
+}
+
+function renderPasteZone(zoneEl, imgData, onSet, label, icon){
+  zoneEl.innerHTML='';
+  if(imgData){
+    const img = document.createElement('img');
+    img.src = imgData;
+    zoneEl.appendChild(img);
+    const clearBtn = document.createElement('button');
+    clearBtn.className='clear-img-btn';
+    clearBtn.textContent='지우기';
+    clearBtn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      onSet(null);
+      renderSolveView();
+    });
+    zoneEl.appendChild(clearBtn);
+  } else {
+    const hint = document.createElement('div');
+    hint.className='hint-icon';
+    hint.textContent = icon;
+    zoneEl.appendChild(hint);
+    const txt = document.createElement('div');
+    txt.innerHTML = `이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 ${label}를 붙여넣으세요`;
+    zoneEl.appendChild(txt);
+  }
+  zoneEl.onpaste = (e)=>{
+    const items = (e.clipboardData || window.clipboardData).items;
+    for(const item of items){
+      if(item.type.indexOf('image')!==-1){
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = function(ev){
+          onSet(ev.target.result);
+          renderSolveView();
+        };
+        reader.readAsDataURL(blob);
+        e.preventDefault();
+        break;
+      }
+    }
+  };
+}
+
+function renderClueStrip(p){
+  clueStrip.innerHTML='';
+  p.clueCards.forEach(c=>{
+    const chip = document.createElement('div');
+    const typeClass = c.type==='memo' ? ' memo' : (c.type==='template' ? ' template' : '');
+    chip.className='clue-chip' + typeClass;
+    const label = c.type==='memo' ? '🧠' : (c.type==='template' ? '📐' : '💡');
+    chip.innerHTML = `<b>${label} ${escapeHtml(c.keyword)}</b>
+      ${c.keywordImg ? `<img src="${c.keywordImg}">` : ''}
+      <span>→ ${escapeHtml(c.recall)}</span>
+      ${c.recallImg ? `<img src="${c.recallImg}">` : ''}`;
+    clueStrip.appendChild(chip);
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s||'';
+  return d.innerHTML;
+}
+
+/* ---------------- 풀이 타이머 / 회독 이력 ---------------- */
+let timerInterval = null;
+
+function formatDuration(sec){
+  const m = Math.floor(sec/60).toString().padStart(2,'0');
+  const s = (sec%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function updateTimerDisplay(){
+  const p = getProblem();
+  const disp = document.getElementById('timerDisplay');
+  const startBtn = document.getElementById('startSolveBtn');
+  const submitBtn = document.getElementById('submitSolveBtn');
+  if(!p){
+    disp.textContent='00:00';
+    disp.classList.remove('running');
+    startBtn.disabled = true;
+    submitBtn.disabled = true;
+    return;
+  }
+  if(p.runningStartedAt){
+    const elapsed = Math.floor((Date.now()-p.runningStartedAt)/1000);
+    disp.textContent = formatDuration(elapsed);
+    disp.classList.add('running');
+    startBtn.disabled = true;
+    submitBtn.disabled = false;
+  } else {
+    disp.textContent = '00:00';
+    disp.classList.remove('running');
+    startBtn.disabled = false;
+    submitBtn.disabled = true;
+  }
+}
+function startTicking(){
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerDisplay, 1000);
+}
+function stopTicking(){
+  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
+}
+
+document.getElementById('startSolveBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p || p.runningStartedAt) return;
+  p.runningStartedAt = Date.now();
+  saveState();
+  updateTimerDisplay();
+  startTicking();
+});
+let pendingSession = null; // 결과선택 대기 중인 세션
+document.getElementById('submitSolveBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p || !p.runningStartedAt) return;
+  const durationSec = Math.max(1, Math.round((Date.now()-p.runningStartedAt)/1000));
+  pendingSession = {id:uid(), startedAt:p.runningStartedAt, submittedAt:Date.now(), durationSec, result:null};
+  p.runningStartedAt = null;
+  stopTicking();
+  updateTimerDisplay();
+  document.getElementById('resultDesc').textContent = `소요시간 ${formatDuration(durationSec)} · 이번 회독 결과는요?`;
+  openModal('overlayResult');
+});
+function finalizeSession(result){
+  const p = getProblem();
+  if(!p || !pendingSession) return;
+  pendingSession.result = result; // 'correct' | 'wrong' | null(skip)
+  if(!p.solveSessions) p.solveSessions=[];
+  p.solveSessions.push(pendingSession);
+  if(result==='correct') p.solvedCorrect = true;
+  if(result==='wrong') p.solvedCorrect = false;
+  pendingSession = null;
+  saveState();
+  closeModal('overlayResult');
+  renderHistoryBox(p);
+  renderProblemList();
+  problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
+}
+document.getElementById('resultCorrectBtn').addEventListener('click', ()=>finalizeSession('correct'));
+document.getElementById('resultWrongBtn').addEventListener('click', ()=>finalizeSession('wrong'));
+document.getElementById('resultSkipBtn').addEventListener('click', ()=>finalizeSession(null));
+
+function renderHistoryBox(p){
+  const box = document.getElementById('historyBox');
+  const list = document.getElementById('historyList');
+  const countPill = document.getElementById('historyCount');
+  const sessions = p.solveSessions || [];
+  const correctN = sessions.filter(s=>s.result==='correct').length;
+  const wrongN = sessions.filter(s=>s.result==='wrong').length;
+  countPill.textContent = `${sessions.length}회독 (✅${correctN}/❌${wrongN})`;
+  box.style.display = sessions.length ? 'block' : 'none';
+  list.innerHTML='';
+  sessions.forEach((s, idx)=>{
+    const row = document.createElement('div');
+    row.className='history-row';
+    const d = new Date(s.submittedAt);
+    const dateStr = `${d.getFullYear()}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const resClass = s.result==='correct' ? 'correct' : (s.result==='wrong' ? 'wrong' : 'pending');
+    const resLabel = s.result==='correct' ? '✅ 맞음' : (s.result==='wrong' ? '❌ 틀림' : '➖ 미표시');
+    row.innerHTML = `<span class="idx">${idx+1}회독</span><span class="date">${dateStr}</span><span class="dur">${formatDuration(s.durationSec)}</span><button class="result-badge ${resClass}" data-sid="${s.id}">${resLabel}</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.result-badge').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const sid = btn.dataset.sid;
+      const session = (p.solveSessions||[]).find(s=>s.id===sid);
+      if(!session) return;
+      // 클릭할 때마다 순환: 미표시 → 맞음 → 틀림 → 미표시
+      session.result = session.result==='correct' ? 'wrong' : (session.result==='wrong' ? null : 'correct');
+      saveState();
+      renderHistoryBox(p);
+    });
+  });
+}
+
+/* ---------------- 단서카드 / 암기카드 등록 ---------------- */
+let pendingClueType = 'clue';
+let pendingKwImg = null;
+let pendingRcImg = null;
+
+function setupMiniPaste(zoneEl, onSet){
+  zoneEl.onpaste = (e)=>{
+    const items = (e.clipboardData || window.clipboardData).items;
+    for(const item of items){
+      if(item.type.indexOf('image')!==-1){
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = function(ev){
+          onSet(ev.target.result);
+          renderMiniPaste(zoneEl, ev.target.result, onSet);
+        };
+        reader.readAsDataURL(blob);
+        e.preventDefault();
+        break;
+      }
+    }
+  };
+}
+function renderMiniPaste(zoneEl, imgData, onSet){
+  zoneEl.innerHTML='';
+  if(imgData){
+    const img = document.createElement('img');
+    img.src = imgData;
+    zoneEl.appendChild(img);
+    const clearBtn = document.createElement('button');
+    clearBtn.className='clear-img-btn';
+    clearBtn.textContent='지우기';
+    clearBtn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      onSet(null);
+      renderMiniPaste(zoneEl, null, onSet);
+    });
+    zoneEl.appendChild(clearBtn);
+  } else {
+    const span = document.createElement('span');
+    span.textContent = '📎 이미지 붙여넣기 (선택, Ctrl+V)';
+    zoneEl.appendChild(span);
+  }
+}
+
+const clueKwImgZone = document.getElementById('clueKwImgZone');
+const clueRcImgZone = document.getElementById('clueRcImgZone');
+setupMiniPaste(clueKwImgZone, (val)=>{ pendingKwImg = val; });
+setupMiniPaste(clueRcImgZone, (val)=>{ pendingRcImg = val; });
+
+function openClueModal(type){
+  if(!getProblem()){ alert('문제를 먼저 선택하세요.'); return; }
+  pendingClueType = type;
+  pendingKwImg = null;
+  pendingRcImg = null;
+  document.getElementById('clueKeyword').value='';
+  document.getElementById('clueRecall').value='';
+  renderMiniPaste(clueKwImgZone, null, (v)=>pendingKwImg=v);
+  renderMiniPaste(clueRcImgZone, null, (v)=>pendingRcImg=v);
+  if(type==='memo'){
+    document.getElementById('clueModalTitle').textContent = '🧠 암기카드 등록';
+    document.getElementById('clueModalDesc').textContent = '단순 암기가 필요한 수치/규정을 카드 앞면에, 정답을 뒷면에 적어두세요';
+    document.getElementById('clueKwLabel').textContent = '암기 질문 (카드 앞면)';
+    document.getElementById('clueRcLabel').textContent = '암기 내용 / 정답 (카드 뒷면)';
+  } else if(type==='template'){
+    document.getElementById('clueModalTitle').textContent = '📐 템플릿카드 등록';
+    document.getElementById('clueModalDesc').textContent = '자주 쓰는 풀이 양식·공식 골격을 카드 앞면에, 채워진 전체 템플릿을 뒷면에 적어두세요';
+    document.getElementById('clueKwLabel').textContent = '템플릿 이름 / 빈 골격 (카드 앞면)';
+    document.getElementById('clueRcLabel').textContent = '채워진 전체 템플릿 (카드 뒷면)';
+  } else {
+    document.getElementById('clueModalTitle').textContent = '💡 단서카드 등록';
+    document.getElementById('clueModalDesc').textContent = '문제 속 키워드/조건문을 보고 → 떠올려야 할 공식·판단을 적어두세요';
+    document.getElementById('clueKwLabel').textContent = '키워드 / 조건문 (카드 앞면)';
+    document.getElementById('clueRcLabel').textContent = '떠올릴 것 / 공식 (카드 뒷면)';
+  }
+  openModal('overlayClue');
+}
+
+document.getElementById('clueBtn').addEventListener('click', ()=>openClueModal('clue'));
+document.getElementById('memoBtn').addEventListener('click', ()=>openClueModal('memo'));
+document.getElementById('templateBtn').addEventListener('click', ()=>openClueModal('template'));
+
+document.getElementById('confirmClue').addEventListener('click', ()=>{
+  const kw = document.getElementById('clueKeyword').value.trim();
+  const rc = document.getElementById('clueRecall').value.trim();
+  if(!kw || !rc){ alert('양쪽 칸을 모두 입력해주세요. (이미지만으로는 검색/필터가 어려워 텍스트도 함께 적어주세요)'); return; }
+  const p = getProblem();
+  p.clueCards.push({
+    id:uid(), type: pendingClueType,
+    keyword:kw, recall:rc,
+    keywordImg: pendingKwImg, recallImg: pendingRcImg,
+    weak:0, reviewHistory: [], createdAt:Date.now()
+  });
+  renderClueStrip(p);
+  renderSideStat();
+  saveState();
+  closeModal('overlayClue');
+});
+
+/* ---------------- 오답메모 ---------------- */
+let selectedReason = null;
+let selectedTrapTags = new Set();
+const ALL_TRAP_TAGS_KEY = 'allTrapTags';
+function getAllTrapTags(){
+  const set = new Set();
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{
+      (p.wrongNotes||[]).forEach(w=>{
+        (w.trapTags||[]).forEach(t=>set.add(t));
+      });
+    });
+  });
+  // default starter tags
+  ['단위환산누락','표기준값보정','면별조건혼동','손실수두-낙차혼동'].forEach(t=>set.add(t));
+  return Array.from(set);
+}
+
+document.getElementById('wrongBtn').addEventListener('click', ()=>{
+  if(!getProblem()){ alert('문제를 먼저 선택하세요.'); return; }
+  selectedReason = null;
+  selectedTrapTags = new Set();
+  document.getElementById('wrongMemo').value='';
+  document.querySelectorAll('#reasonChips .toggle-chip').forEach(c=>c.classList.remove('sel'));
+  renderTrapTagCloud();
+  openModal('overlayWrong');
+});
+document.querySelectorAll('#reasonChips .toggle-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#reasonChips .toggle-chip').forEach(c=>c.classList.remove('sel'));
+    chip.classList.add('sel');
+    selectedReason = chip.dataset.val;
+  });
+});
+function renderTrapTagCloud(){
+  const cloud = document.getElementById('trapTagCloud');
+  cloud.innerHTML='';
+  getAllTrapTags().forEach(tag=>{
+    const pill = document.createElement('div');
+    pill.className='tag-pill' + (selectedTrapTags.has(tag) ? ' sel':'');
+    pill.textContent = tag;
+    pill.addEventListener('click', ()=>{
+      if(selectedTrapTags.has(tag)) selectedTrapTags.delete(tag);
+      else selectedTrapTags.add(tag);
+      renderTrapTagCloud();
+    });
+    cloud.appendChild(pill);
+  });
+}
+document.getElementById('newTrapTag').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){
+    const val = e.target.value.trim();
+    if(val){ selectedTrapTags.add(val); e.target.value=''; renderTrapTagCloud(); }
+    e.preventDefault();
+  }
+});
+
+document.getElementById('confirmWrong').addEventListener('click', ()=>{
+  if(!selectedReason){ alert('막힌 이유를 선택해주세요.'); return; }
+  const p = getProblem();
+  const memo = document.getElementById('wrongMemo').value.trim();
+  const note = {id:uid(), reason:selectedReason, trapTags:Array.from(selectedTrapTags), memo, createdAt:Date.now()};
+  p.wrongNotes.push(note);
+  p.solvedCorrect = false;
+  saveState();
+  closeModal('overlayWrong');
+  pendingWrongProblemRef = {round: state.currentRound, id: p.id};
+  openModal('overlayLinkClue');
+});
+document.getElementById('goMakeClue').addEventListener('click', ()=>{
+  closeModal('overlayLinkClue');
+  openClueModal('clue');
+});
+
+document.getElementById('correctBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p) return;
+  p.solvedCorrect = true;
+  renderProblemList();
+  problemMeta.innerHTML = `<span class="badge">${p.field}</span>✅ 정답 처리됨`;
+  saveState();
+});
+
+/* ---------------- 단서카드함 ---------------- */
+function goToProblem(roundName, problemId){
+  if(!state.rounds[roundName]) return;
+  state.currentRound = roundName;
+  state.currentProblemId = problemId;
+  document.querySelector('.nav-btn[data-view="solve"]').click();
+  renderRoundSelect();
+  renderProblemList();
+  renderSolveView();
+}
+
+function allClues(){
+  const arr=[];
+  Object.entries(state.rounds).forEach(([roundName, r])=>{
+    r.problems.forEach(p=>{
+      (p.clueCards||[]).forEach(c=>{
+        arr.push({...c, round:roundName, field:p.field, problemNum:p.num, pid:p.id});
+      });
+    });
+  });
+  return arr.sort((a,b)=>b.createdAt-a.createdAt);
+}
+
+function renderClueBank(){
+  const fieldFilter = document.getElementById('clueFieldFilter');
+  const roundFilter = document.getElementById('clueRoundFilter');
+  const fields = ['열설비','공기조화','위생설비','소방','전기','가스','기타'];
+  if(fieldFilter.options.length<=1){
+    fields.forEach(f=>{
+      const o=document.createElement('option'); o.value=f; o.textContent=f; fieldFilter.appendChild(o);
+    });
+  }
+  roundFilter.innerHTML = '<option value="">전체 회차</option>';
+  Object.keys(state.rounds).forEach(rn=>{
+    const o=document.createElement('option'); o.value=rn; o.textContent=rn; roundFilter.appendChild(o);
+  });
+
+  const problemFilter = document.getElementById('clueProblemFilter');
+  function refreshProblemFilterOptions(){
+    const keepVal = problemFilter.value;
+    problemFilter.innerHTML = '<option value="">전체 문제</option>';
+    const scope = roundFilter.value ? [roundFilter.value] : Object.keys(state.rounds);
+    const seen = new Set();
+    scope.forEach(rn=>{
+      const r = state.rounds[rn];
+      if(!r) return;
+      r.problems.forEach(p=>{
+        const key = p.id;
+        if(seen.has(key)) return;
+        seen.add(key);
+        const o=document.createElement('option');
+        o.value = p.id;
+        o.textContent = roundFilter.value ? `${p.num}번 (${p.field})` : `${rn} · ${p.num}번 (${p.field})`;
+        problemFilter.appendChild(o);
+      });
+    });
+    if(Array.from(problemFilter.options).some(o=>o.value===keepVal)) problemFilter.value = keepVal;
+  }
+  refreshProblemFilterOptions();
+
+  function doRender(){
+    let list = allClues();
+    const typeFilter = document.getElementById('clueTypeFilter').value;
+    if(typeFilter) list = list.filter(c=>(c.type||'clue')===typeFilter);
+    if(fieldFilter.value) list = list.filter(c=>c.field===fieldFilter.value);
+    if(roundFilter.value) list = list.filter(c=>c.round===roundFilter.value);
+    if(problemFilter.value) list = list.filter(c=>c.pid===problemFilter.value);
+    if(document.getElementById('weakOnly').checked) list = list.filter(c=>c.weak>0);
+
+    const grid = document.getElementById('clueGrid');
+    grid.innerHTML='';
+    document.getElementById('clueEmpty').style.display = list.length? 'none':'block';
+    list.forEach(c=>{
+      const isMemo = c.type==='memo';
+      const isTemplate = c.type==='template';
+      const typeClass = isMemo ? ' memo' : (isTemplate ? ' template' : '');
+      const typeLabel = isMemo ? '🧠 암기카드' : (isTemplate ? '📐 템플릿카드' : '💡 단서카드');
+      const hist = c.reviewHistory || [];
+      const total = hist.length;
+      const correct = hist.filter(h=>h.result==='correct').length;
+      const wrong = total - correct;
+      const card = document.createElement('div');
+      card.className='flash' + typeClass;
+      card.innerHTML = `
+        <div class="flash-inner">
+          <div class="flash-face flash-front">
+            <div>
+              <div class="type-pip">${typeLabel}</div>
+              <div class="kw">${escapeHtml(c.keyword)}${c.keywordImg?`<img src="${c.keywordImg}">`:''}</div>
+            </div>
+            <div class="flash-foot">
+              <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
+              <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
+            </div>
+          </div>
+          <div class="flash-face flash-back">
+            <div>
+              <div class="type-pip">${typeLabel} 정답</div>
+              <div class="recall">→ ${escapeHtml(c.recall)}${c.recallImg?`<img src="${c.recallImg}">`:''}</div>
+            </div>
+            <div class="flash-foot">
+              <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.problemNum}번 문제로</span>
+              <div class="review-row">
+                <button class="review-btn ok" data-r="correct">✅ 맞음</button>
+                <button class="review-btn no" data-r="wrong">❌ 틀림</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      card.addEventListener('click', (e)=>{
+        if(e.target.classList.contains('review-btn')) return;
+        if(e.target.classList.contains('goto-problem')) return;
+        card.classList.toggle('flipped');
+      });
+      card.querySelectorAll('.goto-problem').forEach(el=>{
+        el.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          goToProblem(el.dataset.round, el.dataset.pid);
+        });
+      });
+      card.querySelectorAll('.review-btn').forEach(btn=>{
+        btn.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          recordReview(c.id, btn.dataset.r);
+          doRender();
+        });
+      });
+      grid.appendChild(card);
+    });
+  }
+  fieldFilter.onchange = doRender;
+  roundFilter.onchange = ()=>{ refreshProblemFilterOptions(); doRender(); };
+  problemFilter.onchange = doRender;
+  document.getElementById('weakOnly').onchange = doRender;
+  document.getElementById('clueTypeFilter').onchange = doRender;
+  doRender();
+}
+
+function recordReview(clueId, result){
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{
+      (p.clueCards||[]).forEach(c=>{
+        if(c.id===clueId){
+          if(!c.reviewHistory) c.reviewHistory=[];
+          c.reviewHistory.push({date:Date.now(), result});
+          // weak 필드는 '약한 카드만 보기' 필터용으로 계속 유지 (오답이 정답보다 많으면 약함)
+          const correct = c.reviewHistory.filter(h=>h.result==='correct').length;
+          const wrong = c.reviewHistory.length - correct;
+          c.weak = wrong > correct ? wrong : 0;
+        }
+      });
+    });
+  });
+  saveState();
+}
+
+/* ---------------- 함정유형별 모아보기 ---------------- */
+let activeTrapTag = null;
+function renderTrapView(){
+  const tagCounts = {};
+  const byTag = {};
+  Object.entries(state.rounds).forEach(([roundName, r])=>{
+    r.problems.forEach(p=>{
+      (p.wrongNotes||[]).forEach(w=>{
+        (w.trapTags||[]).forEach(t=>{
+          tagCounts[t] = (tagCounts[t]||0)+1;
+          if(!byTag[t]) byTag[t]=[];
+          byTag[t].push({round:roundName, problem:p, note:w});
+        });
+      });
+    });
+  });
+  const list = document.getElementById('trapTagList');
+  list.innerHTML='';
+  const tags = Object.keys(tagCounts);
+  document.getElementById('trapEmpty').style.display = tags.length? 'none':'block';
+  if(!activeTrapTag && tags.length) activeTrapTag = tags[0];
+  tags.forEach(tag=>{
+    const card = document.createElement('div');
+    card.className = 'trap-tag-card' + (tag===activeTrapTag?' active':'');
+    card.innerHTML = `<div class="name">${escapeHtml(tag)}</div><div class="count">${tagCounts[tag]}건</div>`;
+    card.addEventListener('click', ()=>{ activeTrapTag = tag; renderTrapView(); });
+    list.appendChild(card);
+  });
+  const probListEl = document.getElementById('trapProblemList');
+  probListEl.innerHTML='';
+  if(activeTrapTag && byTag[activeTrapTag]){
+    byTag[activeTrapTag].forEach(item=>{
+      const row = document.createElement('div');
+      row.className='trap-problem-row';
+      row.innerHTML = `
+        <div><b>${item.round}</b> · ${item.problem.num}번 (${item.problem.field})
+          ${item.note.memo? '<div class="small-note">'+escapeHtml(item.note.memo)+'</div>':''}
+        </div>
+        <span class="reason-badge ${item.note.reason}">${item.note.reason}</span>`;
+      row.addEventListener('click', ()=>{
+        state.currentRound = item.round;
+        state.currentProblemId = item.problem.id;
+        document.querySelector('.nav-btn[data-view="solve"]').click();
+        renderRoundSelect();
+        renderProblemList();
+        renderSolveView();
+      });
+      probListEl.appendChild(row);
+    });
+  }
+}
+
+/* ---------------- 오답노트/통계 ---------------- */
+function renderStats(){
+  let counts = {공식모름:0, 단서못읽음:0, 암기못함:0};
+  const all=[];
+  Object.entries(state.rounds).forEach(([roundName, r])=>{
+    r.problems.forEach(p=>{
+      (p.wrongNotes||[]).forEach(w=>{
+        counts[w.reason] = (counts[w.reason]||0)+1;
+        all.push({round:roundName, problem:p, note:w});
+      });
+    });
+  });
+  document.getElementById('statFormula').textContent = counts['공식모름'];
+  document.getElementById('statClue').textContent = counts['단서못읽음'];
+  document.getElementById('statMemo').textContent = counts['암기못함'];
+
+  all.sort((a,b)=>b.note.createdAt-a.note.createdAt);
+  const wrongList = document.getElementById('wrongList');
+  wrongList.innerHTML='';
+  document.getElementById('statsEmpty').style.display = all.length? 'none':'block';
+  all.forEach(item=>{
+    const row = document.createElement('div');
+    row.className='trap-problem-row';
+    row.innerHTML = `
+      <div><b>${item.round}</b> · ${item.problem.num}번 (${item.problem.field})
+        ${item.note.trapTags.length? '<div class="small-note">태그: '+item.note.trapTags.join(', ')+'</div>':''}
+        ${item.note.memo? '<div class="small-note">'+escapeHtml(item.note.memo)+'</div>':''}
+      </div>
+      <span class="reason-badge ${item.note.reason}">${item.note.reason}</span>`;
+    row.addEventListener('click', ()=>{
+      state.currentRound = item.round;
+      state.currentProblemId = item.problem.id;
+      document.querySelector('.nav-btn[data-view="solve"]').click();
+      renderRoundSelect();
+      renderProblemList();
+      renderSolveView();
+    });
+    wrongList.appendChild(row);
+  });
+}
+
+/* ---------------- Side stat ---------------- */
+function renderSideStat(){
+  let clueCount=0, wrongCount=0;
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{
+      clueCount += (p.clueCards||[]).length;
+      wrongCount += (p.wrongNotes||[]).length;
+    });
+  });
+  sideStat.textContent = `단서카드 ${clueCount}장 · 함정메모 ${wrongCount}건`;
+}
+
+/* ---------------- Modal helpers ---------------- */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('[data-close]').forEach(btn=>{
+  btn.addEventListener('click', ()=>closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.overlay').forEach(ov=>{
+  ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.classList.remove('show'); });
+});
+
+/* ---------------- App UI Init (Drive 로그인 성공 후 호출됨) ---------------- */
+async function initAppUI(){
+  renderRoundSelect();
+  renderProblemList();
+  renderSolveView();
+  renderSideStat();
+}
+
+/* ---------------- 로그인 게이트 버튼 ---------------- */
+document.getElementById('btn-signin').addEventListener('click', ()=>{
+  if(tokenClient) tokenClient.requestAccessToken();
+});
+document.getElementById('btn-save-client-id').addEventListener('click', ()=>{
+  const val = document.getElementById('input-client-id').value.trim();
+  if(!val) return;
+  localStorage.setItem(CLIENT_ID_STORAGE_KEY, val);
+  initGoogleAuth();
+});
+document.getElementById('btn-signout').addEventListener('click', ()=>{
+  if(accessToken && window.google){
+    google.accounts.oauth2.revoke(accessToken, ()=>{});
+  }
+  accessToken = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('gate-status').textContent = '로그인할 준비가 되었습니다.';
+});
+
+initGoogleAuth();
+</script>
+</body>
+</html>
