@@ -310,9 +310,9 @@
     padding:5px 9px;
     cursor:pointer;
   }
-  .paste-img-grid{ display:flex; flex-wrap:wrap; gap:10px; width:100%; }
-  .paste-img-item{ position:relative; max-width:100%; }
-  .paste-img-item img{ display:block; max-width:220px; max-height:220px; border-radius:6px; }
+  .paste-img-grid{ display:flex; flex-direction:column; gap:14px; width:100%; }
+  .paste-img-item{ position:relative; width:100%; }
+  .paste-img-item img{ display:block; width:100%; height:auto; border-radius:6px; }
   .paste-add-hint{
     width:100%; text-align:center; font-size:12px; color:#9aabc2;
     padding:10px; border-top:1px dashed #c4d3e8; margin-top:8px;
@@ -383,9 +383,26 @@
     background: rgba(20,30,50,0.55); color:#fff; border:none;
     border-radius:6px; font-size:10px; padding:3px 6px; cursor:pointer;
   }
-  .paste-img-grid.mini{ gap:5px; }
-  .paste-img-grid.mini .paste-img-item img{ max-width:100px; max-height:100px; }
+  .paste-img-grid.mini{ flex-direction:row; flex-wrap:wrap; gap:5px; }
+  .paste-img-grid.mini .paste-img-item{ width:auto; }
+  .paste-img-grid.mini .paste-img-item img{ width:auto; max-width:100px; max-height:100px; }
   .paste-add-hint.mini{ font-size:10.5px; padding:5px; }
+  /* ---- 이미지 원본크기 보기(라이트박스) ---- */
+  .overlay.lightbox-overlay{ z-index:200; background: rgba(5,10,20,0.78); }
+  .lightbox-modal{
+    background:transparent; box-shadow:none; width:auto; max-width:94vw; padding:0;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  .lightbox-modal img{ max-width:94vw; max-height:86vh; border-radius:8px; box-shadow:0 12px 50px rgba(0,0,0,0.5); display:block; }
+  .lightbox-modal .btn{ background:#fff; }
+  .zoomable-img-wrap{ position:relative; cursor:zoom-in; }
+  .zoomable-img-wrap:hover::after{
+    content:'🔍 원본 크기로 보기'; position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(10,20,40,0.35); color:#fff; font-size:11px; font-weight:700;
+    border-radius:6px;
+  }
+
   .type-toggle{ display:flex; gap:6px; margin-bottom:6px; }
   .type-toggle .toggle-chip{ flex:1; text-align:center; }
 
@@ -1042,6 +1059,15 @@
 </div>
 
 <!-- ===================== MODALS ===================== -->
+
+<!-- 이미지 원본크기 보기(라이트박스) -->
+<div class="overlay lightbox-overlay" id="overlayImageView">
+  <div class="modal lightbox-modal">
+    <img id="lightboxImg" src="" alt="원본 이미지">
+    <button class="btn cancel" data-close="overlayImageView">닫기</button>
+  </div>
+</div>
+
 
 <!-- 회차 추가 모달 -->
 <div class="overlay" id="overlayRound">
@@ -1827,9 +1853,13 @@ function renderPasteZone(zoneEl, imgs, onChange, label, icon){
     grid.className='paste-img-grid';
     imgs.forEach((src, idx)=>{
       const wrap = document.createElement('div');
-      wrap.className='paste-img-item';
+      wrap.className='paste-img-item zoomable-img-wrap';
       const img = document.createElement('img');
       img.src = src;
+      img.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        openLightbox(src);
+      });
       const clearBtn = document.createElement('button');
       clearBtn.className='clear-img-btn';
       clearBtn.textContent='삭제';
@@ -2090,9 +2120,13 @@ function renderMiniPaste(zoneEl, imgs, onChange){
     grid.className='paste-img-grid mini';
     imgs.forEach((src, idx)=>{
       const wrap = document.createElement('div');
-      wrap.className='paste-img-item';
+      wrap.className='paste-img-item zoomable-img-wrap';
       const img = document.createElement('img');
       img.src = src;
+      img.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        openLightbox(src);
+      });
       const clearBtn = document.createElement('button');
       clearBtn.className='clear-img-btn';
       clearBtn.textContent='삭제';
@@ -2557,6 +2591,10 @@ function renderSideStat(){
 /* ---------------- Modal helpers ---------------- */
 function openModal(id){ document.getElementById(id).classList.add('show'); }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function openLightbox(src){
+  document.getElementById('lightboxImg').src = src;
+  openModal('overlayImageView');
+}
 document.querySelectorAll('[data-close]').forEach(btn=>{
   btn.addEventListener('click', ()=>closeModal(btn.dataset.close));
 });
