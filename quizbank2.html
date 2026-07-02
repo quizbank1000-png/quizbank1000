@@ -1113,6 +1113,7 @@
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
           <button class="tool-btn ai" id="aiGenBtn">🤖 AI로 카드 생성</button>
+          <button class="tool-btn ai" id="aiMockBtn" title="API 키 없이, 실제 API를 호출하지 않고 카드 초안 검수 UI만 테스트합니다" style="opacity:0.85;">🧪 목업 테스트 (API 미사용)</button>
           <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
           <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
           <div class="timer-group">
@@ -3063,6 +3064,22 @@ document.getElementById('aiGenBtn').addEventListener('click', async ()=>{
     aiGenBtn.disabled = false;
     aiGenBtn.textContent = origLabel;
   }
+});
+
+/* 🧪 목업 테스트: 실제 API를 호출하지 않고, 카드 초안 검수 UI/흐름만 확인할 때 사용 */
+function buildMockCards(field){
+  return [
+    { type:'clue', keyword:'(목업) 바닥 하부층 및 인접실과 동일조건이다', recall:'(목업) 그 면은 온도차 없음 → 부하 0' },
+    { type:'memo', keyword:'(목업) 1mAq를 kPa로 환산하면?', recall:'(목업) 약 9.8kPa' },
+    { type:'template', keyword:`(목업) ${field||'풀이'} 계산 골격`, recall:'(목업) 1단계 → 2단계 → 3단계' },
+  ];
+}
+document.getElementById('aiMockBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+  aiDraftQueue = buildMockCards(p.field);
+  aiDraftIndex = 0;
+  openNextAiDraft();
 });
 
 /* ---------------- 오답메모 ---------------- */
