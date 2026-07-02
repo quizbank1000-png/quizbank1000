@@ -340,6 +340,14 @@
   .clue-chip span{ font-size:11.5px; color:#8a6c1c; }
   .clue-chip.memo span{ color:#6c4f99; }
   .clue-chip.template span{ color:#157070; }
+  .clue-chip-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
+  .clue-chip-actions{ display:flex; gap:3px; flex-shrink:0; }
+  .chip-edit-btn, .chip-del-btn{
+    border:none; background:rgba(255,255,255,0.6); border-radius:5px;
+    font-size:11px; padding:1px 5px; cursor:pointer; line-height:1.5;
+  }
+  .chip-edit-btn:hover{ background:#fff; }
+  .chip-del-btn:hover{ background:var(--red-soft); }
 
   .mini-paste{
     min-height:90px;
@@ -541,6 +549,14 @@
   }
   .review-btn.ok{ background:#1f8a52; color:#fff; }
   .review-btn.no{ background:#c84438; color:#fff; }
+  .card-manage-row{ display:flex; gap:5px; }
+  .card-manage-btn{
+    border:none; border-radius:6px; font-size:11px; font-weight:700;
+    padding:4px 8px; cursor:pointer; background: rgba(255,255,255,0.5);
+  }
+  .flash-front .card-manage-btn{ background: var(--blue-100); color: var(--blue-700); }
+  .flash-back .card-manage-btn{ background: rgba(255,255,255,0.15); color:#fff; }
+  .card-manage-btn.del:hover{ background: var(--red-soft); color:var(--red); }
   .review-stat{
     font-size:10px;
     font-weight:700;
@@ -867,6 +883,7 @@
       <button class="nav-btn" data-view="clues">🗂 단서카드함</button>
       <button class="nav-btn" data-view="traps">⚠️ 함정유형별 모아보기</button>
       <button class="nav-btn" data-view="stats">📊 오답노트/통계</button>
+      <button class="nav-btn" id="manageFieldsBtn">⚙️ 분야 관리</button>
     </div>
 
     <div class="round-select-box">
@@ -1027,6 +1044,25 @@
   </div>
 </div>
 
+<!-- 분야 관리 모달 -->
+<div class="overlay" id="overlayFields">
+  <div class="modal">
+    <h3>⚙️ 분야 관리</h3>
+    <div class="desc">분야 이름을 바꾸면 그 분야로 등록된 모든 문제에 자동 반영됩니다. 마지막 남은 분야는 삭제할 수 없습니다.</div>
+    <div id="fieldManageList" style="display:flex; flex-direction:column; gap:8px; margin:14px 0; max-height:300px; overflow-y:auto;"></div>
+    <div class="field" style="display:flex; gap:6px; align-items:flex-end;">
+      <div style="flex:1;">
+        <label>새 분야 이름</label>
+        <input type="text" id="newFieldName" placeholder="예: 냉동설비, 적산">
+      </div>
+      <button class="mini-btn" id="addFieldBtn" style="flex:0 0 auto; padding:8px 14px;">+ 추가</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayFields">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 문제 추가 모달 -->
 <div class="overlay" id="overlayProblem">
   <div class="modal">
@@ -1037,10 +1073,7 @@
     </div>
     <div class="field">
       <label>분야</label>
-      <select id="newProblemField">
-        <option>열설비</option><option>공기조화</option><option>위생설비</option>
-        <option>소방</option><option>전기</option><option>가스</option><option>기타</option>
-      </select>
+      <select id="newProblemField"></select>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayProblem">취소</button>
@@ -1151,11 +1184,20 @@
    }
 ============================================================ */
 
+const DEFAULT_FIELDS = ['열설비','공기조화','위생설비','소방','전기','가스','기타'];
+
 let state = {
   rounds: {},
   currentRound: null,
-  currentProblemId: null
+  currentProblemId: null,
+  fields: DEFAULT_FIELDS.slice()
 };
+
+function ensureFieldsInit(){
+  if(!Array.isArray(state.fields) || state.fields.length===0){
+    state.fields = DEFAULT_FIELDS.slice();
+  }
+}
 
 let pendingWrongProblemRef = null; // {round, id} for link-to-clue flow
 
@@ -1331,12 +1373,14 @@ async function loadDataFromDrive(){
       rounds: parsed.rounds || {},
       currentRound: parsed.currentRound || null,
       currentProblemId: parsed.currentProblemId || null,
+      fields: parsed.fields || DEFAULT_FIELDS.slice(),
     };
   } else {
     dataFileId = null;
-    state = { rounds:{}, currentRound:null, currentProblemId:null };
+    state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice() };
   }
   if(!state.rounds) state.rounds = {};
+  ensureFieldsInit();
 
   // 같은 브라우저에 예전 window.storage(체험판) 데이터가 남아있으면 1회성 마이그레이션
   try{
@@ -1359,6 +1403,7 @@ async function saveDataToDrive(){
     rounds: state.rounds,
     currentRound: state.currentRound,
     currentProblemId: state.currentProblemId,
+    fields: state.fields,
   });
   const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
 
@@ -1394,6 +1439,7 @@ async function saveState(){
 
 function seedDemo(){
   state = {
+    fields: DEFAULT_FIELDS.slice(),
     rounds: {
       "2023년 2회": {
         problems: [
@@ -1433,9 +1479,9 @@ const views = {
   traps: document.getElementById('view-traps'),
   stats: document.getElementById('view-stats'),
 };
-document.querySelectorAll('.nav-btn').forEach(btn=>{
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.nav-btn[data-view]').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     Object.values(views).forEach(v=>v.style.display='none');
     const key = btn.dataset.view;
@@ -1499,6 +1545,116 @@ document.getElementById('delRoundBtn').addEventListener('click', ()=>{
   renderProblemList();
   renderSolveView();
   saveState();
+});
+
+/* ---------------- 분야(field) 관리 ---------------- */
+function renderNewProblemFieldOptions(){
+  const sel = document.getElementById('newProblemField');
+  if(!sel) return;
+  const keep = sel.value;
+  sel.innerHTML='';
+  state.fields.forEach(f=>{
+    const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
+  });
+  if(state.fields.includes(keep)) sel.value = keep;
+}
+
+function renderClueFieldFilterOptions(){
+  const fieldFilter = document.getElementById('clueFieldFilter');
+  if(!fieldFilter) return;
+  const keep = fieldFilter.value;
+  fieldFilter.innerHTML = '<option value="">전체 분야</option>';
+  state.fields.forEach(f=>{
+    const o=document.createElement('option'); o.value=f; o.textContent=f; fieldFilter.appendChild(o);
+  });
+  if(state.fields.includes(keep)) fieldFilter.value = keep;
+}
+
+function countFieldUsage(name){
+  let n=0;
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{ if(p.field===name) n++; });
+  });
+  return n;
+}
+
+function renderFieldManageModal(){
+  const list = document.getElementById('fieldManageList');
+  list.innerHTML='';
+  state.fields.forEach(f=>{
+    const count = countFieldUsage(f);
+    const row=document.createElement('div');
+    row.style.cssText='display:flex; gap:6px; align-items:center;';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(f)}" class="field-rename-input" data-old="${escapeHtml(f)}" style="flex:1;">
+      <span style="font-size:11px; color:var(--ink-soft); white-space:nowrap;">${count}문제</span>
+      <button class="mini-btn field-save-btn" data-old="${escapeHtml(f)}" style="flex:0 0 auto; background:var(--blue-500);">저장</button>
+      <button class="mini-btn secondary field-del-btn" data-field="${escapeHtml(f)}" style="flex:0 0 auto; background:var(--red-soft); color:var(--red);">삭제</button>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.field-save-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const old = btn.dataset.old;
+      const input = list.querySelector(`.field-rename-input[data-old="${CSS.escape(old)}"]`);
+      const newName = input.value.trim();
+      if(!newName){ alert('분야 이름을 입력하세요.'); return; }
+      if(newName===old) return;
+      if(state.fields.includes(newName)){ alert('이미 존재하는 분야 이름입니다.'); return; }
+      renameField(old, newName);
+    });
+  });
+  list.querySelectorAll('.field-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ deleteField(btn.dataset.field); });
+  });
+}
+
+function renameField(oldName, newName){
+  const idx = state.fields.indexOf(oldName);
+  if(idx>-1) state.fields[idx]=newName;
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{ if(p.field===oldName) p.field=newName; });
+  });
+  saveState();
+  renderNewProblemFieldOptions();
+  renderClueFieldFilterOptions();
+  renderFieldManageModal();
+  renderProblemList();
+}
+
+function deleteField(name){
+  if(state.fields.length<=1){ alert('최소 1개의 분야는 남아있어야 합니다.'); return; }
+  const usedCount = countFieldUsage(name);
+  if(usedCount>0){
+    if(!confirm(`"${name}" 분야로 등록된 문제 ${usedCount}개가 있습니다. 삭제하면 "기타"로 이동됩니다. 계속할까요?`)) return;
+  }
+  state.fields = state.fields.filter(f=>f!==name);
+  if(usedCount>0 && !state.fields.includes('기타')) state.fields.push('기타');
+  Object.values(state.rounds).forEach(r=>{
+    r.problems.forEach(p=>{ if(p.field===name) p.field='기타'; });
+  });
+  saveState();
+  renderNewProblemFieldOptions();
+  renderClueFieldFilterOptions();
+  renderFieldManageModal();
+  renderProblemList();
+}
+
+document.getElementById('manageFieldsBtn').addEventListener('click', ()=>{
+  renderFieldManageModal();
+  openModal('overlayFields');
+});
+document.getElementById('addFieldBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('newFieldName');
+  const name = input.value.trim();
+  if(!name) return;
+  if(state.fields.includes(name)){ alert('이미 존재하는 분야입니다.'); return; }
+  state.fields.push(name);
+  input.value='';
+  saveState();
+  renderNewProblemFieldOptions();
+  renderClueFieldFilterOptions();
+  renderFieldManageModal();
 });
 
 /* ---------------- Problem list ---------------- */
@@ -1644,12 +1800,54 @@ function renderClueStrip(p){
     const typeClass = c.type==='memo' ? ' memo' : (c.type==='template' ? ' template' : '');
     chip.className='clue-chip' + typeClass;
     const label = c.type==='memo' ? '🧠' : (c.type==='template' ? '📐' : '💡');
-    chip.innerHTML = `<b>${label} ${escapeHtml(c.keyword)}</b>
+    chip.innerHTML = `
+      <div class="clue-chip-head">
+        <b>${label} ${escapeHtml(c.keyword)}</b>
+        <span class="clue-chip-actions">
+          <button class="chip-edit-btn" data-id="${c.id}" title="수정">✏️</button>
+          <button class="chip-del-btn" data-id="${c.id}" title="삭제">🗑</button>
+        </span>
+      </div>
       ${c.keywordImg ? `<img src="${c.keywordImg}">` : ''}
       <span>→ ${escapeHtml(c.recall)}</span>
       ${c.recallImg ? `<img src="${c.recallImg}">` : ''}`;
     clueStrip.appendChild(chip);
   });
+  clueStrip.querySelectorAll('.chip-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const found = findClueCardById(btn.dataset.id);
+      if(found) openClueModal(found.card.type, found.card);
+    });
+  });
+  clueStrip.querySelectorAll('.chip-del-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      deleteClueCardById(btn.dataset.id);
+    });
+  });
+}
+
+function findClueCardById(cardId){
+  for(const [roundName, r] of Object.entries(state.rounds)){
+    for(const p of r.problems){
+      const c = (p.clueCards||[]).find(cc=>cc.id===cardId);
+      if(c) return {round:roundName, problem:p, card:c};
+    }
+  }
+  return null;
+}
+
+function deleteClueCardById(cardId){
+  const found = findClueCardById(cardId);
+  if(!found) return;
+  if(!confirm('이 카드를 삭제할까요? 되돌릴 수 없습니다.')) return;
+  found.problem.clueCards = found.problem.clueCards.filter(c=>c.id!==cardId);
+  saveState();
+  renderSideStat();
+  const cur = getProblem();
+  if(cur && cur.id===found.problem.id) renderClueStrip(cur);
+  if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
 }
 
 function escapeHtml(s){
@@ -1822,27 +2020,32 @@ const clueRcImgZone = document.getElementById('clueRcImgZone');
 setupMiniPaste(clueKwImgZone, (val)=>{ pendingKwImg = val; });
 setupMiniPaste(clueRcImgZone, (val)=>{ pendingRcImg = val; });
 
-function openClueModal(type){
-  if(!getProblem()){ alert('문제를 먼저 선택하세요.'); return; }
+let pendingEditId = null;
+
+function openClueModal(type, editCard){
+  if(!getProblem() && !editCard){ alert('문제를 먼저 선택하세요.'); return; }
   pendingClueType = type;
-  pendingKwImg = null;
-  pendingRcImg = null;
-  document.getElementById('clueKeyword').value='';
-  document.getElementById('clueRecall').value='';
-  renderMiniPaste(clueKwImgZone, null, (v)=>pendingKwImg=v);
-  renderMiniPaste(clueRcImgZone, null, (v)=>pendingRcImg=v);
+  pendingEditId = editCard ? editCard.id : null;
+  pendingKwImg = editCard ? (editCard.keywordImg || null) : null;
+  pendingRcImg = editCard ? (editCard.recallImg || null) : null;
+  document.getElementById('clueKeyword').value = editCard ? editCard.keyword : '';
+  document.getElementById('clueRecall').value = editCard ? editCard.recall : '';
+  renderMiniPaste(clueKwImgZone, pendingKwImg, (v)=>pendingKwImg=v);
+  renderMiniPaste(clueRcImgZone, pendingRcImg, (v)=>pendingRcImg=v);
+  const suffix = editCard ? ' 수정' : ' 등록';
+  document.getElementById('confirmClue').textContent = editCard ? '수정 저장' : '저장';
   if(type==='memo'){
-    document.getElementById('clueModalTitle').textContent = '🧠 암기카드 등록';
+    document.getElementById('clueModalTitle').textContent = '🧠 암기카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '단순 암기가 필요한 수치/규정을 카드 앞면에, 정답을 뒷면에 적어두세요';
     document.getElementById('clueKwLabel').textContent = '암기 질문 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '암기 내용 / 정답 (카드 뒷면)';
   } else if(type==='template'){
-    document.getElementById('clueModalTitle').textContent = '📐 템플릿카드 등록';
+    document.getElementById('clueModalTitle').textContent = '📐 템플릿카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '자주 쓰는 풀이 양식·공식 골격을 카드 앞면에, 채워진 전체 템플릿을 뒷면에 적어두세요';
     document.getElementById('clueKwLabel').textContent = '템플릿 이름 / 빈 골격 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '채워진 전체 템플릿 (카드 뒷면)';
   } else {
-    document.getElementById('clueModalTitle').textContent = '💡 단서카드 등록';
+    document.getElementById('clueModalTitle').textContent = '💡 단서카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '문제 속 키워드/조건문을 보고 → 떠올려야 할 공식·판단을 적어두세요';
     document.getElementById('clueKwLabel').textContent = '키워드 / 조건문 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '떠올릴 것 / 공식 (카드 뒷면)';
@@ -1858,14 +2061,29 @@ document.getElementById('confirmClue').addEventListener('click', ()=>{
   const kw = document.getElementById('clueKeyword').value.trim();
   const rc = document.getElementById('clueRecall').value.trim();
   if(!kw || !rc){ alert('양쪽 칸을 모두 입력해주세요. (이미지만으로는 검색/필터가 어려워 텍스트도 함께 적어주세요)'); return; }
-  const p = getProblem();
-  p.clueCards.push({
-    id:uid(), type: pendingClueType,
-    keyword:kw, recall:rc,
-    keywordImg: pendingKwImg, recallImg: pendingRcImg,
-    weak:0, reviewHistory: [], createdAt:Date.now()
-  });
-  renderClueStrip(p);
+  if(pendingEditId){
+    const found = findClueCardById(pendingEditId);
+    if(found){
+      found.card.keyword = kw;
+      found.card.recall = rc;
+      found.card.keywordImg = pendingKwImg;
+      found.card.recallImg = pendingRcImg;
+      found.card.type = pendingClueType;
+      const cur = getProblem();
+      if(cur && cur.id===found.problem.id) renderClueStrip(cur);
+      if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+    }
+    pendingEditId = null;
+  } else {
+    const p = getProblem();
+    p.clueCards.push({
+      id:uid(), type: pendingClueType,
+      keyword:kw, recall:rc,
+      keywordImg: pendingKwImg, recallImg: pendingRcImg,
+      weak:0, reviewHistory: [], createdAt:Date.now()
+    });
+    renderClueStrip(p);
+  }
   renderSideStat();
   saveState();
   closeModal('overlayClue');
@@ -1980,12 +2198,7 @@ function allClues(){
 function renderClueBank(){
   const fieldFilter = document.getElementById('clueFieldFilter');
   const roundFilter = document.getElementById('clueRoundFilter');
-  const fields = ['열설비','공기조화','위생설비','소방','전기','가스','기타'];
-  if(fieldFilter.options.length<=1){
-    fields.forEach(f=>{
-      const o=document.createElement('option'); o.value=f; o.textContent=f; fieldFilter.appendChild(o);
-    });
-  }
+  renderClueFieldFilterOptions();
   roundFilter.innerHTML = '<option value="">전체 회차</option>';
   Object.keys(state.rounds).forEach(rn=>{
     const o=document.createElement('option'); o.value=rn; o.textContent=rn; roundFilter.appendChild(o);
@@ -2048,6 +2261,10 @@ function renderClueBank(){
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
               <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
             </div>
+            <div class="card-manage-row">
+              <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+              <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            </div>
           </div>
           <div class="flash-face flash-back">
             <div>
@@ -2061,11 +2278,16 @@ function renderClueBank(){
                 <button class="review-btn no" data-r="wrong">❌ 틀림</button>
               </div>
             </div>
+            <div class="card-manage-row">
+              <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+              <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            </div>
           </div>
         </div>`;
       card.addEventListener('click', (e)=>{
         if(e.target.classList.contains('review-btn')) return;
         if(e.target.classList.contains('goto-problem')) return;
+        if(e.target.classList.contains('card-manage-btn')) return;
         card.classList.toggle('flipped');
       });
       card.querySelectorAll('.goto-problem').forEach(el=>{
@@ -2078,6 +2300,20 @@ function renderClueBank(){
         btn.addEventListener('click',(e)=>{
           e.stopPropagation();
           recordReview(c.id, btn.dataset.r);
+          doRender();
+        });
+      });
+      card.querySelectorAll('.card-manage-btn.edit').forEach(btn=>{
+        btn.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          const found = findClueCardById(btn.dataset.id);
+          if(found) openClueModal(found.card.type, found.card);
+        });
+      });
+      card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
+        btn.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          deleteClueCardById(btn.dataset.id);
           doRender();
         });
       });
@@ -2227,6 +2463,8 @@ document.querySelectorAll('.overlay').forEach(ov=>{
 
 /* ---------------- App UI Init (Drive 로그인 성공 후 호출됨) ---------------- */
 async function initAppUI(){
+  ensureFieldsInit();
+  renderNewProblemFieldOptions();
   renderRoundSelect();
   renderProblemList();
   renderSolveView();
