@@ -220,6 +220,10 @@
   .tool-btn.purple:hover{ background: #f1ebfa; }
   .tool-btn.teal{ border-color: #0b8a8a; color: #0b8a8a; }
   .tool-btn.teal:hover{ background: #e0f5f5; }
+  .tool-btn.exam-toggle{ border-color: var(--ink-soft); color: var(--ink-soft); }
+  .tool-btn.exam-toggle:hover{ background: var(--line); }
+  .tool-btn.exam-toggle.on{ background: var(--red); border-color: var(--red); color:#fff; }
+  .tool-btn.exam-toggle.on:hover{ background: #b5362c; }
   .timer-group{
     display:flex;
     align-items:center;
@@ -924,6 +928,7 @@
         </div>
 
         <div class="solve-toolbar">
+          <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
           <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
@@ -1720,6 +1725,31 @@ function switchTab(which){
   myAnswerPane.style.display = which==='myAnswer' ? 'block':'none';
 }
 
+/* ---------------- 문제만 보기 (실전 연습 모드) ---------------- */
+let examMode = false;
+const examModeBtn = document.getElementById('examModeBtn');
+const viewTabsEl = document.querySelector('.view-tabs');
+const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn'].map(id=>document.getElementById(id));
+
+function applyExamModeUI(){
+  examModeBtn.classList.toggle('on', examMode);
+  examModeBtn.textContent = examMode ? '🎯 문제만 보기 (끄려면 클릭)' : '🎯 문제만 보기';
+  viewTabsEl.style.display = examMode ? 'none' : 'flex';
+  clueStrip.style.display = examMode ? 'none' : 'flex';
+  examHideEls.forEach(el=>{ if(el) el.style.display = examMode ? 'none' : ''; });
+  if(examMode){
+    switchTab('problem');
+    document.getElementById('historyBox').style.display = 'none';
+  } else {
+    const p = getProblem();
+    if(p) renderHistoryBox(p);
+  }
+}
+examModeBtn.addEventListener('click', ()=>{
+  examMode = !examMode;
+  applyExamModeUI();
+});
+
 function renderSolveView(){
   const p = getProblem();
   if(!p){
@@ -1749,6 +1779,7 @@ function renderSolveView(){
   renderHistoryBox(p);
   updateTimerDisplay();
   if(p.runningStartedAt) startTicking(); else stopTicking();
+  applyExamModeUI();
 }
 
 function renderPasteZone(zoneEl, imgData, onSet, label, icon){
@@ -1929,7 +1960,7 @@ function finalizeSession(result){
   pendingSession = null;
   saveState();
   closeModal('overlayResult');
-  renderHistoryBox(p);
+  if(!examMode) renderHistoryBox(p);
   renderProblemList();
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
 }
