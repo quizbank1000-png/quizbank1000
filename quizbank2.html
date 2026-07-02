@@ -310,6 +310,13 @@
     padding:5px 9px;
     cursor:pointer;
   }
+  .paste-img-grid{ display:flex; flex-wrap:wrap; gap:10px; width:100%; }
+  .paste-img-item{ position:relative; max-width:100%; }
+  .paste-img-item img{ display:block; max-width:220px; max-height:220px; border-radius:6px; }
+  .paste-add-hint{
+    width:100%; text-align:center; font-size:12px; color:#9aabc2;
+    padding:10px; border-top:1px dashed #c4d3e8; margin-top:8px;
+  }
 
   .clue-strip{
     margin-top:14px;
@@ -376,6 +383,9 @@
     background: rgba(20,30,50,0.55); color:#fff; border:none;
     border-radius:6px; font-size:10px; padding:3px 6px; cursor:pointer;
   }
+  .paste-img-grid.mini{ gap:5px; }
+  .paste-img-grid.mini .paste-img-item img{ max-width:100px; max-height:100px; }
+  .paste-add-hint.mini{ font-size:10.5px; padding:5px; }
   .type-toggle{ display:flex; gap:6px; margin-bottom:6px; }
   .type-toggle .toggle-chip{ flex:1; text-align:center; }
 
@@ -1208,6 +1218,30 @@ let pendingWrongProblemRef = null; // {round, id} for link-to-clue flow
 
 function uid(){ return 'id'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 
+/* 기존 데이터(단일 이미지 필드)를 다중 이미지 배열 필드로 변환 */
+function migrateImageFields(){
+  Object.values(state.rounds||{}).forEach(r=>{
+    (r.problems||[]).forEach(p=>{
+      ['problem','solution','myAnswer'].forEach(key=>{
+        const singular = key+'Img';
+        const plural = key+'Imgs';
+        if(!Array.isArray(p[plural])) p[plural] = [];
+        if(typeof p[singular] === 'string' && p[singular]) p[plural].unshift(p[singular]);
+        delete p[singular];
+      });
+      (p.clueCards||[]).forEach(c=>{
+        ['keyword','recall'].forEach(key=>{
+          const singular = key+'Img';
+          const plural = key+'Imgs';
+          if(!Array.isArray(c[plural])) c[plural] = [];
+          if(typeof c[singular] === 'string' && c[singular]) c[plural].unshift(c[singular]);
+          delete c[singular];
+        });
+      });
+    });
+  });
+}
+
 /* ============================================================
    Google Drive 동기화 (quizbank_v3.html과 동일한 방식)
    - Google Identity Services(GIS) 토큰 클라이언트 사용
@@ -1386,6 +1420,7 @@ async function loadDataFromDrive(){
   }
   if(!state.rounds) state.rounds = {};
   ensureFieldsInit();
+  migrateImageFields();
 
   // 같은 브라우저에 예전 window.storage(체험판) 데이터가 남아있으면 1회성 마이그레이션
   try{
@@ -1395,6 +1430,8 @@ async function loadDataFromDrive(){
         const oldState = JSON.parse(old.value);
         if(oldState && oldState.rounds && Object.keys(oldState.rounds).length>0){
           state = oldState;
+          ensureFieldsInit();
+          migrateImageFields();
           await saveDataToDrive();
         }
       }
@@ -1691,7 +1728,7 @@ document.getElementById('confirmProblem').addEventListener('click', ()=>{
   const num = document.getElementById('newProblemNum').value.trim() || '?';
   const field = document.getElementById('newProblemField').value;
   const r = getRound();
-  const p = { id:uid(), num, field, problemImg:null, solutionImg:null, myAnswerImg:null, clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+  const p = { id:uid(), num, field, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
   r.problems.push(p);
   state.currentProblemId = p.id;
   renderProblemList();
@@ -1766,14 +1803,14 @@ function renderSolveView(){
   problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
   switchTab('problem');
-  renderPasteZone(document.getElementById('problemPaste'), p.problemImg, (dataUrl)=>{
-    p.problemImg = dataUrl; saveState();
+  renderPasteZone(document.getElementById('problemPaste'), p.problemImgs, (imgs)=>{
+    p.problemImgs = imgs; saveState(); renderSolveView();
   }, '문제 이미지', '🖼️');
-  renderPasteZone(document.getElementById('solutionPaste'), p.solutionImg, (dataUrl)=>{
-    p.solutionImg = dataUrl; saveState();
+  renderPasteZone(document.getElementById('solutionPaste'), p.solutionImgs, (imgs)=>{
+    p.solutionImgs = imgs; saveState(); renderSolveView();
   }, '풀이/정답 이미지', '✅');
-  renderPasteZone(document.getElementById('myAnswerPaste'), p.myAnswerImg, (dataUrl)=>{
-    p.myAnswerImg = dataUrl; saveState();
+  renderPasteZone(document.getElementById('myAnswerPaste'), p.myAnswerImgs, (imgs)=>{
+    p.myAnswerImgs = imgs; saveState(); renderSolveView();
   }, '나의 답안 이미지', '✍️');
   renderClueStrip(p);
   renderHistoryBox(p);
@@ -1782,45 +1819,60 @@ function renderSolveView(){
   applyExamModeUI();
 }
 
-function renderPasteZone(zoneEl, imgData, onSet, label, icon){
+function renderPasteZone(zoneEl, imgs, onChange, label, icon){
+  imgs = Array.isArray(imgs) ? imgs : [];
   zoneEl.innerHTML='';
-  if(imgData){
-    const img = document.createElement('img');
-    img.src = imgData;
-    zoneEl.appendChild(img);
-    const clearBtn = document.createElement('button');
-    clearBtn.className='clear-img-btn';
-    clearBtn.textContent='지우기';
-    clearBtn.addEventListener('click',(e)=>{
-      e.stopPropagation();
-      onSet(null);
-      renderSolveView();
+  if(imgs.length){
+    const grid = document.createElement('div');
+    grid.className='paste-img-grid';
+    imgs.forEach((src, idx)=>{
+      const wrap = document.createElement('div');
+      wrap.className='paste-img-item';
+      const img = document.createElement('img');
+      img.src = src;
+      const clearBtn = document.createElement('button');
+      clearBtn.className='clear-img-btn';
+      clearBtn.textContent='삭제';
+      clearBtn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const next = imgs.slice(); next.splice(idx,1);
+        onChange(next);
+      });
+      wrap.appendChild(img);
+      wrap.appendChild(clearBtn);
+      grid.appendChild(wrap);
     });
-    zoneEl.appendChild(clearBtn);
+    zoneEl.appendChild(grid);
+    const addHint = document.createElement('div');
+    addHint.className='paste-add-hint';
+    addHint.innerHTML = `📎 여기를 클릭하고 <b>Ctrl+V</b>로 ${label} 추가 붙여넣기 (여러 장 가능)`;
+    zoneEl.appendChild(addHint);
   } else {
     const hint = document.createElement('div');
     hint.className='hint-icon';
     hint.textContent = icon;
     zoneEl.appendChild(hint);
     const txt = document.createElement('div');
-    txt.innerHTML = `이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 ${label}를 붙여넣으세요`;
+    txt.innerHTML = `이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 ${label}를 붙여넣으세요 (여러 장을 순서대로 붙여넣기 가능)`;
     zoneEl.appendChild(txt);
   }
   zoneEl.onpaste = (e)=>{
     const items = (e.clipboardData || window.clipboardData).items;
-    for(const item of items){
-      if(item.type.indexOf('image')!==-1){
-        const blob = item.getAsFile();
-        const reader = new FileReader();
-        reader.onload = function(ev){
-          onSet(ev.target.result);
-          renderSolveView();
-        };
-        reader.readAsDataURL(blob);
-        e.preventDefault();
-        break;
-      }
-    }
+    const imageItems = Array.from(items||[]).filter(item=>item.type.indexOf('image')!==-1);
+    if(!imageItems.length) return;
+    e.preventDefault();
+    const newImgs = new Array(imageItems.length);
+    let readCount = 0;
+    imageItems.forEach((item, i)=>{
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        newImgs[i] = ev.target.result;
+        readCount++;
+        if(readCount===imageItems.length) onChange(imgs.concat(newImgs));
+      };
+      reader.readAsDataURL(blob);
+    });
   };
 }
 
@@ -1839,9 +1891,9 @@ function renderClueStrip(p){
           <button class="chip-del-btn" data-id="${c.id}" title="삭제">🗑</button>
         </span>
       </div>
-      ${c.keywordImg ? `<img src="${c.keywordImg}">` : ''}
+      ${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}
       <span>→ ${escapeHtml(c.recall)}</span>
-      ${c.recallImg ? `<img src="${c.recallImg}">` : ''}`;
+      ${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}`;
     clueStrip.appendChild(chip);
   });
   clueStrip.querySelectorAll('.chip-edit-btn').forEach(btn=>{
@@ -2003,53 +2055,73 @@ function renderHistoryBox(p){
 
 /* ---------------- 단서카드 / 암기카드 등록 ---------------- */
 let pendingClueType = 'clue';
-let pendingKwImg = null;
-let pendingRcImg = null;
+let pendingKwImgs = [];
+let pendingRcImgs = [];
 
-function setupMiniPaste(zoneEl, onSet){
+function setupMiniPaste(zoneEl, getImgs, onChange){
   zoneEl.onpaste = (e)=>{
     const items = (e.clipboardData || window.clipboardData).items;
-    for(const item of items){
-      if(item.type.indexOf('image')!==-1){
-        const blob = item.getAsFile();
-        const reader = new FileReader();
-        reader.onload = function(ev){
-          onSet(ev.target.result);
-          renderMiniPaste(zoneEl, ev.target.result, onSet);
-        };
-        reader.readAsDataURL(blob);
-        e.preventDefault();
-        break;
-      }
-    }
+    const imageItems = Array.from(items||[]).filter(item=>item.type.indexOf('image')!==-1);
+    if(!imageItems.length) return;
+    e.preventDefault();
+    const newImgs = new Array(imageItems.length);
+    let readCount = 0;
+    imageItems.forEach((item, i)=>{
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        newImgs[i] = ev.target.result;
+        readCount++;
+        if(readCount===imageItems.length){
+          const next = getImgs().concat(newImgs);
+          onChange(next);
+          renderMiniPaste(zoneEl, next, onChange);
+        }
+      };
+      reader.readAsDataURL(blob);
+    });
   };
 }
-function renderMiniPaste(zoneEl, imgData, onSet){
+function renderMiniPaste(zoneEl, imgs, onChange){
+  imgs = Array.isArray(imgs) ? imgs : [];
   zoneEl.innerHTML='';
-  if(imgData){
-    const img = document.createElement('img');
-    img.src = imgData;
-    zoneEl.appendChild(img);
-    const clearBtn = document.createElement('button');
-    clearBtn.className='clear-img-btn';
-    clearBtn.textContent='지우기';
-    clearBtn.addEventListener('click',(e)=>{
-      e.stopPropagation();
-      onSet(null);
-      renderMiniPaste(zoneEl, null, onSet);
+  if(imgs.length){
+    const grid = document.createElement('div');
+    grid.className='paste-img-grid mini';
+    imgs.forEach((src, idx)=>{
+      const wrap = document.createElement('div');
+      wrap.className='paste-img-item';
+      const img = document.createElement('img');
+      img.src = src;
+      const clearBtn = document.createElement('button');
+      clearBtn.className='clear-img-btn';
+      clearBtn.textContent='삭제';
+      clearBtn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const next = imgs.slice(); next.splice(idx,1);
+        onChange(next);
+        renderMiniPaste(zoneEl, next, onChange);
+      });
+      wrap.appendChild(img);
+      wrap.appendChild(clearBtn);
+      grid.appendChild(wrap);
     });
-    zoneEl.appendChild(clearBtn);
+    zoneEl.appendChild(grid);
+    const addHint = document.createElement('div');
+    addHint.className='paste-add-hint mini';
+    addHint.textContent = '📎 추가 붙여넣기 (Ctrl+V, 여러 장 가능)';
+    zoneEl.appendChild(addHint);
   } else {
     const span = document.createElement('span');
-    span.textContent = '📎 이미지 붙여넣기 (선택, Ctrl+V)';
+    span.textContent = '📎 이미지 붙여넣기 (선택, Ctrl+V, 여러 장 가능)';
     zoneEl.appendChild(span);
   }
 }
 
 const clueKwImgZone = document.getElementById('clueKwImgZone');
 const clueRcImgZone = document.getElementById('clueRcImgZone');
-setupMiniPaste(clueKwImgZone, (val)=>{ pendingKwImg = val; });
-setupMiniPaste(clueRcImgZone, (val)=>{ pendingRcImg = val; });
+setupMiniPaste(clueKwImgZone, ()=>pendingKwImgs, (v)=>{ pendingKwImgs = v; });
+setupMiniPaste(clueRcImgZone, ()=>pendingRcImgs, (v)=>{ pendingRcImgs = v; });
 
 let pendingEditId = null;
 
@@ -2057,12 +2129,12 @@ function openClueModal(type, editCard){
   if(!getProblem() && !editCard){ alert('문제를 먼저 선택하세요.'); return; }
   pendingClueType = type;
   pendingEditId = editCard ? editCard.id : null;
-  pendingKwImg = editCard ? (editCard.keywordImg || null) : null;
-  pendingRcImg = editCard ? (editCard.recallImg || null) : null;
+  pendingKwImgs = editCard ? (editCard.keywordImgs || []).slice() : [];
+  pendingRcImgs = editCard ? (editCard.recallImgs || []).slice() : [];
   document.getElementById('clueKeyword').value = editCard ? editCard.keyword : '';
   document.getElementById('clueRecall').value = editCard ? editCard.recall : '';
-  renderMiniPaste(clueKwImgZone, pendingKwImg, (v)=>pendingKwImg=v);
-  renderMiniPaste(clueRcImgZone, pendingRcImg, (v)=>pendingRcImg=v);
+  renderMiniPaste(clueKwImgZone, pendingKwImgs, (v)=>pendingKwImgs=v);
+  renderMiniPaste(clueRcImgZone, pendingRcImgs, (v)=>pendingRcImgs=v);
   const suffix = editCard ? ' 수정' : ' 등록';
   document.getElementById('confirmClue').textContent = editCard ? '수정 저장' : '저장';
   if(type==='memo'){
@@ -2097,8 +2169,8 @@ document.getElementById('confirmClue').addEventListener('click', ()=>{
     if(found){
       found.card.keyword = kw;
       found.card.recall = rc;
-      found.card.keywordImg = pendingKwImg;
-      found.card.recallImg = pendingRcImg;
+      found.card.keywordImgs = pendingKwImgs;
+      found.card.recallImgs = pendingRcImgs;
       found.card.type = pendingClueType;
       const cur = getProblem();
       if(cur && cur.id===found.problem.id) renderClueStrip(cur);
@@ -2110,7 +2182,7 @@ document.getElementById('confirmClue').addEventListener('click', ()=>{
     p.clueCards.push({
       id:uid(), type: pendingClueType,
       keyword:kw, recall:rc,
-      keywordImg: pendingKwImg, recallImg: pendingRcImg,
+      keywordImgs: pendingKwImgs, recallImgs: pendingRcImgs,
       weak:0, reviewHistory: [], createdAt:Date.now()
     });
     renderClueStrip(p);
@@ -2286,7 +2358,7 @@ function renderClueBank(){
           <div class="flash-face flash-front">
             <div>
               <div class="type-pip">${typeLabel}</div>
-              <div class="kw">${escapeHtml(c.keyword)}${c.keywordImg?`<img src="${c.keywordImg}">`:''}</div>
+              <div class="kw">${escapeHtml(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
             </div>
             <div class="flash-foot">
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
@@ -2300,7 +2372,7 @@ function renderClueBank(){
           <div class="flash-face flash-back">
             <div>
               <div class="type-pip">${typeLabel} 정답</div>
-              <div class="recall">→ ${escapeHtml(c.recall)}${c.recallImg?`<img src="${c.recallImg}">`:''}</div>
+              <div class="recall">→ ${escapeHtml(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
             </div>
             <div class="flash-foot">
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.problemNum}번 문제로</span>
