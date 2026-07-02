@@ -196,6 +196,43 @@
     padding:6px 4px 2px; margin-top:4px;
   }
   .problem-group-header:first-child{ margin-top:0; }
+  .problem-group-header.main{
+    font-size:11.5px; font-weight:800; color:#fff; text-transform:none;
+    background: rgba(255,255,255,0.09); border-radius:6px;
+    padding:6px 8px; margin-top:10px;
+  }
+  .problem-group-header.main:first-child{ margin-top:0; }
+  .problem-group-header.sub{ padding-left:12px; }
+  .checkbox-row{
+    display:flex; align-items:center; gap:6px;
+    font-size:11.5px; color:#cfe0f7; cursor:pointer; margin:2px 0;
+  }
+  .checkbox-row input{ width:auto; margin:0; }
+  .checkbox-row.small{ font-size:10.5px; color:#a9c2e8; }
+  .field-group-block{ border:1px solid var(--line); border-radius:10px; padding:10px; }
+  .field-group-title{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:800; color: var(--blue-900); margin-bottom:8px;
+  }
+  .field-group-title input{ font-size:13px; font-weight:800; border:none; background:transparent; padding:2px 4px; flex:1; }
+  .field-group-title input:focus{ outline:1.5px solid var(--blue-300); border-radius:5px; }
+  .field-row{ display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .field-row:last-child{ margin-bottom:0; }
+  .problem-filter-row{ display:flex; gap:5px; margin:2px 0 4px; }
+  .problem-filter-row select{ flex:1; font-size:11px; padding:6px 5px; }
+  .round-badge{
+    font-size:9px; background: rgba(255,255,255,0.15); color:#cfe0f7;
+    border-radius:4px; padding:1px 4px; margin-left:4px;
+  }
+  .problem-chip.active .round-badge{ background: var(--blue-100); color: var(--blue-700); }
+  .problem-chip.excluded{ opacity:0.45; }
+  .problem-chip.excluded:hover{ opacity:0.7; }
+  .exclude-toggle-btn{
+    border:none; background:rgba(255,255,255,0.18); color:inherit;
+    border-radius:5px; font-size:10.5px; padding:1px 5px; cursor:pointer; line-height:1.6;
+  }
+  .exclude-toggle-btn:hover{ background:rgba(255,255,255,0.32); }
+  .problem-chip.active .exclude-toggle-btn{ background: var(--blue-100); }
   .problem-chip-info{ display:flex; align-items:center; gap:6px; overflow:hidden; min-width:0; }
   .problem-chip-manage{ display:flex; gap:3px; flex-shrink:0; margin-left:6px; }
   .problem-edit-btn, .problem-del-btn{
@@ -994,7 +1031,19 @@
 
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <label>문제 목록</label>
-      <select id="problemFieldFilter" style="margin-bottom:6px;"><option value="">전체 분야 (유형별로 묶어보기)</option></select>
+      <label class="checkbox-row small">
+        <input type="checkbox" id="problemScopeAll">
+        🌐 전체 문제에서 찾기 (모든 년도·회차)
+      </label>
+      <div class="problem-filter-row" id="problemGlobalFilters" style="display:none;">
+        <select id="problemYearFilter"><option value="">전체 년도</option></select>
+        <select id="problemRoundFilterSel"><option value="">전체 회차</option></select>
+      </div>
+      <select id="problemFieldFilter" style="margin-bottom:4px;"><option value="">전체 분야 (유형별로 묶어보기)</option></select>
+      <label class="checkbox-row small">
+        <input type="checkbox" id="showExcludedToggle">
+        🔕 복습 제외 문제도 표시
+      </label>
       <div class="problem-list" id="problemList"></div>
       <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
     </div>
@@ -1159,22 +1208,34 @@
 
 <!-- 분야 관리 모달 -->
 <div class="overlay" id="overlayFields">
-  <div class="modal">
-    <h3>⚙️ 분야 관리</h3>
-    <div class="desc">분야 이름을 바꾸면 그 분야로 등록된 모든 문제에 자동 반영됩니다. 마지막 남은 분야는 삭제할 수 없습니다.</div>
-    <div id="fieldManageList" style="display:flex; flex-direction:column; gap:8px; margin:14px 0; max-height:300px; overflow-y:auto;"></div>
+  <div class="modal" style="width:520px;">
+    <h3>⚙️ 분야(유형) 관리</h3>
+    <div class="desc">그룹별로 분야(유형)를 묶어서 관리해요. 이름을 바꾸면 그 분야로 등록된 모든 문제에 자동 반영됩니다.</div>
+    <div id="fieldManageList" style="display:flex; flex-direction:column; gap:14px; margin:14px 0; max-height:340px; overflow-y:auto;"></div>
     <div class="field" style="display:flex; gap:6px; align-items:flex-end;">
       <div style="flex:1;">
-        <label>새 분야 이름</label>
-        <input type="text" id="newFieldName" placeholder="예: 냉동설비, 적산">
+        <label>새 분야(유형) 이름</label>
+        <input type="text" id="newFieldName" placeholder="예: 냉동설비">
+      </div>
+      <div style="flex:1;">
+        <label>추가할 그룹</label>
+        <select id="newFieldGroupSelect"></select>
       </div>
       <button class="mini-btn" id="addFieldBtn" style="flex:0 0 auto; padding:8px 14px;">+ 추가</button>
+    </div>
+    <div class="field" style="display:flex; gap:6px; align-items:flex-end; margin-top:8px;">
+      <div style="flex:1;">
+        <label>새 그룹 이름</label>
+        <input type="text" id="newGroupName" placeholder="예: 8그룹">
+      </div>
+      <button class="mini-btn secondary" id="addGroupBtn" style="flex:0 0 auto; padding:8px 14px;">+ 그룹 추가</button>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayFields">닫기</button>
     </div>
   </div>
 </div>
+
 
 <!-- 문제 추가/수정 모달 -->
 <div class="overlay" id="overlayProblem">
@@ -1187,6 +1248,12 @@
     <div class="field">
       <label>분야</label>
       <select id="newProblemField"></select>
+    </div>
+    <div class="field">
+      <label class="checkbox-row">
+        <input type="checkbox" id="newProblemExclude">
+        🔕 복습 제외 (필터링 목록에서 숨김)
+      </label>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayProblem">취소</button>
@@ -1297,19 +1364,59 @@
    }
 ============================================================ */
 
-const DEFAULT_FIELDS = ['열설비','공기조화','위생설비','소방','전기','가스','기타'];
+const DEFAULT_FIELD_GROUPS = [
+  { name:'1그룹', fields:['(난방)열전달-송풍량 계산','난방부하 계산','난방 프로세스'] },
+  { name:'2그룹', fields:['(냉방)엔탈피-송풍량 계산','냉방부하 계산','단열혼합-바이패스 계수와 콘택 계수','냉방 프로세스'] },
+  { name:'3그룹', fields:['위생설비 용량 계산','공조설비 용량 계산','배관펌프 용량 계산','덕트 팬 용량 계산'] },
+  { name:'4그룹', fields:['위생설비 계통도','공조설비 계통도'] },
+  { name:'5그룹', fields:['적산'] },
+  { name:'6그룹', fields:['위생설비 특성','난방 공조설비 특성','자동제어 기술','에너지 계획수립','설계도서 작성'] },
+  { name:'7그룹', fields:['단답 서술형','그림 맞추기'] },
+];
+const DEFAULT_FIELDS = DEFAULT_FIELD_GROUPS.reduce((acc,g)=>acc.concat(g.fields), []);
 
 let state = {
   rounds: {},
   currentRound: null,
   currentProblemId: null,
-  fields: DEFAULT_FIELDS.slice()
+  fields: DEFAULT_FIELDS.slice(),
+  fieldGroups: DEFAULT_FIELD_GROUPS.map(g=>({name:g.name, fields:g.fields.slice()}))
 };
 
+/* state.fields(평면 목록)는 항상 state.fieldGroups에서 파생시켜 동기화한다 */
+function syncFieldsFromGroups(){
+  const flat = [];
+  state.fieldGroups.forEach(g=>{
+    (g.fields||[]).forEach(f=>{ if(!flat.includes(f)) flat.push(f); });
+  });
+  state.fields = flat;
+}
+
 function ensureFieldsInit(){
-  if(!Array.isArray(state.fields) || state.fields.length===0){
-    state.fields = DEFAULT_FIELDS.slice();
+  if(!Array.isArray(state.fieldGroups) || state.fieldGroups.length===0){
+    state.fieldGroups = DEFAULT_FIELD_GROUPS.map(g=>({name:g.name, fields:g.fields.slice()}));
   }
+  // 그룹에 속하지 않은 기존(레거시) 분야명이나 문제에 남아있는 분야명은 "기타" 그룹으로 보존한다
+  const known = new Set();
+  state.fieldGroups.forEach(g=>(g.fields||[]).forEach(f=>known.add(f)));
+  const orphans = [];
+  (Array.isArray(state.fields) ? state.fields : []).forEach(f=>{ if(!known.has(f) && !orphans.includes(f)) orphans.push(f); });
+  Object.values(state.rounds||{}).forEach(r=>{
+    (r.problems||[]).forEach(p=>{
+      if(p.field && !known.has(p.field) && !orphans.includes(p.field)) orphans.push(p.field);
+    });
+  });
+  if(orphans.length){
+    let etc = state.fieldGroups.find(g=>g.name==='기타');
+    if(!etc){ etc = {name:'기타', fields:[]}; state.fieldGroups.push(etc); }
+    orphans.forEach(f=>{ if(!etc.fields.includes(f)) etc.fields.push(f); });
+  }
+  syncFieldsFromGroups();
+}
+
+function getFieldGroupName(fieldName){
+  const g = state.fieldGroups.find(gr=>(gr.fields||[]).includes(fieldName));
+  return g ? g.name : '미분류';
 }
 
 let pendingWrongProblemRef = null; // {round, id} for link-to-clue flow
@@ -1327,6 +1434,7 @@ function migrateImageFields(){
         if(typeof p[singular] === 'string' && p[singular]) p[plural].unshift(p[singular]);
         delete p[singular];
       });
+      if(typeof p.excludeReview !== 'boolean') p.excludeReview = false;
       (p.clueCards||[]).forEach(c=>{
         ['keyword','recall'].forEach(key=>{
           const singular = key+'Img';
@@ -1511,10 +1619,11 @@ async function loadDataFromDrive(){
       currentRound: parsed.currentRound || null,
       currentProblemId: parsed.currentProblemId || null,
       fields: parsed.fields || DEFAULT_FIELDS.slice(),
+      fieldGroups: parsed.fieldGroups || null,
     };
   } else {
     dataFileId = null;
-    state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice() };
+    state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice(), fieldGroups: null };
   }
   if(!state.rounds) state.rounds = {};
   ensureFieldsInit();
@@ -1544,6 +1653,7 @@ async function saveDataToDrive(){
     currentRound: state.currentRound,
     currentProblemId: state.currentProblemId,
     fields: state.fields,
+    fieldGroups: state.fieldGroups,
   });
   const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
 
@@ -1709,6 +1819,7 @@ document.getElementById('confirmRound').addEventListener('click', ()=>{
   state.currentRound = name;
   state.currentProblemId = null;
   renderRoundSelect();
+  renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
   saveState();
@@ -1722,20 +1833,36 @@ document.getElementById('delRoundBtn').addEventListener('click', ()=>{
   state.currentRound = keys.length ? keys[0] : null;
   state.currentProblemId = null;
   renderRoundSelect();
+  renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
   saveState();
 });
 
 /* ---------------- 분야(field) 관리 ---------------- */
+function buildFieldOptgroups(selectEl, includeAllOption, allOptionText){
+  selectEl.innerHTML='';
+  if(includeAllOption){
+    const allOpt = document.createElement('option');
+    allOpt.value=''; allOpt.textContent=allOptionText;
+    selectEl.appendChild(allOpt);
+  }
+  state.fieldGroups.forEach(g=>{
+    if(!g.fields || !g.fields.length) return;
+    const og = document.createElement('optgroup');
+    og.label = g.name;
+    g.fields.forEach(f=>{
+      const o=document.createElement('option'); o.value=f; o.textContent=f; og.appendChild(o);
+    });
+    selectEl.appendChild(og);
+  });
+}
+
 function renderNewProblemFieldOptions(){
   const sel = document.getElementById('newProblemField');
   if(!sel) return;
   const keep = sel.value;
-  sel.innerHTML='';
-  state.fields.forEach(f=>{
-    const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
-  });
+  buildFieldOptgroups(sel, false);
   if(state.fields.includes(keep)) sel.value = keep;
 }
 
@@ -1743,11 +1870,19 @@ function renderClueFieldFilterOptions(){
   const fieldFilter = document.getElementById('clueFieldFilter');
   if(!fieldFilter) return;
   const keep = fieldFilter.value;
-  fieldFilter.innerHTML = '<option value="">전체 분야</option>';
-  state.fields.forEach(f=>{
-    const o=document.createElement('option'); o.value=f; o.textContent=f; fieldFilter.appendChild(o);
-  });
+  buildFieldOptgroups(fieldFilter, true, '전체 분야');
   if(state.fields.includes(keep)) fieldFilter.value = keep;
+}
+
+function renderNewFieldGroupSelectOptions(){
+  const sel = document.getElementById('newFieldGroupSelect');
+  if(!sel) return;
+  const keep = sel.value;
+  sel.innerHTML='';
+  state.fieldGroups.forEach(g=>{
+    const o=document.createElement('option'); o.value=g.name; o.textContent=g.name; sel.appendChild(o);
+  });
+  if(state.fieldGroups.some(g=>g.name===keep)) sel.value = keep;
 }
 
 function countFieldUsage(name){
@@ -1761,18 +1896,39 @@ function countFieldUsage(name){
 function renderFieldManageModal(){
   const list = document.getElementById('fieldManageList');
   list.innerHTML='';
-  state.fields.forEach(f=>{
-    const count = countFieldUsage(f);
-    const row=document.createElement('div');
-    row.style.cssText='display:flex; gap:6px; align-items:center;';
-    row.innerHTML = `
-      <input type="text" value="${escapeHtml(f)}" class="field-rename-input" data-old="${escapeHtml(f)}" style="flex:1;">
-      <span style="font-size:11px; color:var(--ink-soft); white-space:nowrap;">${count}문제</span>
-      <button class="mini-btn field-save-btn" data-old="${escapeHtml(f)}" style="flex:0 0 auto; background:var(--blue-500);">저장</button>
-      <button class="mini-btn secondary field-del-btn" data-field="${escapeHtml(f)}" style="flex:0 0 auto; background:var(--red-soft); color:var(--red);">삭제</button>
-    `;
-    list.appendChild(row);
+  state.fieldGroups.forEach(group=>{
+    const block = document.createElement('div');
+    block.className='field-group-block';
+    const title = document.createElement('div');
+    title.className='field-group-title';
+    title.innerHTML = `
+      <input type="text" value="${escapeHtml(group.name)}" class="group-rename-input" data-old="${escapeHtml(group.name)}">
+      <span style="display:flex; gap:4px; flex-shrink:0;">
+        <button class="mini-btn group-save-btn" data-old="${escapeHtml(group.name)}" style="padding:4px 8px; font-size:10.5px;">저장</button>
+        <button class="mini-btn secondary group-del-btn" data-group="${escapeHtml(group.name)}" style="padding:4px 8px; font-size:10.5px; background:var(--red-soft); color:var(--red);">그룹삭제</button>
+      </span>`;
+    block.appendChild(title);
+    (group.fields||[]).forEach(f=>{
+      const count = countFieldUsage(f);
+      const row = document.createElement('div');
+      row.className='field-row';
+      row.innerHTML = `
+        <input type="text" value="${escapeHtml(f)}" class="field-rename-input" data-old="${escapeHtml(f)}" style="flex:1;">
+        <span style="font-size:10.5px; color:var(--ink-soft); white-space:nowrap;">${count}문제</span>
+        <button class="mini-btn field-save-btn" data-old="${escapeHtml(f)}" style="flex:0 0 auto; padding:4px 8px; font-size:10.5px; background:var(--blue-500);">저장</button>
+        <button class="mini-btn secondary field-del-btn" data-field="${escapeHtml(f)}" style="flex:0 0 auto; padding:4px 8px; font-size:10.5px; background:var(--red-soft); color:var(--red);">삭제</button>
+      `;
+      block.appendChild(row);
+    });
+    if(!(group.fields||[]).length){
+      const empty = document.createElement('div');
+      empty.style.cssText='font-size:11px; color:var(--ink-soft);';
+      empty.textContent = '(이 그룹에 등록된 분야가 없어요)';
+      block.appendChild(empty);
+    }
+    list.appendChild(block);
   });
+
   list.querySelectorAll('.field-save-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const old = btn.dataset.old;
@@ -1787,14 +1943,32 @@ function renderFieldManageModal(){
   list.querySelectorAll('.field-del-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{ deleteField(btn.dataset.field); });
   });
+  list.querySelectorAll('.group-save-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const old = btn.dataset.old;
+      const input = list.querySelector(`.group-rename-input[data-old="${CSS.escape(old)}"]`);
+      const newName = input.value.trim();
+      if(!newName){ alert('그룹 이름을 입력하세요.'); return; }
+      if(newName===old) return;
+      if(state.fieldGroups.some(g=>g.name===newName)){ alert('이미 존재하는 그룹 이름입니다.'); return; }
+      renameFieldGroup(old, newName);
+    });
+  });
+  list.querySelectorAll('.group-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ deleteFieldGroup(btn.dataset.group); });
+  });
+  renderNewFieldGroupSelectOptions();
 }
 
 function renameField(oldName, newName){
-  const idx = state.fields.indexOf(oldName);
-  if(idx>-1) state.fields[idx]=newName;
+  state.fieldGroups.forEach(g=>{
+    const idx = (g.fields||[]).indexOf(oldName);
+    if(idx>-1) g.fields[idx]=newName;
+  });
   Object.values(state.rounds).forEach(r=>{
     r.problems.forEach(p=>{ if(p.field===oldName) p.field=newName; });
   });
+  syncFieldsFromGroups();
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
@@ -1807,13 +1981,47 @@ function deleteField(name){
   if(state.fields.length<=1){ alert('최소 1개의 분야는 남아있어야 합니다.'); return; }
   const usedCount = countFieldUsage(name);
   if(usedCount>0){
-    if(!confirm(`"${name}" 분야로 등록된 문제 ${usedCount}개가 있습니다. 삭제하면 "기타"로 이동됩니다. 계속할까요?`)) return;
+    if(!confirm(`"${name}" 분야로 등록된 문제 ${usedCount}개가 있습니다. 삭제하면 "기타" 그룹으로 이동됩니다. 계속할까요?`)) return;
   }
-  state.fields = state.fields.filter(f=>f!==name);
-  if(usedCount>0 && !state.fields.includes('기타')) state.fields.push('기타');
-  Object.values(state.rounds).forEach(r=>{
-    r.problems.forEach(p=>{ if(p.field===name) p.field='기타'; });
-  });
+  state.fieldGroups.forEach(g=>{ g.fields = (g.fields||[]).filter(f=>f!==name); });
+  if(usedCount>0){
+    let etc = state.fieldGroups.find(g=>g.name==='기타');
+    if(!etc){ etc = {name:'기타', fields:[]}; state.fieldGroups.push(etc); }
+    if(!etc.fields.includes('기타')) etc.fields.push('기타');
+    Object.values(state.rounds).forEach(r=>{
+      r.problems.forEach(p=>{ if(p.field===name) p.field='기타'; });
+    });
+  }
+  syncFieldsFromGroups();
+  saveState();
+  renderNewProblemFieldOptions();
+  renderClueFieldFilterOptions();
+  renderProblemFieldFilterOptions();
+  renderFieldManageModal();
+  renderProblemList();
+}
+
+function renameFieldGroup(oldName, newName){
+  const g = state.fieldGroups.find(gr=>gr.name===oldName);
+  if(g) g.name = newName;
+  saveState();
+  renderFieldManageModal();
+  renderProblemList();
+}
+
+function deleteFieldGroup(name){
+  if(state.fieldGroups.length<=1){ alert('최소 1개의 그룹은 남아있어야 합니다.'); return; }
+  const g = state.fieldGroups.find(gr=>gr.name===name);
+  if(!g) return;
+  const fieldsInGroup = g.fields||[];
+  if(fieldsInGroup.length){
+    if(!confirm(`"${name}" 그룹에 속한 분야 ${fieldsInGroup.length}개가 있습니다. 그룹을 삭제하면 "기타" 그룹으로 옮겨집니다. 계속할까요?`)) return;
+    let etc = state.fieldGroups.find(gr=>gr.name==='기타' && gr.name!==name);
+    if(!etc){ etc = {name:'기타', fields:[]}; state.fieldGroups.push(etc); }
+    fieldsInGroup.forEach(f=>{ if(!etc.fields.includes(f)) etc.fields.push(f); });
+  }
+  state.fieldGroups = state.fieldGroups.filter(gr=>gr.name!==name);
+  syncFieldsFromGroups();
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
@@ -1829,14 +2037,27 @@ document.getElementById('manageFieldsBtn').addEventListener('click', ()=>{
 document.getElementById('addFieldBtn').addEventListener('click', ()=>{
   const input = document.getElementById('newFieldName');
   const name = input.value.trim();
+  const groupSel = document.getElementById('newFieldGroupSelect');
   if(!name) return;
   if(state.fields.includes(name)){ alert('이미 존재하는 분야입니다.'); return; }
-  state.fields.push(name);
+  let g = state.fieldGroups.find(gr=>gr.name===groupSel.value) || state.fieldGroups[0];
+  g.fields.push(name);
   input.value='';
+  syncFieldsFromGroups();
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
   renderProblemFieldFilterOptions();
+  renderFieldManageModal();
+});
+document.getElementById('addGroupBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('newGroupName');
+  const name = input.value.trim();
+  if(!name) return;
+  if(state.fieldGroups.some(g=>g.name===name)){ alert('이미 존재하는 그룹입니다.'); return; }
+  state.fieldGroups.push({name, fields:[]});
+  input.value='';
+  saveState();
   renderFieldManageModal();
 });
 
@@ -1845,27 +2066,30 @@ function renderProblemFieldFilterOptions(){
   const sel = document.getElementById('problemFieldFilter');
   if(!sel) return;
   const keep = sel.value;
-  sel.innerHTML = '<option value="">전체 분야 (유형별로 묶어보기)</option>';
-  state.fields.forEach(f=>{
-    const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
-  });
+  buildFieldOptgroups(sel, true, '전체 분야 (그룹·유형별로 묶어보기)');
   if(state.fields.includes(keep)) sel.value = keep;
 }
 
-function createProblemChip(p){
+function createProblemChip(p, roundName, showRoundBadge){
   const chip = document.createElement('div');
-  chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'');
+  chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'') + (p.excludeReview ? ' excluded':'');
   const sessCount = (p.solveSessions||[]).length;
   chip.innerHTML = `
     <div class="problem-chip-info">
-      <span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
+      <span>${p.num}번 ${p.solvedCorrect?'✅':''}${p.excludeReview?'🔕':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
       <span class="tag">${p.field}</span>
+      ${showRoundBadge ? `<span class="round-badge">${escapeHtml(roundName)}</span>` : ''}
     </div>
     <div class="problem-chip-manage">
+      <button class="exclude-toggle-btn" data-id="${p.id}" title="${p.excludeReview?'복습 제외 해제':'복습 제외로 표시'}">${p.excludeReview?'🔔':'🔕'}</button>
       <button class="problem-edit-btn" data-id="${p.id}" title="수정">✏️</button>
       <button class="problem-del-btn" data-id="${p.id}" title="삭제">🗑</button>
     </div>`;
   chip.addEventListener('click', ()=>{
+    if(roundName && roundName!==state.currentRound){
+      state.currentRound = roundName;
+      renderRoundSelect();
+    }
     state.currentProblemId = p.id;
     renderProblemList();
     renderSolveView();
@@ -1874,37 +2098,105 @@ function createProblemChip(p){
   return chip;
 }
 
+function findProblemById(problemId){
+  for(const [roundName, r] of Object.entries(state.rounds)){
+    const p = (r.problems||[]).find(pp=>pp.id===problemId);
+    if(p) return {roundName, round:r, problem:p};
+  }
+  return null;
+}
+
+function extractYearFromRoundName(name){
+  const m = name.match(/\d{4}년/);
+  return m ? m[0] : name;
+}
+
+function renderProblemYearRoundFilterOptions(){
+  const yearSel = document.getElementById('problemYearFilter');
+  const roundSel = document.getElementById('problemRoundFilterSel');
+  if(!yearSel || !roundSel) return;
+  const keepYear = yearSel.value;
+  const keepRound = roundSel.value;
+  const years = Array.from(new Set(Object.keys(state.rounds).map(extractYearFromRoundName))).sort();
+  yearSel.innerHTML = '<option value="">전체 년도</option>';
+  years.forEach(y=>{
+    const o=document.createElement('option'); o.value=y; o.textContent=y; yearSel.appendChild(o);
+  });
+  if(years.includes(keepYear)) yearSel.value = keepYear;
+
+  roundSel.innerHTML = '<option value="">전체 회차</option>';
+  Object.keys(state.rounds).forEach(rn=>{
+    if(yearSel.value && extractYearFromRoundName(rn)!==yearSel.value) return;
+    const o=document.createElement('option'); o.value=rn; o.textContent=rn; roundSel.appendChild(o);
+  });
+  if(Array.from(roundSel.options).some(o=>o.value===keepRound)) roundSel.value = keepRound;
+}
+
 function renderProblemList(){
   problemList.innerHTML='';
-  const r = getRound();
-  if(!r){ return; }
-  const filterSel = document.getElementById('problemFieldFilter');
-  const filterVal = filterSel ? filterSel.value : '';
+  const scopeAll = document.getElementById('problemScopeAll').checked;
+  const fieldVal = document.getElementById('problemFieldFilter').value;
+  const yearVal = document.getElementById('problemYearFilter').value;
+  const roundVal = document.getElementById('problemRoundFilterSel').value;
+  const showExcluded = document.getElementById('showExcludedToggle').checked;
 
-  if(filterVal){
-    r.problems.filter(p=>p.field===filterVal).forEach(p=>{
-      problemList.appendChild(createProblemChip(p));
+  let items = []; // {p, roundName}
+  if(scopeAll){
+    Object.entries(state.rounds).forEach(([rn, r])=>{
+      if(yearVal && extractYearFromRoundName(rn)!==yearVal) return;
+      if(roundVal && rn!==roundVal) return;
+      (r.problems||[]).forEach(p=> items.push({p, roundName:rn}));
     });
   } else {
-    // 필터 미선택 시: 분야(유형)별로 묶어서 표시
-    const usedFields = state.fields.filter(f=>r.problems.some(p=>p.field===f));
-    r.problems.forEach(p=>{ if(!usedFields.includes(p.field)) usedFields.push(p.field); });
-    usedFields.forEach(field=>{
-      const group = r.problems.filter(p=>p.field===field);
-      if(!group.length) return;
-      const header = document.createElement('div');
-      header.className='problem-group-header';
-      header.textContent = `${field} (${group.length})`;
-      problemList.appendChild(header);
-      group.forEach(p=>problemList.appendChild(createProblemChip(p)));
+    const r = getRound();
+    if(!r) return;
+    (r.problems||[]).forEach(p=> items.push({p, roundName:state.currentRound}));
+  }
+  if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
+  if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
+
+  if(fieldVal){
+    items.forEach(it=>problemList.appendChild(createProblemChip(it.p, it.roundName, scopeAll)));
+  } else {
+    // 필터 미선택 시: 그룹 → 분야(유형) 2단계로 묶어서 표시
+    const groupOrder = state.fieldGroups.map(g=>g.name);
+    const byGroup = {};
+    items.forEach(it=>{
+      const gName = getFieldGroupName(it.p.field);
+      if(!groupOrder.includes(gName)) groupOrder.push(gName);
+      if(!byGroup[gName]) byGroup[gName] = {};
+      if(!byGroup[gName][it.p.field]) byGroup[gName][it.p.field] = [];
+      byGroup[gName][it.p.field].push(it);
+    });
+    groupOrder.forEach(gName=>{
+      const fieldsInGroup = byGroup[gName];
+      if(!fieldsInGroup) return;
+      const groupTotal = Object.values(fieldsInGroup).reduce((s,arr)=>s+arr.length, 0);
+      if(!groupTotal) return;
+      const gHeader = document.createElement('div');
+      gHeader.className='problem-group-header main';
+      gHeader.textContent = `📁 ${gName} (${groupTotal})`;
+      problemList.appendChild(gHeader);
+      const groupDef = state.fieldGroups.find(g=>g.name===gName);
+      const fieldOrder = groupDef ? groupDef.fields.slice() : [];
+      Object.keys(fieldsInGroup).forEach(f=>{ if(!fieldOrder.includes(f)) fieldOrder.push(f); });
+      fieldOrder.forEach(f=>{
+        const grp = fieldsInGroup[f];
+        if(!grp || !grp.length) return;
+        const header = document.createElement('div');
+        header.className='problem-group-header sub';
+        header.textContent = `${f} (${grp.length})`;
+        problemList.appendChild(header);
+        grp.forEach(it=>problemList.appendChild(createProblemChip(it.p, it.roundName, scopeAll)));
+      });
     });
   }
 
   problemList.querySelectorAll('.problem-edit-btn').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      const prob = r.problems.find(pp=>pp.id===btn.dataset.id);
-      if(prob) openProblemModal(prob);
+      const found = findProblemById(btn.dataset.id);
+      if(found) openProblemModal(found.problem);
     });
   });
   problemList.querySelectorAll('.problem-del-btn').forEach(btn=>{
@@ -1913,18 +2205,40 @@ function renderProblemList(){
       deleteProblem(btn.dataset.id);
     });
   });
+  problemList.querySelectorAll('.exclude-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const found = findProblemById(btn.dataset.id);
+      if(!found) return;
+      found.problem.excludeReview = !found.problem.excludeReview;
+      saveState();
+      renderProblemList();
+      renderSideStat();
+    });
+  });
 }
 document.getElementById('problemFieldFilter').addEventListener('change', renderProblemList);
+document.getElementById('showExcludedToggle').addEventListener('change', renderProblemList);
+document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
+document.getElementById('problemYearFilter').addEventListener('change', ()=>{
+  renderProblemYearRoundFilterOptions();
+  renderProblemList();
+});
+document.getElementById('problemScopeAll').addEventListener('change', (e)=>{
+  document.getElementById('problemGlobalFilters').style.display = e.target.checked ? 'flex' : 'none';
+  if(e.target.checked) renderProblemYearRoundFilterOptions();
+  renderProblemList();
+});
 
 function deleteProblem(problemId){
-  const r = getRound();
-  if(!r) return;
-  const prob = r.problems.find(pp=>pp.id===problemId);
-  if(!prob) return;
+  const found = findProblemById(problemId);
+  if(!found) return;
+  const { round: r, problem: prob } = found;
   if(!confirm(`"${prob.num}번" 문제를 삭제할까요? 등록된 카드/오답메모까지 모두 삭제되며 되돌릴 수 없습니다.`)) return;
   r.problems = r.problems.filter(pp=>pp.id!==problemId);
   if(state.currentProblemId===problemId){
-    state.currentProblemId = r.problems.length ? r.problems[0].id : null;
+    const curR = getRound();
+    state.currentProblemId = (curR && curR.problems.length) ? curR.problems[0].id : null;
   }
   renderProblemList();
   renderSolveView();
@@ -1941,6 +2255,7 @@ function openProblemModal(editProblem){
   document.getElementById('problemModalTitle').textContent = editProblem ? '✏️ 문제 수정' : '+ 새 문제 추가';
   document.getElementById('confirmProblem').textContent = editProblem ? '수정 저장' : '추가';
   document.getElementById('newProblemNum').value = editProblem ? editProblem.num : '';
+  document.getElementById('newProblemExclude').checked = editProblem ? !!editProblem.excludeReview : false;
   renderNewProblemFieldOptions();
   if(editProblem) document.getElementById('newProblemField').value = editProblem.field;
   openModal('overlayProblem');
@@ -1952,15 +2267,16 @@ document.getElementById('addProblemBtn').addEventListener('click', ()=>{
 document.getElementById('confirmProblem').addEventListener('click', ()=>{
   const num = document.getElementById('newProblemNum').value.trim() || '?';
   const field = document.getElementById('newProblemField').value;
-  const r = getRound();
+  const excludeReview = document.getElementById('newProblemExclude').checked;
   if(pendingEditProblemId){
-    const prob = r.problems.find(pp=>pp.id===pendingEditProblemId);
-    if(prob){ prob.num = num; prob.field = field; }
+    const found = findProblemById(pendingEditProblemId);
+    if(found){ found.problem.num = num; found.problem.field = field; found.problem.excludeReview = excludeReview; }
     pendingEditProblemId = null;
     renderProblemList();
     renderSolveView();
   } else {
-    const p = { id:uid(), num, field, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+    const r = getRound();
+    const p = { id:uid(), num, field, excludeReview, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
     r.problems.push(p);
     state.currentProblemId = p.id;
     renderProblemList();
@@ -2821,6 +3137,7 @@ async function initAppUI(){
   ensureFieldsInit();
   renderNewProblemFieldOptions();
   renderProblemFieldFilterOptions();
+  renderProblemYearRoundFilterOptions();
   renderRoundSelect();
   renderProblemList();
   renderSolveView();
