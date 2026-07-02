@@ -342,6 +342,17 @@
   .tool-btn.purple:hover{ background: #f1ebfa; }
   .tool-btn.teal{ border-color: #0b8a8a; color: #0b8a8a; }
   .tool-btn.teal:hover{ background: #e0f5f5; }
+  .tool-btn.ai{ border-color:#4338ca; color:#4338ca; background:#fff; }
+  .tool-btn.ai:hover{ background:#eeecfd; }
+  .tool-btn.ai:disabled{ opacity:0.55; cursor:default; }
+  .ai-draft-badge{
+    display:inline-block; background:#eeecfd; color:#4338ca; font-size:11px;
+    font-weight:800; padding:2px 8px; border-radius:20px; margin-left:8px;
+  }
+  .ai-warn-box{
+    background:#fff7e6; border:1px solid #f0d189; color:#7a5d0a;
+    border-radius:8px; padding:9px 11px; font-size:11.5px; line-height:1.5; margin-bottom:12px;
+  }
   .tool-btn.exam-toggle{ border-color: var(--ink-soft); color: var(--ink-soft); }
   .tool-btn.exam-toggle:hover{ background: var(--line); }
   .tool-btn.exam-toggle.on{ background: var(--red); border-color: var(--red); color:#fff; }
@@ -1032,6 +1043,7 @@
       <button class="nav-btn" data-view="traps" title="함정유형별 모아보기">⚠️ <span class="sidebar-label">함정유형별 모아보기</span></button>
       <button class="nav-btn" data-view="stats" title="오답노트/통계">📊 <span class="sidebar-label">오답노트/통계</span></button>
       <button class="nav-btn" id="manageFieldsBtn" title="분야 관리">⚙️ <span class="sidebar-label">분야 관리</span></button>
+      <button class="nav-btn" id="aiSettingsBtn" title="AI 카드 생성 설정">🤖 <span class="sidebar-label">AI 카드 생성 설정</span></button>
     </div>
 
     <div class="round-select-box">
@@ -1100,6 +1112,7 @@
           <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
+          <button class="tool-btn ai" id="aiGenBtn">🤖 AI로 카드 생성</button>
           <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
           <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
           <div class="timer-group">
@@ -1257,6 +1270,37 @@
 </div>
 
 
+<!-- AI 카드 생성 설정 모달 -->
+<div class="overlay" id="overlayAiConfig">
+  <div class="modal">
+    <h3>🤖 AI 카드 생성 설정</h3>
+    <div class="desc">
+      Claude API 키를 입력하면 문제 이미지를 보고 단서/암기/템플릿카드 초안을 자동으로 만들어줍니다.
+      키는 이 브라우저의 localStorage에만 저장되며, 문제 이미지와 함께 Anthropic API로 직접 전송됩니다.
+    </div>
+    <div class="ai-warn-box">
+      ⚠️ API 키가 이 브라우저(로컬)에 평문으로 저장되고, 브라우저에서 직접 API를 호출합니다.
+      개인 기기에서만 사용하고, 공용 컴퓨터에는 저장하지 마세요.
+    </div>
+    <div class="field">
+      <label>Anthropic API 키 (sk-ant-... 로 시작)</label>
+      <input type="text" id="aiApiKeyInput" placeholder="sk-ant-api03-...">
+    </div>
+    <div class="field">
+      <label>사용 모델</label>
+      <select id="aiModelSelect">
+        <option value="claude-sonnet-5">claude-sonnet-5 (권장, 속도/품질 균형)</option>
+        <option value="claude-opus-4-8">claude-opus-4-8 (고품질, 느림·비쌈)</option>
+        <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001 (가장 빠름)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayAiConfig">닫기</button>
+      <button class="btn confirm" id="confirmAiConfig">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 문제 추가/수정 모달 -->
 <div class="overlay" id="overlayProblem">
   <div class="modal">
@@ -1285,8 +1329,11 @@
 <!-- 단서카드/암기카드 등록 모달 -->
 <div class="overlay" id="overlayClue">
   <div class="modal">
-    <h3 id="clueModalTitle">💡 단서카드 등록</h3>
+    <h3 id="clueModalTitle">💡 단서카드 등록<span class="ai-draft-badge" id="aiDraftBadge" style="display:none;"></span></h3>
     <div class="desc" id="clueModalDesc">문제 속 키워드/조건문을 보고 → 떠올려야 할 공식·판단을 적어두세요</div>
+    <div class="ai-warn-box" id="aiDraftNotice" style="display:none;">
+      🤖 AI가 만든 초안입니다. 내용을 검수하고 필요하면 수정한 뒤 저장하세요.
+    </div>
     <div class="field">
       <label id="clueKwLabel">키워드 / 조건문 (카드 앞면)</label>
       <textarea id="clueKeyword" rows="2" placeholder="예: 공기층의 열저항이 별도로 주어짐"></textarea>
@@ -1302,7 +1349,8 @@
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn cancel" data-close="overlayClue">취소</button>
+      <button class="btn cancel" id="skipAiDraftBtn" style="display:none;">⏭ 이 초안 건너뛰기</button>
+      <button class="btn cancel" id="cancelClueBtn">취소</button>
       <button class="btn confirm" id="confirmClue">저장</button>
     </div>
   </div>
@@ -2749,8 +2797,22 @@ setupMiniPaste(clueRcImgZone, ()=>pendingRcImgs, (v)=>{ pendingRcImgs = v; });
 
 let pendingEditId = null;
 
+/* ---- AI 카드 초안 검수 큐 상태 ---- */
+let aiDraftQueue = [];
+let aiDraftIndex = 0;
+let inAiDraftMode = false;
+
+function setAiDraftUi(on, progressText){
+  inAiDraftMode = !!on;
+  document.getElementById('aiDraftBadge').style.display = on ? 'inline-block' : 'none';
+  document.getElementById('aiDraftBadge').textContent = on ? (progressText||'') : '';
+  document.getElementById('aiDraftNotice').style.display = on ? 'block' : 'none';
+  document.getElementById('skipAiDraftBtn').style.display = on ? 'inline-block' : 'none';
+}
+
 function openClueModal(type, editCard){
   if(!getProblem() && !editCard){ alert('문제를 먼저 선택하세요.'); return; }
+  setAiDraftUi(false);
   pendingClueType = type;
   pendingEditId = editCard ? editCard.id : null;
   pendingKwImgs = editCard ? (editCard.keywordImgs || []).slice() : [];
@@ -2759,30 +2821,62 @@ function openClueModal(type, editCard){
   document.getElementById('clueRecall').value = editCard ? editCard.recall : '';
   renderMiniPaste(clueKwImgZone, pendingKwImgs, (v)=>pendingKwImgs=v);
   renderMiniPaste(clueRcImgZone, pendingRcImgs, (v)=>pendingRcImgs=v);
-  const suffix = editCard ? ' 수정' : ' 등록';
+  applyClueModalLabels(type, editCard ? ' 수정' : ' 등록');
   document.getElementById('confirmClue').textContent = editCard ? '수정 저장' : '저장';
+  openModal('overlayClue');
+}
+
+function applyClueModalLabels(type, suffix){
   if(type==='memo'){
-    document.getElementById('clueModalTitle').textContent = '🧠 암기카드' + suffix;
+    document.getElementById('clueModalTitle').childNodes[0].textContent = '🧠 암기카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '단순 암기가 필요한 수치/규정을 카드 앞면에, 정답을 뒷면에 적어두세요';
     document.getElementById('clueKwLabel').textContent = '암기 질문 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '암기 내용 / 정답 (카드 뒷면)';
   } else if(type==='template'){
-    document.getElementById('clueModalTitle').textContent = '📐 템플릿카드' + suffix;
+    document.getElementById('clueModalTitle').childNodes[0].textContent = '📐 템플릿카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '자주 쓰는 풀이 양식·공식 골격을 카드 앞면에, 채워진 전체 템플릿을 뒷면에 적어두세요';
     document.getElementById('clueKwLabel').textContent = '템플릿 이름 / 빈 골격 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '채워진 전체 템플릿 (카드 뒷면)';
   } else {
-    document.getElementById('clueModalTitle').textContent = '💡 단서카드' + suffix;
+    document.getElementById('clueModalTitle').childNodes[0].textContent = '💡 단서카드' + suffix;
     document.getElementById('clueModalDesc').textContent = '문제 속 키워드/조건문을 보고 → 떠올려야 할 공식·판단을 적어두세요';
     document.getElementById('clueKwLabel').textContent = '키워드 / 조건문 (카드 앞면)';
     document.getElementById('clueRcLabel').textContent = '떠올릴 것 / 공식 (카드 뒷면)';
   }
-  openModal('overlayClue');
 }
 
 document.getElementById('clueBtn').addEventListener('click', ()=>openClueModal('clue'));
 document.getElementById('memoBtn').addEventListener('click', ()=>openClueModal('memo'));
 document.getElementById('templateBtn').addEventListener('click', ()=>openClueModal('template'));
+
+/* AI 초안 큐에서 다음(또는 첫) 카드를 모달에 채워서 보여준다 */
+function openNextAiDraft(){
+  if(aiDraftIndex >= aiDraftQueue.length){
+    aiDraftQueue = [];
+    setAiDraftUi(false);
+    closeModal('overlayClue');
+    alert('AI 카드 초안 검수가 모두 끝났습니다. 수고하셨어요!');
+    return;
+  }
+  const draft = aiDraftQueue[aiDraftIndex];
+  pendingClueType = draft.type;
+  pendingEditId = null;
+  pendingKwImgs = [];
+  pendingRcImgs = [];
+  document.getElementById('clueKeyword').value = draft.keyword || '';
+  document.getElementById('clueRecall').value = draft.recall || '';
+  renderMiniPaste(clueKwImgZone, pendingKwImgs, (v)=>pendingKwImgs=v);
+  renderMiniPaste(clueRcImgZone, pendingRcImgs, (v)=>pendingRcImgs=v);
+  applyClueModalLabels(draft.type, ' 초안 검수');
+  document.getElementById('confirmClue').textContent = '이 카드로 저장';
+  setAiDraftUi(true, `AI 초안 ${aiDraftIndex+1}/${aiDraftQueue.length}`);
+  openModal('overlayClue');
+}
+
+document.getElementById('skipAiDraftBtn').addEventListener('click', ()=>{
+  aiDraftIndex++;
+  openNextAiDraft();
+});
 
 document.getElementById('confirmClue').addEventListener('click', ()=>{
   const kw = document.getElementById('clueKeyword').value.trim();
@@ -2813,7 +2907,162 @@ document.getElementById('confirmClue').addEventListener('click', ()=>{
   }
   renderSideStat();
   saveState();
-  closeModal('overlayClue');
+  if(inAiDraftMode){
+    aiDraftIndex++;
+    openNextAiDraft();
+  } else {
+    closeModal('overlayClue');
+  }
+});
+
+/* ---------------- AI 카드 생성 (Claude API) ---------------- */
+const AI_API_KEY_STORAGE_KEY = 'quizbank2_claude_api_key';
+const AI_MODEL_STORAGE_KEY = 'quizbank2_claude_model';
+
+function getAiApiKey(){ return localStorage.getItem(AI_API_KEY_STORAGE_KEY) || ''; }
+function getAiModel(){ return localStorage.getItem(AI_MODEL_STORAGE_KEY) || 'claude-sonnet-5'; }
+
+document.getElementById('aiSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('aiApiKeyInput').value = getAiApiKey();
+  document.getElementById('aiModelSelect').value = getAiModel();
+  openModal('overlayAiConfig');
+});
+document.getElementById('confirmAiConfig').addEventListener('click', ()=>{
+  const key = document.getElementById('aiApiKeyInput').value.trim();
+  const model = document.getElementById('aiModelSelect').value;
+  if(!key){ alert('API 키를 입력해주세요.'); return; }
+  localStorage.setItem(AI_API_KEY_STORAGE_KEY, key);
+  localStorage.setItem(AI_MODEL_STORAGE_KEY, model);
+  closeModal('overlayAiConfig');
+});
+
+const AI_SYSTEM_PROMPT = `당신은 한국 건축설비기사 실기 시험 학습 카드를 만드는 어시스턴트입니다.
+입력으로 문제 이미지(그리고 있으면 풀이/정답 이미지)를 받아, 학습자가 나중에
+빠르게 복습할 수 있는 플래시카드를 JSON으로 생성합니다.
+
+카드는 세 종류이며, 각각의 철학을 반드시 지켜야 합니다.
+
+1. clue (단서카드)
+   - 철학: 문제 속 특정 한국어 트리거 문구를 보면 → 곧바로 어떤 공식/판단을
+     떠올려야 하는지 연결하는 카드.
+   - keyword: 문제에 실제로 등장하는 조건문/트리거 문구를 "거의 그대로" 인용.
+     의역하거나 요약하지 말 것. 문제에 없는 말을 지어내지 말 것.
+   - recall: 그 문구가 의미하는 판단·공식·함정 주의사항을 간결하게.
+
+2. memo (암기카드)
+   - 철학: 단순 암기가 필요한 수치/규정/상수.
+   - keyword: 암기가 필요한 질문 형태로.
+   - recall: 정답 수치/규정을 정확하게. 단위를 반드시 포함.
+
+3. template (템플릿카드)
+   - 철학: 반복적으로 쓰는 풀이 골격/공식 순서.
+   - keyword: 템플릿의 이름 (예: "OO 계산 골격").
+   - recall: 실제로 쓰는 순서대로 나열한 골격/공식. 화살표(→)나 단계 구분 사용.
+
+## 카드 생성 규칙
+- 문제 하나에서 여러 장의 카드가 나올 수 있습니다 (보통 1~4장).
+- 문제에 트리거 문구가 여러 개면 각각 별도의 clue 카드로 분리하세요.
+- 풀이 이미지가 함께 제공되면 그 안의 공식·수치·단위환산을 근거로 recall을 채우세요.
+- 풀이 이미지가 없으면 문제 이미지만으로 판단 가능한 범위에서만 카드를 만드세요.
+  확신이 없는 내용은 만들지 말고 카드 수를 줄이세요.
+- 같은 내용을 clue와 template 양쪽에 중복해서 넣지 마세요.
+- 출력은 반드시 아래 JSON 스키마를 따르는 배열이어야 하며, 그 외 텍스트
+  (설명, 마크다운 코드펜스 등)를 포함하지 마세요.
+
+## 출력 스키마
+[{"type": "clue|memo|template", "keyword": "카드 앞면 텍스트", "recall": "카드 뒷면 텍스트"}]`;
+
+const AI_FEWSHOT_USER = '(문제 이미지: 2025년 1회 1번 — 증기 감압밸브 bypass 배관)\n(풀이 이미지 함께 제공됨)\n위 문제와 풀이를 보고 카드를 생성해주세요.\n분야: 위생설비 계통도\n회차: 2025년 1회';
+const AI_FEWSHOT_ASSISTANT = JSON.stringify([
+  {type:'clue', keyword:'증기 감압밸브 bypass 배관에서 저압측(2차측) 배관 관경이 1차측보다 큰 이유는?', recall:'증기 감압 후 압력↓·밀도↓·질량유량 동일 유지하려면 체적유량↑ → 유속 과다 시 침식·진동·워터해머 우려 → 속도 제한, 배관 직경 확대'},
+  {type:'template', keyword:'증기 감압밸브 bypass 배관 골격', recall:'[1차측=감압변과 동일 규격] 스트레이너→게이트밸브→감압밸브→레듀샤(관경 확대)→[2차측] 게이트밸브→안전밸브→압력계 / 우회관에는 글로브밸브'}
+]);
+
+/* data:image/png;base64,xxxx 형태의 dataURL을 API에 보낼 수 있는 형태로 분리 */
+function dataUrlToImageBlock(dataUrl){
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(dataUrl || '');
+  if(!m) return null;
+  return { type:'image', source:{ type:'base64', media_type:m[1], data:m[2] } };
+}
+
+function stripJsonFence(text){
+  return text.trim().replace(/^```(json)?/i, '').replace(/```$/,'').trim();
+}
+
+async function callAiForCards(problemImgs, solutionImgs, field, round){
+  const apiKey = getAiApiKey();
+  const model = getAiModel();
+  const contentBlocks = [];
+  problemImgs.forEach(src=>{ const b=dataUrlToImageBlock(src); if(b) contentBlocks.push(b); });
+  solutionImgs.forEach(src=>{ const b=dataUrlToImageBlock(src); if(b) contentBlocks.push(b); });
+  contentBlocks.push({ type:'text', text:`분야: ${field}\n회차: ${round}\n\n지침대로 clue/memo/template 카드를 JSON 배열로만 반환하세요.` });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1500,
+      system: AI_SYSTEM_PROMPT,
+      messages:[
+        { role:'user', content: AI_FEWSHOT_USER },
+        { role:'assistant', content: AI_FEWSHOT_ASSISTANT },
+        { role:'user', content: contentBlocks }
+      ]
+    })
+  });
+  if(!res.ok){
+    const errText = await res.text().catch(()=> '');
+    throw new Error(`API 오류 (${res.status}): ${errText.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const text = (data.content||[]).map(b=>b.text||'').join('\n');
+  let parsed;
+  try{
+    parsed = JSON.parse(stripJsonFence(text));
+  }catch(e){
+    throw new Error('AI 응답을 JSON으로 해석하지 못했습니다. (원본: ' + text.slice(0,200) + ')');
+  }
+  if(!Array.isArray(parsed)) throw new Error('AI 응답이 배열 형식이 아닙니다.');
+  const cleaned = parsed
+    .filter(c=>c && c.keyword && c.recall && ['clue','memo','template'].includes(c.type))
+    .map(c=>({ type:c.type, keyword:String(c.keyword).trim(), recall:String(c.recall).trim() }));
+  if(!cleaned.length) throw new Error('AI가 유효한 카드를 만들지 못했습니다.');
+  return cleaned;
+}
+
+const aiGenBtn = document.getElementById('aiGenBtn');
+document.getElementById('aiGenBtn').addEventListener('click', async ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+  if(!(p.problemImgs||[]).length){ alert('먼저 문제 이미지를 붙여넣어주세요. (문제 탭에서 Ctrl+V)'); return; }
+  if(!getAiApiKey()){
+    alert('먼저 AI 카드 생성 설정에서 Claude API 키를 입력해주세요.');
+    document.getElementById('aiApiKeyInput').value='';
+    document.getElementById('aiModelSelect').value = getAiModel();
+    openModal('overlayAiConfig');
+    return;
+  }
+  aiGenBtn.disabled = true;
+  const origLabel = aiGenBtn.textContent;
+  aiGenBtn.textContent = '🤖 생성 중...';
+  try{
+    const cards = await callAiForCards(p.problemImgs, p.solutionImgs||[], p.field, state.currentRound);
+    aiDraftQueue = cards;
+    aiDraftIndex = 0;
+    openNextAiDraft();
+  }catch(e){
+    console.error(e);
+    alert('AI 카드 생성 중 오류가 발생했습니다.\n' + e.message);
+  }finally{
+    aiGenBtn.disabled = false;
+    aiGenBtn.textContent = origLabel;
+  }
 });
 
 /* ---------------- 오답메모 ---------------- */
@@ -3189,7 +3438,24 @@ document.querySelectorAll('[data-close]').forEach(btn=>{
   btn.addEventListener('click', ()=>closeModal(btn.dataset.close));
 });
 document.querySelectorAll('.overlay').forEach(ov=>{
+  if(ov.id==='overlayClue') return; // 단서카드 모달은 AI 초안 모드 처리를 위해 별도 핸들링
   ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.classList.remove('show'); });
+});
+
+/* 단서카드 모달 취소: AI 초안 검수 중이면 남은 초안을 버릴지 확인한다 */
+function cancelClueModal(){
+  if(inAiDraftMode){
+    const remaining = aiDraftQueue.length - aiDraftIndex;
+    if(remaining>0 && !confirm(`아직 검수하지 않은 AI 초안이 ${remaining}장 남았습니다. 모두 버리고 닫을까요?`)) return;
+    aiDraftQueue = [];
+    aiDraftIndex = 0;
+    setAiDraftUi(false);
+  }
+  closeModal('overlayClue');
+}
+document.getElementById('cancelClueBtn').addEventListener('click', cancelClueModal);
+document.getElementById('overlayClue').addEventListener('click', (e)=>{
+  if(e.target.id==='overlayClue') cancelClueModal();
 });
 
 /* ---------------- App UI Init (Drive 로그인 성공 후 호출됨) ---------------- */
