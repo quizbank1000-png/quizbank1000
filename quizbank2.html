@@ -31,6 +31,7 @@
     --yellow-soft:#fbf3da;
     --radius:14px;
     --shadow:0 2px 10px rgba(10,35,81,0.07);
+    --sidebar-width:280px;
   }
   *{box-sizing:border-box;}
   body{
@@ -42,10 +43,11 @@
   .app{
     display:flex;
     min-height:100vh;
+    position:relative;
   }
   /* ---------- Sidebar ---------- */
   .sidebar{
-    width:240px;
+    width:var(--sidebar-width);
     flex-shrink:0;
     background: var(--blue-900);
     color:#fff;
@@ -53,7 +55,45 @@
     display:flex;
     flex-direction:column;
     gap:18px;
+    overflow:hidden;
+    white-space:nowrap;
+    transition: width 0.22s ease, padding 0.22s ease, opacity 0.15s ease;
   }
+  .app.sidebar-collapsed .sidebar{
+    width: 64px;
+    padding: 18px 8px;
+  }
+  .app.sidebar-collapsed .sidebar-label,
+  .app.sidebar-collapsed .sub,
+  .app.sidebar-collapsed .sync-bar,
+  .app.sidebar-collapsed .round-select-box,
+  .app.sidebar-collapsed .stat-foot{
+    display:none;
+  }
+  .app.sidebar-collapsed .nav-btn{
+    justify-content:center;
+    padding:10px 0;
+    font-size:17px;
+  }
+  .sidebar-toggle-btn{
+    position:absolute;
+    top:16px;
+    left: calc(var(--sidebar-width) - 13px);
+    width:26px; height:26px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:#fff;
+    color: var(--blue-700);
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    z-index:30;
+    box-shadow:0 2px 8px rgba(10,35,81,0.2);
+    transition: left 0.22s ease;
+  }
+  .sidebar-toggle-btn:hover{ background: var(--blue-100); }
+  .app.sidebar-collapsed .sidebar-toggle-btn{ left:51px; }
   .sidebar h1{
     font-size:16px;
     margin:0 0 4px 0;
@@ -123,6 +163,7 @@
   .mini-btn.secondary{ background: rgba(255,255,255,0.12); }
   .problem-list{
     flex:1;
+    max-height:610px;
     overflow-y:auto;
     display:flex;
     flex-direction:column;
@@ -190,6 +231,18 @@
     color: var(--ink-soft);
     margin-top:3px;
   }
+  .problem-nav-group{
+    display:flex; align-items:center; gap:8px; flex-shrink:0;
+  }
+  .problem-nav-btn{
+    width:34px; height:34px; border-radius:9px;
+    border:1.5px solid var(--blue-500); background:#fff; color:var(--blue-700);
+    font-size:16px; font-weight:800; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .problem-nav-btn:hover{ background: var(--blue-100); }
+  .problem-nav-btn:disabled{ opacity:0.35; cursor:default; background:#fff; }
+  .problem-nav-count{ font-size:12px; color: var(--ink-soft); font-weight:700; min-width:38px; text-align:center; }
   .badge{
     display:inline-block;
     background: var(--blue-100);
@@ -900,11 +953,12 @@
 </div>
 
 <div class="app" id="app" style="display:none;">
+  <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="사이드바 접기">‹</button>
 
   <!-- ===================== SIDEBAR ===================== -->
   <div class="sidebar">
     <div>
-      <h1>📚 퀴즈뱅크2</h1>
+      <h1>📚 <span class="sidebar-label">퀴즈뱅크2</span></h1>
       <div class="sub">년도·회차별 단서카드 훈련</div>
     </div>
 
@@ -916,11 +970,11 @@
     </div>
 
     <div class="nav-group">
-      <button class="nav-btn active" data-view="solve">📝 회차 풀이</button>
-      <button class="nav-btn" data-view="clues">🗂 단서카드함</button>
-      <button class="nav-btn" data-view="traps">⚠️ 함정유형별 모아보기</button>
-      <button class="nav-btn" data-view="stats">📊 오답노트/통계</button>
-      <button class="nav-btn" id="manageFieldsBtn">⚙️ 분야 관리</button>
+      <button class="nav-btn active" data-view="solve" title="회차 풀이">📝 <span class="sidebar-label">회차 풀이</span></button>
+      <button class="nav-btn" data-view="clues" title="단서카드함">🗂 <span class="sidebar-label">단서카드함</span></button>
+      <button class="nav-btn" data-view="traps" title="함정유형별 모아보기">⚠️ <span class="sidebar-label">함정유형별 모아보기</span></button>
+      <button class="nav-btn" data-view="stats" title="오답노트/통계">📊 <span class="sidebar-label">오답노트/통계</span></button>
+      <button class="nav-btn" id="manageFieldsBtn" title="분야 관리">⚙️ <span class="sidebar-label">분야 관리</span></button>
     </div>
 
     <div class="round-select-box">
@@ -950,6 +1004,11 @@
         <div>
           <h2 id="problemTitle">문제를 선택하거나 추가하세요</h2>
           <div class="meta" id="problemMeta"></div>
+        </div>
+        <div class="problem-nav-group">
+          <button class="problem-nav-btn" id="prevProblemBtn" title="이전 문제">&lt;</button>
+          <span class="problem-nav-count" id="problemNavCount"></span>
+          <button class="problem-nav-btn" id="nextProblemBtn" title="다음 문제">&gt;</button>
         </div>
       </div>
 
@@ -1566,6 +1625,46 @@ document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>{
   });
 });
 
+/* ---------------- 사이드바 접기/펼치기 ---------------- */
+const appEl = document.getElementById('app');
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+let sidebarCollapsed = false;
+function applySidebarState(){
+  appEl.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+  sidebarToggleBtn.textContent = sidebarCollapsed ? '›' : '‹';
+  sidebarToggleBtn.title = sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기';
+}
+sidebarToggleBtn.addEventListener('click', ()=>{
+  sidebarCollapsed = !sidebarCollapsed;
+  applySidebarState();
+});
+applySidebarState();
+
+function updateProblemNavButtons(){
+  const prevBtn = document.getElementById('prevProblemBtn');
+  const nextBtn = document.getElementById('nextProblemBtn');
+  const countEl = document.getElementById('problemNavCount');
+  const r = getRound();
+  const idx = r ? r.problems.findIndex(pp=>pp.id===state.currentProblemId) : -1;
+  const total = r ? r.problems.length : 0;
+  prevBtn.disabled = idx<=0;
+  nextBtn.disabled = idx<0 || idx>=total-1;
+  countEl.textContent = (idx>=0 && total>0) ? `${idx+1} / ${total}` : '';
+}
+function goToProblemOffset(offset){
+  const r = getRound();
+  if(!r) return;
+  const idx = r.problems.findIndex(pp=>pp.id===state.currentProblemId);
+  const newIdx = idx + offset;
+  if(idx<0 || newIdx<0 || newIdx>=r.problems.length) return;
+  state.currentProblemId = r.problems[newIdx].id;
+  renderProblemList();
+  renderSolveView();
+  saveState();
+}
+document.getElementById('prevProblemBtn').addEventListener('click', ()=>goToProblemOffset(-1));
+document.getElementById('nextProblemBtn').addEventListener('click', ()=>goToProblemOffset(1));
+
 /* ---------------- Round logic ---------------- */
 function getRound(){ return state.rounds[state.currentRound]; }
 function getProblem(){
@@ -1883,6 +1982,7 @@ function renderSolveView(){
     solveEmpty.style.display='block';
     problemTitle.textContent = '문제를 선택하거나 추가하세요';
     problemMeta.textContent = '';
+    updateProblemNavButtons();
     stopTicking();
     updateTimerDisplay();
     return;
@@ -1891,6 +1991,7 @@ function renderSolveView(){
   solveEmpty.style.display='none';
   problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
+  updateProblemNavButtons();
   switchTab('problem');
   bindPasteZone(document.getElementById('problemPaste'), p, 'problemImgs', '문제 이미지', '🖼️');
   bindPasteZone(document.getElementById('solutionPaste'), p, 'solutionImgs', '풀이/정답 이미지', '✅');
