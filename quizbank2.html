@@ -190,6 +190,12 @@
     padding:1px 5px;
   }
   .problem-chip.active .tag{ background: var(--blue-100); color:var(--blue-700); }
+  .problem-group-header{
+    font-size:10.5px; font-weight:800; color:#8fb0dd;
+    text-transform:uppercase; letter-spacing:0.3px;
+    padding:6px 4px 2px; margin-top:4px;
+  }
+  .problem-group-header:first-child{ margin-top:0; }
   .problem-chip-info{ display:flex; align-items:center; gap:6px; overflow:hidden; min-width:0; }
   .problem-chip-manage{ display:flex; gap:3px; flex-shrink:0; margin-left:6px; }
   .problem-edit-btn, .problem-del-btn{
@@ -988,8 +994,9 @@
 
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <label>문제 목록</label>
+      <select id="problemFieldFilter" style="margin-bottom:6px;"><option value="">전체 분야 (유형별로 묶어보기)</option></select>
       <div class="problem-list" id="problemList"></div>
-      <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto;">+ 문제 추가</button>
+      <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
     </div>
 
     <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
@@ -1791,6 +1798,7 @@ function renameField(oldName, newName){
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
+  renderProblemFieldFilterOptions();
   renderFieldManageModal();
   renderProblemList();
 }
@@ -1809,6 +1817,7 @@ function deleteField(name){
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
+  renderProblemFieldFilterOptions();
   renderFieldManageModal();
   renderProblemList();
 }
@@ -1827,35 +1836,70 @@ document.getElementById('addFieldBtn').addEventListener('click', ()=>{
   saveState();
   renderNewProblemFieldOptions();
   renderClueFieldFilterOptions();
+  renderProblemFieldFilterOptions();
   renderFieldManageModal();
 });
 
 /* ---------------- Problem list ---------------- */
+function renderProblemFieldFilterOptions(){
+  const sel = document.getElementById('problemFieldFilter');
+  if(!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">전체 분야 (유형별로 묶어보기)</option>';
+  state.fields.forEach(f=>{
+    const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
+  });
+  if(state.fields.includes(keep)) sel.value = keep;
+}
+
+function createProblemChip(p){
+  const chip = document.createElement('div');
+  chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'');
+  const sessCount = (p.solveSessions||[]).length;
+  chip.innerHTML = `
+    <div class="problem-chip-info">
+      <span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
+      <span class="tag">${p.field}</span>
+    </div>
+    <div class="problem-chip-manage">
+      <button class="problem-edit-btn" data-id="${p.id}" title="수정">✏️</button>
+      <button class="problem-del-btn" data-id="${p.id}" title="삭제">🗑</button>
+    </div>`;
+  chip.addEventListener('click', ()=>{
+    state.currentProblemId = p.id;
+    renderProblemList();
+    renderSolveView();
+    saveState();
+  });
+  return chip;
+}
+
 function renderProblemList(){
   problemList.innerHTML='';
   const r = getRound();
   if(!r){ return; }
-  r.problems.forEach(p=>{
-    const chip = document.createElement('div');
-    chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'');
-    const sessCount = (p.solveSessions||[]).length;
-    chip.innerHTML = `
-      <div class="problem-chip-info">
-        <span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
-        <span class="tag">${p.field}</span>
-      </div>
-      <div class="problem-chip-manage">
-        <button class="problem-edit-btn" data-id="${p.id}" title="수정">✏️</button>
-        <button class="problem-del-btn" data-id="${p.id}" title="삭제">🗑</button>
-      </div>`;
-    chip.addEventListener('click', ()=>{
-      state.currentProblemId = p.id;
-      renderProblemList();
-      renderSolveView();
-      saveState();
+  const filterSel = document.getElementById('problemFieldFilter');
+  const filterVal = filterSel ? filterSel.value : '';
+
+  if(filterVal){
+    r.problems.filter(p=>p.field===filterVal).forEach(p=>{
+      problemList.appendChild(createProblemChip(p));
     });
-    problemList.appendChild(chip);
-  });
+  } else {
+    // 필터 미선택 시: 분야(유형)별로 묶어서 표시
+    const usedFields = state.fields.filter(f=>r.problems.some(p=>p.field===f));
+    r.problems.forEach(p=>{ if(!usedFields.includes(p.field)) usedFields.push(p.field); });
+    usedFields.forEach(field=>{
+      const group = r.problems.filter(p=>p.field===field);
+      if(!group.length) return;
+      const header = document.createElement('div');
+      header.className='problem-group-header';
+      header.textContent = `${field} (${group.length})`;
+      problemList.appendChild(header);
+      group.forEach(p=>problemList.appendChild(createProblemChip(p)));
+    });
+  }
+
   problemList.querySelectorAll('.problem-edit-btn').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       e.stopPropagation();
@@ -1870,6 +1914,7 @@ function renderProblemList(){
     });
   });
 }
+document.getElementById('problemFieldFilter').addEventListener('change', renderProblemList);
 
 function deleteProblem(problemId){
   const r = getRound();
@@ -2775,6 +2820,7 @@ document.querySelectorAll('.overlay').forEach(ov=>{
 async function initAppUI(){
   ensureFieldsInit();
   renderNewProblemFieldOptions();
+  renderProblemFieldFilterOptions();
   renderRoundSelect();
   renderProblemList();
   renderSolveView();
