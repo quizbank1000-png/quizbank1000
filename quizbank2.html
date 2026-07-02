@@ -149,6 +149,18 @@
     padding:1px 5px;
   }
   .problem-chip.active .tag{ background: var(--blue-100); color:var(--blue-700); }
+  .problem-chip-info{ display:flex; align-items:center; gap:6px; overflow:hidden; min-width:0; }
+  .problem-chip-manage{ display:flex; gap:3px; flex-shrink:0; margin-left:6px; }
+  .problem-edit-btn, .problem-del-btn{
+    border:none; background:rgba(255,255,255,0.18); color:inherit;
+    border-radius:5px; font-size:10.5px; padding:1px 5px; cursor:pointer; line-height:1.6;
+  }
+  .problem-edit-btn:hover{ background:rgba(255,255,255,0.32); }
+  .problem-del-btn:hover{ background:rgba(212,69,58,0.4); }
+  .problem-chip.active .problem-edit-btn,
+  .problem-chip.active .problem-del-btn{ background: var(--blue-100); }
+  .problem-chip.active .problem-edit-btn:hover{ background:#d3e4fa; }
+  .problem-chip.active .problem-del-btn:hover{ background: var(--red-soft); color:var(--red); }
   .stat-foot{
     font-size:11px;
     color:#8fb0dd;
@@ -1098,10 +1110,10 @@
   </div>
 </div>
 
-<!-- 문제 추가 모달 -->
+<!-- 문제 추가/수정 모달 -->
 <div class="overlay" id="overlayProblem">
   <div class="modal">
-    <h3>+ 새 문제 추가</h3>
+    <h3 id="problemModalTitle">+ 새 문제 추가</h3>
     <div class="field">
       <label>문제번호</label>
       <input type="text" id="newProblemNum" placeholder="예: 4">
@@ -1728,7 +1740,15 @@ function renderProblemList(){
     const chip = document.createElement('div');
     chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'');
     const sessCount = (p.solveSessions||[]).length;
-    chip.innerHTML = `<span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span><span class="tag">${p.field}</span>`;
+    chip.innerHTML = `
+      <div class="problem-chip-info">
+        <span>${p.num}번 ${p.solvedCorrect?'✅':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
+        <span class="tag">${p.field}</span>
+      </div>
+      <div class="problem-chip-manage">
+        <button class="problem-edit-btn" data-id="${p.id}" title="수정">✏️</button>
+        <button class="problem-del-btn" data-id="${p.id}" title="삭제">🗑</button>
+      </div>`;
     chip.addEventListener('click', ()=>{
       state.currentProblemId = p.id;
       renderProblemList();
@@ -1737,22 +1757,71 @@ function renderProblemList(){
     });
     problemList.appendChild(chip);
   });
+  problemList.querySelectorAll('.problem-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const prob = r.problems.find(pp=>pp.id===btn.dataset.id);
+      if(prob) openProblemModal(prob);
+    });
+  });
+  problemList.querySelectorAll('.problem-del-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      deleteProblem(btn.dataset.id);
+    });
+  });
+}
+
+function deleteProblem(problemId){
+  const r = getRound();
+  if(!r) return;
+  const prob = r.problems.find(pp=>pp.id===problemId);
+  if(!prob) return;
+  if(!confirm(`"${prob.num}번" 문제를 삭제할까요? 등록된 카드/오답메모까지 모두 삭제되며 되돌릴 수 없습니다.`)) return;
+  r.problems = r.problems.filter(pp=>pp.id!==problemId);
+  if(state.currentProblemId===problemId){
+    state.currentProblemId = r.problems.length ? r.problems[0].id : null;
+  }
+  renderProblemList();
+  renderSolveView();
+  renderSideStat();
+  saveState();
+  if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+}
+
+let pendingEditProblemId = null;
+
+function openProblemModal(editProblem){
+  if(!editProblem && !state.currentRound){ alert('먼저 회차를 추가/선택하세요.'); return; }
+  pendingEditProblemId = editProblem ? editProblem.id : null;
+  document.getElementById('problemModalTitle').textContent = editProblem ? '✏️ 문제 수정' : '+ 새 문제 추가';
+  document.getElementById('confirmProblem').textContent = editProblem ? '수정 저장' : '추가';
+  document.getElementById('newProblemNum').value = editProblem ? editProblem.num : '';
+  renderNewProblemFieldOptions();
+  if(editProblem) document.getElementById('newProblemField').value = editProblem.field;
+  openModal('overlayProblem');
 }
 
 document.getElementById('addProblemBtn').addEventListener('click', ()=>{
-  if(!state.currentRound){ alert('먼저 회차를 추가/선택하세요.'); return; }
-  document.getElementById('newProblemNum').value='';
-  openModal('overlayProblem');
+  openProblemModal(null);
 });
 document.getElementById('confirmProblem').addEventListener('click', ()=>{
   const num = document.getElementById('newProblemNum').value.trim() || '?';
   const field = document.getElementById('newProblemField').value;
   const r = getRound();
-  const p = { id:uid(), num, field, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
-  r.problems.push(p);
-  state.currentProblemId = p.id;
-  renderProblemList();
-  renderSolveView();
+  if(pendingEditProblemId){
+    const prob = r.problems.find(pp=>pp.id===pendingEditProblemId);
+    if(prob){ prob.num = num; prob.field = field; }
+    pendingEditProblemId = null;
+    renderProblemList();
+    renderSolveView();
+  } else {
+    const p = { id:uid(), num, field, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+    r.problems.push(p);
+    state.currentProblemId = p.id;
+    renderProblemList();
+    renderSolveView();
+  }
   saveState();
   closeModal('overlayProblem');
 });
