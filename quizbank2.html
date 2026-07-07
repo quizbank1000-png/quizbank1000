@@ -1054,6 +1054,7 @@
         <button class="mini-btn" id="addRoundBtn">+ 회차 추가</button>
         <button class="mini-btn secondary" id="delRoundBtn">삭제</button>
       </div>
+      <button class="mini-btn secondary" id="mergeRoundBtn" style="margin-top:6px; width:100%;" title="이름이 살짝 다른 두 회차를 하나로 합칩니다 (오타·공백 차이로 회차가 나뉘었을 때)">🔀 회차 병합</button>
     </div>
 
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
@@ -1237,6 +1238,26 @@
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayRound">취소</button>
       <button class="btn confirm" id="confirmRound">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 회차 병합 모달 -->
+<div class="overlay" id="overlayMergeRound">
+  <div class="modal">
+    <h3>🔀 회차 병합</h3>
+    <div class="desc">이름이 살짝 다른 두 회차(오타·공백 차이 등)를 하나로 합칩니다. 문제 번호가 겹치면 이미지·카드를 이어붙이고, 겹치지 않으면 그대로 합쳐집니다. 병합 후 원본 회차는 사라집니다.</div>
+    <div class="field">
+      <label>합칠 회차 (이 회차가 사라짐)</label>
+      <select id="mergeFromRound"></select>
+    </div>
+    <div class="field">
+      <label>남길 회차 (여기로 합쳐짐)</label>
+      <select id="mergeToRound"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayMergeRound">취소</button>
+      <button class="btn confirm" id="confirmMergeRound">병합</button>
     </div>
   </div>
 </div>
@@ -1908,6 +1929,65 @@ document.getElementById('delRoundBtn').addEventListener('click', ()=>{
   renderProblemList();
   renderSolveView();
   saveState();
+});
+
+/* ---------------- 회차 병합 (오타/공백 차이로 나뉜 회차 합치기) ---------------- */
+document.getElementById('mergeRoundBtn').addEventListener('click', ()=>{
+  const names = Object.keys(state.rounds);
+  if(names.length < 2){ alert('병합하려면 회차가 2개 이상 있어야 합니다.'); return; }
+  const fromSel = document.getElementById('mergeFromRound');
+  const toSel = document.getElementById('mergeToRound');
+  fromSel.innerHTML = ''; toSel.innerHTML = '';
+  names.forEach(n=>{
+    const o1=document.createElement('option'); o1.value=n; o1.textContent=`${n} (문제 ${state.rounds[n].problems.length}개)`; fromSel.appendChild(o1);
+    const o2=document.createElement('option'); o2.value=n; o2.textContent=`${n} (문제 ${state.rounds[n].problems.length}개)`; toSel.appendChild(o2);
+  });
+  if(names.length>1) toSel.value = names[1];
+  openModal('overlayMergeRound');
+});
+
+document.getElementById('confirmMergeRound').addEventListener('click', ()=>{
+  const fromName = document.getElementById('mergeFromRound').value;
+  const toName = document.getElementById('mergeToRound').value;
+  if(!fromName || !toName){ return; }
+  if(fromName === toName){ alert('서로 다른 두 회차를 선택해주세요.'); return; }
+  if(!confirm(`"${fromName}" 회차를 "${toName}"에 합치고, "${fromName}"은 삭제할까요?`)) return;
+
+  const fromRound = state.rounds[fromName];
+  const toRound = state.rounds[toName];
+  let addedProblems = 0, mergedProblems = 0, addedCards = 0, addedImgs = 0;
+
+  fromRound.problems.forEach(fp=>{
+    let tp = toRound.problems.find(x=>String(x.num).trim()===String(fp.num).trim());
+    if(!tp){
+      toRound.problems.push(fp);
+      addedProblems++;
+      return;
+    }
+    mergedProblems++;
+    (fp.problemImgs||[]).forEach(src=>{ if(!tp.problemImgs.includes(src)){ tp.problemImgs.push(src); addedImgs++; } });
+    (fp.solutionImgs||[]).forEach(src=>{ if(!tp.solutionImgs.includes(src)){ tp.solutionImgs.push(src); addedImgs++; } });
+    (fp.myAnswerImgs||[]).forEach(src=>{ if(!tp.myAnswerImgs.includes(src)){ tp.myAnswerImgs.push(src); } });
+    (fp.clueCards||[]).forEach(cc=>{
+      const dup = tp.clueCards.some(ex=>ex.type===cc.type && ex.keyword===cc.keyword && ex.recall===cc.recall);
+      if(dup) return;
+      tp.clueCards.push(cc);
+      addedCards++;
+    });
+    (fp.wrongNotes||[]).forEach(wn=>{ tp.wrongNotes = tp.wrongNotes||[]; tp.wrongNotes.push(wn); });
+    (fp.solveSessions||[]).forEach(ss=>{ tp.solveSessions = tp.solveSessions||[]; tp.solveSessions.push(ss); });
+  });
+
+  delete state.rounds[fromName];
+  state.currentRound = toName;
+  state.currentProblemId = toRound.problems.length ? toRound.problems[0].id : null;
+  renderRoundSelect();
+  renderProblemYearRoundFilterOptions();
+  renderProblemList();
+  renderSolveView();
+  saveState();
+  closeModal('overlayMergeRound');
+  alert(`병합 완료!\n"${fromName}" → "${toName}"\n새로 추가된 문제 ${addedProblems}개 / 합쳐진 문제 ${mergedProblems}개\n추가된 카드 ${addedCards}장 / 추가된 이미지 ${addedImgs}장`);
 });
 
 /* ---------------- 일괄 가져오기 (JSON) ---------------- */
