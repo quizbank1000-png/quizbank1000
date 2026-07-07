@@ -451,10 +451,12 @@
     border:1px solid #efd98a;
     color:#7a5d0a;
     border-radius:8px;
-    padding:6px 10px;
-    font-size:12px;
+    padding:10px 12px;
+    font-size:12.5px;
     font-weight:600;
-    max-width:260px;
+    line-height:1.55;
+    min-width:220px;
+    max-width:340px;
   }
   .clue-chip.memo{
     background:#f1ebfa;
@@ -472,14 +474,15 @@
     color:#8a231b;
   }
   .clue-chip img{ max-width:100%; border-radius:5px; margin-top:4px; display:block; }
-  .clue-chip b{ display:block; font-size:12px; color:#5c4400; }
+  .clue-chip b{ display:block; font-size:12.5px; color:#5c4400; line-height:1.55; font-weight:800; }
   .clue-chip.memo b{ color:#42266b; }
   .clue-chip.template b{ color:#073f3f; }
   .clue-chip.trap b{ color:#8a231b; }
-  .clue-chip span{ font-size:11.5px; color:#8a6c1c; }
-  .clue-chip.memo span{ color:#6c4f99; }
-  .clue-chip.template span{ color:#157070; }
-  .clue-chip.trap span{ color:#a8453c; }
+  .clue-chip span, .clue-chip-recall{ font-size:12px; color:#8a6c1c; line-height:1.55; }
+  .clue-chip-recall{ display:block; margin-top:6px; padding-top:6px; border-top:1px dashed rgba(0,0,0,0.12); }
+  .clue-chip.memo span, .clue-chip.memo .clue-chip-recall{ color:#6c4f99; }
+  .clue-chip.template span, .clue-chip.template .clue-chip-recall{ color:#157070; }
+  .clue-chip.trap span, .clue-chip.trap .clue-chip-recall{ color:#a8453c; }
   .clue-chip-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
   .clue-chip-actions{ display:flex; gap:3px; flex-shrink:0; }
   .chip-edit-btn, .chip-del-btn{
@@ -622,15 +625,15 @@
   .filter-row select, .filter-row input{ width:auto; min-width:120px; }
   .card-grid{
     display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
-    gap:14px;
+    grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
+    gap:16px;
   }
   .flash{
     background:#fff;
     border:1px solid var(--line);
     border-radius:12px;
     box-shadow: var(--shadow);
-    height:160px;
+    height:230px;
     perspective:1000px;
     cursor:pointer;
   }
@@ -649,6 +652,7 @@
     display:flex;
     flex-direction:column;
     justify-content:space-between;
+    overflow-y:auto;
   }
   .flash-front{ background: var(--blue-100); }
   .flash-back{
@@ -657,10 +661,10 @@
     transform: rotateY(180deg);
   }
   .flash-front .kw{
-    font-size:13.5px;
+    font-size:14px;
     font-weight:700;
     color: var(--blue-900);
-    line-height:1.4;
+    line-height:1.6;
   }
   .flash-front .kw img, .flash-back .recall img{
     max-width:100%;
@@ -720,9 +724,9 @@
     font-weight:700;
   }
   .flash-back .recall{
-    font-size:13px;
+    font-size:13.5px;
     font-weight:700;
-    line-height:1.5;
+    line-height:1.65;
   }
   .flash-foot{
     display:flex;
@@ -2687,14 +2691,14 @@ function renderClueStrip(p){
     const label = c.type==='memo' ? '🧠' : (c.type==='template' ? '📐' : (c.type==='trap' ? '⚠️' : '💡'));
     chip.innerHTML = `
       <div class="clue-chip-head">
-        <b>${label} ${escapeHtml(c.keyword)}</b>
+        <b>${label} ${formatCardText(c.keyword)}</b>
         <span class="clue-chip-actions">
           <button class="chip-edit-btn" data-id="${c.id}" title="수정">✏️</button>
           <button class="chip-del-btn" data-id="${c.id}" title="삭제">🗑</button>
         </span>
       </div>
       ${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}
-      <span>→ ${escapeHtml(c.recall)}</span>
+      <div class="clue-chip-recall">→ ${formatCardText(c.recall)}</div>
       ${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}`;
     clueStrip.appendChild(chip);
   });
@@ -2739,6 +2743,21 @@ function escapeHtml(s){
   const d = document.createElement('div');
   d.textContent = s||'';
   return d.innerHTML;
+}
+
+/* 카드 앞/뒷면 텍스트를 가독성 있게 줄바꿈한다.
+   ①②③... 번호, → 화살표, ", " 나열 지점에서 자동으로 줄을 나눈다. */
+function formatCardText(raw){
+  if(!raw) return '';
+  let t = escapeHtml(raw);
+  t = t.replace(/ → /g, '<br>→ ');
+  t = t.replace(/(?<!→ )([①②③④⑤⑥⑦⑧⑨⑩])/g, '<br>$1');
+  t = t.replace(/,\s/g, ',<br>');
+  t = t.replace(/\.\s/g, '.<br>');
+  t = t.replace(/(<br>\s*){2,}/g, '<br>');
+  t = t.replace(/^(<br>)+/, '');
+  t = t.replace(/(<br>)+$/, '');
+  return t;
 }
 
 /* ---------------- 풀이 타이머 / 회독 이력 ---------------- */
@@ -3183,7 +3202,7 @@ function renderClueBank(){
           <div class="flash-face flash-front">
             <div>
               <div class="type-pip">${typeLabel}</div>
-              <div class="kw">${escapeHtml(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+              <div class="kw">${formatCardText(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
             </div>
             <div class="flash-foot">
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
@@ -3197,7 +3216,7 @@ function renderClueBank(){
           <div class="flash-face flash-back">
             <div>
               <div class="type-pip">${typeLabel} 정답</div>
-              <div class="recall">→ ${escapeHtml(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+              <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
             </div>
             <div class="flash-foot">
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.problemNum}번 문제로</span>
