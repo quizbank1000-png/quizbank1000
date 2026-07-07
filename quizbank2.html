@@ -1426,7 +1426,7 @@
 const DEFAULT_FIELD_GROUPS = [
   { name:'1그룹', fields:['(난방)열전달-송풍량 계산','난방부하 계산','난방 프로세스'] },
   { name:'2그룹', fields:['(냉방)엔탈피-송풍량 계산','냉방부하 계산','단열혼합-바이패스 계수와 콘택 계수','냉방 프로세스'] },
-  { name:'3그룹', fields:['위생설비 용량 계산','공조설비 용량 계산','배관펌프 용량 계산','덕트 팬 용량 계산'] },
+  { name:'3그룹', fields:['위생설비 용량 계산','공조설비 용량 계산','배관펌프 용량 계산','덕트 팬 용량 계산','소방설비 용량 계산'] },
   { name:'4그룹', fields:['위생설비 계통도','공조설비 계통도'] },
   { name:'5그룹', fields:['적산'] },
   { name:'6그룹', fields:['위생설비 특성','난방 공조설비 특성','자동제어 기술','에너지 계획수립','설계도서 작성'] },
@@ -1454,6 +1454,23 @@ function syncFieldsFromGroups(){
 function ensureFieldsInit(){
   if(!Array.isArray(state.fieldGroups) || state.fieldGroups.length===0){
     state.fieldGroups = DEFAULT_FIELD_GROUPS.map(g=>({name:g.name, fields:g.fields.slice()}));
+  }
+  // 기존에 저장된 fieldGroups라도, 앱 업데이트로 새로 추가된 기본 분야(예: 소방설비 용량 계산)가
+  // 같은 이름의 그룹에 아직 없다면 채워넣는다. 사용자가 이미 다른 그룹으로 옮겨둔 분야는
+  // 건드리지 않는다(어딘가에 이미 존재하면 스킵).
+  {
+    const existingFields = new Set();
+    state.fieldGroups.forEach(g=>(g.fields||[]).forEach(f=>existingFields.add(f)));
+    DEFAULT_FIELD_GROUPS.forEach(defG=>{
+      const target = state.fieldGroups.find(g=>g.name===defG.name);
+      if(!target) return;
+      defG.fields.forEach(f=>{
+        if(!existingFields.has(f)){
+          target.fields.push(f);
+          existingFields.add(f);
+        }
+      });
+    });
   }
   // 그룹에 속하지 않은 기존(레거시) 분야명이나 문제에 남아있는 분야명은 "기타" 그룹으로 보존한다
   const known = new Set();
