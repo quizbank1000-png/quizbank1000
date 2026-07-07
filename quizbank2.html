@@ -3285,6 +3285,7 @@ function goToProblem(roundName, problemId){
   renderSolveView();
 }
 
+const CARD_TYPE_ORDER = { clue:0, trap:1, template:2, memo:3 };
 function allClues(){
   const arr=[];
   Object.entries(state.rounds).forEach(([roundName, r])=>{
@@ -3294,7 +3295,15 @@ function allClues(){
       });
     });
   });
-  return arr.sort((a,b)=>b.createdAt-a.createdAt);
+  return arr.sort((a,b)=>{
+    const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
+    const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
+    if(ta !== tb) return ta - tb;
+    const pa = String(a.problemNum).padStart(6,'0');
+    const pb = String(b.problemNum).padStart(6,'0');
+    if(pa !== pb) return pa < pb ? -1 : 1;
+    return b.createdAt - a.createdAt;
+  });
 }
 
 function renderClueBank(){
