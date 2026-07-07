@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>퀴즈뱅크2 - 년도/회차별 단서카드 훈련</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   @font-face {
     font-family: 'Pretendard';
@@ -1059,6 +1060,12 @@
         <button class="mini-btn secondary" id="delRoundBtn">삭제</button>
       </div>
       <button class="mini-btn secondary" id="mergeRoundBtn" style="margin-top:6px; width:100%;" title="이름이 살짝 다른 두 회차를 하나로 합칩니다 (오타·공백 차이로 회차가 나뉘었을 때)">🔀 회차 병합</button>
+      <div id="archiveBox" style="margin-top:8px; padding:8px; border:1px solid #333; border-radius:8px; font-size:12px; display:none;">
+        <div id="archiveStatusText" style="margin-bottom:6px; opacity:0.85;"></div>
+        <button class="mini-btn secondary" id="archiveRoundBtn" style="width:100%; margin-bottom:4px;" title="이 회차의 문제·풀이 이미지를 압축해서 드라이브에 별도 보관하고, 메인 데이터에서는 이미지를 비웁니다.">📦 이 회차 이미지 압축 보관</button>
+        <button class="mini-btn secondary" id="restoreRoundBtn" style="width:100%; margin-bottom:4px; display:none;" title="보관된 압축파일에서 이미지를 불러와 화면에 표시합니다 (임시 조회, 메인 데이터는 그대로 가벼운 상태 유지).">📂 이미지 불러오기</button>
+        <button class="mini-btn secondary" id="unarchiveRoundBtn" style="width:100%; display:none;" title="이미지를 다시 불러와서 메인 데이터에 영구적으로 되돌립니다 (이후 압축파일은 삭제됩니다).">♻️ 보관 해제(영구 복원)</button>
+      </div>
     </div>
 
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
@@ -1722,10 +1729,264 @@ async function loadDataFromDrive(){
   }catch(e){ /* 마이그레이션 실패는 무시 */ }
 }
 
+/* ============================================================
+   회차 이미지 압축 보관 (오래된 회차 이미지를 zip으로 드라이브에 별도 저장)
+   - 메인 data.json에는 카드 데이터만 남기고 이미지는 비워서 가볍게 유지
+   - "이미지 불러오기"로 필요할 때만 zip을 받아서 화면에 표시(임시, 메인 저장 X)
+   - 불러온 뒤 이미지를 수정(추가/삭제)하면 저장 시 자동으로 보관 해제됨(데이터 유실 방지)
+============================================================ */
+const ARCHIVE_IMG_FIELDS = ['problemImgs','solutionImgs','myAnswerImgs'];
+
+function dataURLtoUint8Array(dataURL){
+  const comma = dataURL.indexOf(',');
+  const b64 = comma>=0 ? dataURL.slice(comma+1) : dataURL;
+  const binStr = atob(b64);
+  const bytes = new Uint8Array(binStr.length);
+  for(let i=0;i<binStr.length;i++) bytes[i] = binStr.charCodeAt(i);
+  return bytes;
+}
+function extFromDataURL(dataURL){
+  const m = /^data:image\/(\w+);/.exec(dataURL);
+  if(!m) return 'png';
+  return m[1]==='jpeg' ? 'jpg' : m[1];
+}
+function mimeFromExt(ext){
+  return ext==='jpg' ? 'image/jpeg' : `image/${ext}`;
+}
+function uint8ArrayToDataURL(bytes, mime){
+  let binStr='';
+  const chunk = 0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binStr += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  }
+  return `data:${mime};base64,${btoa(binStr)}`;
+}
+
+/* 아카이브된 회차 중 "불러온 뒤 수정되지 않은" 회차만 저장 시 이미지를 비운 사본으로 치환.
+   수정이 감지되면(복원 후 이미지 개수가 바뀜) 데이터 유실을 막기 위해 자동으로 보관 해제한다. */
+function buildPersistRounds(){
+  const out = {};
+  Object.entries(state.rounds).forEach(([name, r])=>{
+    if(r.archived){
+      let modified = false;
+      r.problems.forEach(p=>{
+        const c = p._archivedImgCounts || {problemImgs:0, solutionImgs:0, myAnswerImgs:0};
+        ARCHIVE_IMG_FIELDS.forEach(field=>{
+          const live = (p[field]||[]).length;
+          if(live!==0 && live!==(c[field]||0)) modified = true;
+        });
+      });
+      if(modified){
+        r.archived = false;
+        delete r.archiveFileId;
+        delete r.archiveFileName;
+        r.problems.forEach(p=>{ delete p._archivedImgCounts; });
+        console.warn(`"${name}" 회차는 보관 후 이미지가 수정되어 자동으로 보관 해제되었습니다.`);
+        out[name] = r;
+      } else {
+        out[name] = {
+          ...r,
+          problems: r.problems.map(p=>({ ...p, problemImgs:[], solutionImgs:[], myAnswerImgs:[] })),
+        };
+      }
+    } else {
+      out[name] = r;
+    }
+  });
+  return out;
+}
+
+async function uploadArchiveZip(fileName, bytes, existingFileId){
+  const blob = new Blob([bytes], {type:'application/zip'});
+  if(existingFileId){
+    await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/zip'},
+      body: blob,
+    });
+    return existingFileId;
+  }
+  const metadata = { name: fileName, parents:[folderId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+  form.append('file', blob);
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method:'POST',
+    body: form,
+  });
+  const created = await res.json();
+  return created.id;
+}
+
+async function archiveRoundImages(roundName){
+  const r = state.rounds[roundName];
+  if(!r){ alert('회차를 찾을 수 없습니다.'); return; }
+  if(r.archived){ alert('이미 압축 보관된 회차입니다.'); return; }
+  if(typeof JSZip==='undefined'){ alert('압축 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'); return; }
+
+  const zip = new JSZip();
+  let totalImgs = 0;
+  r.problems.forEach(p=>{
+    ARCHIVE_IMG_FIELDS.forEach(field=>{
+      (p[field]||[]).forEach((src, idx)=>{
+        try{
+          const bytes = dataURLtoUint8Array(src);
+          const ext = extFromDataURL(src);
+          zip.file(`${p.num}__${field}__${idx}.${ext}`, bytes);
+          totalImgs++;
+        }catch(e){ console.warn('이미지 변환 실패', p.num, field, idx, e); }
+      });
+    });
+  });
+
+  if(totalImgs===0){ alert('이 회차에는 압축할 이미지가 없습니다.'); return; }
+  if(!confirm(`"${roundName}" 회차의 이미지 ${totalImgs}장을 압축해서 드라이브에 별도 보관하고, 메인 데이터에서는 이미지를 비웁니다.\n계속할까요?`)) return;
+
+  setSyncStatus('busy', '이미지 압축 중...');
+  try{
+    const content = await zip.generateAsync({type:'uint8array', compression:'DEFLATE', compressionOptions:{level:6}});
+    const archiveFileName = `images_${roundName}.zip`;
+    setSyncStatus('busy', '압축파일 업로드 중...');
+    const fileId = await uploadArchiveZip(archiveFileName, content, r.archiveFileId);
+
+    r.problems.forEach(p=>{
+      p._archivedImgCounts = {
+        problemImgs: (p.problemImgs||[]).length,
+        solutionImgs: (p.solutionImgs||[]).length,
+        myAnswerImgs: (p.myAnswerImgs||[]).length,
+      };
+      p.problemImgs = [];
+      p.solutionImgs = [];
+      p.myAnswerImgs = [];
+    });
+    r.archived = true;
+    r.archiveFileId = fileId;
+    r.archiveFileName = archiveFileName;
+
+    await saveState();
+    renderProblemList();
+    renderSolveView();
+    renderArchiveBox();
+    alert(`압축 보관 완료!\n이미지 ${totalImgs}장을 "${archiveFileName}"로 저장하고 메인 데이터를 가볍게 만들었습니다.`);
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '압축 보관 실패: ' + e.message);
+    alert('압축 보관에 실패했습니다: ' + e.message);
+  }
+}
+
+async function restoreRoundImages(roundName){
+  const r = state.rounds[roundName];
+  if(!r || !r.archived || !r.archiveFileId){ alert('보관된 이미지가 없습니다.'); return; }
+  if(typeof JSZip==='undefined'){ alert('압축 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'); return; }
+
+  setSyncStatus('busy', '보관된 이미지 불러오는 중...');
+  try{
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${r.archiveFileId}?alt=media`);
+    const buf = await res.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    const fileNames = Object.keys(zip.files);
+
+    for(const p of r.problems){
+      const counts = p._archivedImgCounts || {problemImgs:0, solutionImgs:0, myAnswerImgs:0};
+      for(const field of ARCHIVE_IMG_FIELDS){
+        const n = counts[field]||0;
+        if(!n) continue;
+        const arr = [];
+        for(let idx=0; idx<n; idx++){
+          const entry = fileNames.find(name=>name.startsWith(`${p.num}__${field}__${idx}.`));
+          if(!entry) continue;
+          const ext = entry.split('.').pop();
+          const bytes = await zip.files[entry].async('uint8array');
+          arr.push(uint8ArrayToDataURL(bytes, mimeFromExt(ext)));
+        }
+        p[field] = arr;
+      }
+    }
+    setSyncStatus('ok', '이미지 불러오기 완료 (임시 조회 · 메인 데이터는 그대로 가벼움)');
+    renderProblemList();
+    renderSolveView();
+    renderArchiveBox();
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
+    alert('이미지를 불러오지 못했습니다: ' + e.message);
+  }
+}
+
+async function unarchiveRoundPermanently(roundName){
+  const r = state.rounds[roundName];
+  if(!r || !r.archived) return;
+  if(!confirm(`"${roundName}" 회차의 이미지를 메인 데이터로 영구 복원할까요?\n이후 메인 데이터 용량이 다시 커지며, 압축파일은 삭제됩니다.`)) return;
+
+  const needsLoad = r.problems.some(p=>{
+    const c = p._archivedImgCounts||{};
+    return ARCHIVE_IMG_FIELDS.some(field=> (c[field]||0) > 0 && (p[field]||[]).length !== (c[field]||0));
+  });
+  if(needsLoad) await restoreRoundImages(roundName);
+
+  const fileId = r.archiveFileId;
+  r.archived = false;
+  delete r.archiveFileId;
+  delete r.archiveFileName;
+  r.problems.forEach(p=>{ delete p._archivedImgCounts; });
+  await saveState();
+
+  if(fileId){
+    try{ await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {method:'DELETE'}); }
+    catch(e){ console.warn('압축파일 삭제 실패(무시):', e.message); }
+  }
+  renderProblemList();
+  renderSolveView();
+  renderArchiveBox();
+  alert('보관 해제되어 이미지가 메인 데이터로 영구 복원되었습니다.');
+}
+
+function renderArchiveBox(){
+  const box = document.getElementById('archiveBox');
+  const statusText = document.getElementById('archiveStatusText');
+  const archiveBtn = document.getElementById('archiveRoundBtn');
+  const restoreBtn = document.getElementById('restoreRoundBtn');
+  const unarchiveBtn = document.getElementById('unarchiveRoundBtn');
+  if(!box) return;
+  const r = getRound();
+  if(!r || !state.currentRound){ box.style.display='none'; return; }
+  box.style.display='block';
+
+  if(r.archived){
+    const totalImgs = r.problems.reduce((sum,p)=>{
+      const c = p._archivedImgCounts||{};
+      return sum + (c.problemImgs||0) + (c.solutionImgs||0) + (c.myAnswerImgs||0);
+    }, 0);
+    const loaded = r.problems.some(p=> ARCHIVE_IMG_FIELDS.some(f=>(p[f]||[]).length>0));
+    statusText.textContent = `📦 압축 보관됨 · 이미지 ${totalImgs}장 (${loaded ? '현재 화면에 불러온 상태' : '평소엔 불러오지 않음'})`;
+    archiveBtn.style.display='none';
+    restoreBtn.style.display='block';
+    unarchiveBtn.style.display='block';
+  } else {
+    const totalImgs = r.problems.reduce((sum,p)=> sum + ARCHIVE_IMG_FIELDS.reduce((s,f)=>s+(p[f]||[]).length,0), 0);
+    statusText.textContent = totalImgs ? `이미지 ${totalImgs}장 · 아직 압축 보관 안 됨` : '이 회차에는 이미지가 없습니다.';
+    archiveBtn.style.display = totalImgs ? 'block' : 'none';
+    restoreBtn.style.display='none';
+    unarchiveBtn.style.display='none';
+  }
+}
+
+document.getElementById('archiveRoundBtn').addEventListener('click', ()=>{
+  if(state.currentRound) archiveRoundImages(state.currentRound);
+});
+document.getElementById('restoreRoundBtn').addEventListener('click', ()=>{
+  if(state.currentRound) restoreRoundImages(state.currentRound);
+});
+document.getElementById('unarchiveRoundBtn').addEventListener('click', ()=>{
+  if(state.currentRound) unarchiveRoundPermanently(state.currentRound);
+});
+
 async function saveDataToDrive(){
   setSyncStatus('busy', '저장 중...');
+  const persistRounds = buildPersistRounds();
   const body = JSON.stringify({
-    rounds: state.rounds,
+    rounds: persistRounds,
     currentRound: state.currentRound,
     currentProblemId: state.currentProblemId,
     fields: state.fields,
@@ -1752,6 +2013,7 @@ async function saveDataToDrive(){
       dataFileId = created.id;
     }
     setSyncStatus('ok', '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'));
+    renderArchiveBox();
   }catch(e){
     setSyncStatus('err', '저장 실패: ' + e.message);
     console.error(e);
@@ -1918,6 +2180,7 @@ roundSelect.addEventListener('change', ()=>{
   state.currentProblemId = r && r.problems.length ? r.problems[0].id : null;
   renderProblemList();
   renderSolveView();
+  renderArchiveBox();
   saveState();
 });
 
@@ -1935,6 +2198,7 @@ document.getElementById('confirmRound').addEventListener('click', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
+  renderArchiveBox();
   saveState();
   closeModal('overlayRound');
 });
@@ -1949,6 +2213,7 @@ document.getElementById('delRoundBtn').addEventListener('click', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
+  renderArchiveBox();
   saveState();
 });
 
@@ -1972,10 +2237,14 @@ document.getElementById('confirmMergeRound').addEventListener('click', ()=>{
   const toName = document.getElementById('mergeToRound').value;
   if(!fromName || !toName){ return; }
   if(fromName === toName){ alert('서로 다른 두 회차를 선택해주세요.'); return; }
-  if(!confirm(`"${fromName}" 회차를 "${toName}"에 합치고, "${fromName}"은 삭제할까요?`)) return;
-
   const fromRound = state.rounds[fromName];
   const toRound = state.rounds[toName];
+  if(fromRound.archived || toRound.archived){
+    alert('압축 보관된 회차는 먼저 "이미지 불러오기"로 복원한 뒤에 병합해주세요 (보관 상태로는 병합할 수 없습니다).');
+    return;
+  }
+  if(!confirm(`"${fromName}" 회차를 "${toName}"에 합치고, "${fromName}"은 삭제할까요?`)) return;
+
   let addedProblems = 0, mergedProblems = 0, addedCards = 0, addedImgs = 0;
 
   fromRound.problems.forEach(fp=>{
@@ -2006,6 +2275,7 @@ document.getElementById('confirmMergeRound').addEventListener('click', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
+  renderArchiveBox();
   saveState();
   closeModal('overlayMergeRound');
   alert(`병합 완료!\n"${fromName}" → "${toName}"\n새로 추가된 문제 ${addedProblems}개 / 합쳐진 문제 ${mergedProblems}개\n추가된 카드 ${addedCards}장 / 추가된 이미지 ${addedImgs}장`);
@@ -2055,6 +2325,10 @@ function importBulkData(data){
   if(!Array.isArray(data.problems) || !data.problems.length){ alert('JSON에 problems 배열이 없습니다.'); return; }
   if(!state.rounds[roundName]) state.rounds[roundName] = { problems: [] };
   const r = state.rounds[roundName];
+  if(r.archived){
+    alert(`"${roundName}" 회차는 압축 보관된 상태입니다.\n먼저 사이드바에서 "📂 이미지 불러오기"로 복원한 뒤 다시 가져오기를 시도해주세요.\n(보관 상태에서 그대로 가져오면 기존 보관 이미지를 잃을 수 있어 안전을 위해 막았습니다.)`);
+    return;
+  }
 
   let addedProblems = 0, updatedProblems = 0, addedCards = 0, addedImgs = 0;
 
@@ -2095,6 +2369,7 @@ function importBulkData(data){
   if(typeof renderProblemYearRoundFilterOptions==='function') renderProblemYearRoundFilterOptions();
   renderProblemList();
   renderSolveView();
+  renderArchiveBox();
   saveState();
   alert(`가져오기 완료!\n회차: ${roundName}\n새 문제 ${addedProblems}개 / 업데이트된 문제 ${updatedProblems}개\n추가된 카드 ${addedCards}장 / 추가된 이미지 ${addedImgs}장`);
 }
@@ -3441,6 +3716,7 @@ async function initAppUI(){
   renderProblemList();
   renderSolveView();
   renderSideStat();
+  renderArchiveBox();
 }
 
 /* ---------------- 로그인 게이트 버튼 ---------------- */
