@@ -245,6 +245,14 @@
     border-radius:4px; padding:1px 5px; margin-right:4px;
   }
   .problem-chip.active .priority-badge{ background:#fbbf24; color:#1a1200; }
+  .priority-badge.done{ background:#4b5563; color:#d1d5db; }
+  .problem-chip.active .priority-badge.done{ background:#9ca3af; color:#1f2937; }
+  .priority-toggle-btn{
+    border:none; background:rgba(255,255,255,0.18); color:inherit;
+    border-radius:5px; font-size:10.5px; padding:1px 5px; cursor:pointer; line-height:1.6;
+  }
+  .priority-toggle-btn:hover{ background:rgba(255,255,255,0.32); }
+  .problem-chip.active .priority-toggle-btn{ background: var(--blue-100); }
   .problem-chip.excluded{ opacity:0.45; }
   .problem-chip.excluded:hover{ opacity:0.7; }
   .exclude-toggle-btn{
@@ -1096,6 +1104,10 @@
         <input type="checkbox" id="sortByPriorityToggle">
         🎯 우선순위순 정렬 (기출빈도 높은 순)
       </label>
+      <label class="checkbox-row small" id="showPriorityDoneRow" style="display:none;" title="우선순위 학습에서 뺀(충분히 학습 완료한) 문제도 목록에 같이 표시합니다.">
+        <input type="checkbox" id="showPriorityDoneToggle">
+        ✅ 우선순위 완료 문제도 표시
+      </label>
       <div id="priorityBatchBox" style="display:none; margin:2px 0 6px; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:11px;">
         <div id="priorityBatchStatus" style="margin-bottom:5px; opacity:0.85;"></div>
         <div style="display:flex; gap:5px;">
@@ -1942,6 +1954,8 @@ function renderPriorityBatchBox(){
   if(!box) return;
   const scopeAll = document.getElementById('problemScopeAll').checked;
   const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
+  const doneRow = document.getElementById('showPriorityDoneRow');
+  if(doneRow) doneRow.style.display = sortByPriority ? 'flex' : 'none';
   if(!scopeAll || !sortByPriority){ box.style.display='none'; return; }
   box.style.display='block';
 
@@ -2807,12 +2821,13 @@ function createProblemChip(p, roundName, showRoundBadge){
   const hasPriority = (p.priority!=null && p.priority!=='');
   chip.innerHTML = `
     <div class="problem-chip-info">
-      ${hasPriority ? `<span class="priority-badge" title="기출빈도 랭킹 ${escapeHtml(String(p.priority))}위">🎯${escapeHtml(String(p.priority))}</span>` : ''}
+      ${hasPriority ? `<span class="priority-badge${p.priorityDone?' done':''}" title="기출빈도 랭킹 ${escapeHtml(String(p.priority))}위${p.priorityDone?' (우선순위 학습에서 뺀 문제)':''}">🎯${escapeHtml(String(p.priority))}${p.priorityDone?' ✔':''}</span>` : ''}
       <span>${p.num}번 ${p.solvedCorrect?'✅':''}${p.excludeReview?'🔕':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
       <span class="tag">${p.field}</span>
       ${showRoundBadge ? `<span class="round-badge">${escapeHtml(roundName)}</span>` : ''}
     </div>
     <div class="problem-chip-manage">
+      ${hasPriority ? `<button class="priority-toggle-btn" data-id="${p.id}" title="${p.priorityDone?'우선순위 목록으로 복귀':'우선순위 학습에서 빼기 (충분히 학습함)'}">${p.priorityDone?'↺🎯':'✅🎯'}</button>` : ''}
       <button class="exclude-toggle-btn" data-id="${p.id}" title="${p.excludeReview?'복습 제외 해제':'복습 제외로 표시'}">${p.excludeReview?'🔔':'🔕'}</button>
       <button class="problem-edit-btn" data-id="${p.id}" title="수정">✏️</button>
       <button class="problem-del-btn" data-id="${p.id}" title="삭제">🗑</button>
@@ -2871,6 +2886,7 @@ function getFilteredSortedProblemItems(){
   const roundVal = document.getElementById('problemRoundFilterSel').value;
   const showExcluded = document.getElementById('showExcludedToggle').checked;
   const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
+  const showPriorityDone = document.getElementById('showPriorityDoneToggle').checked;
 
   let items = []; // {p, roundName}
   if(scopeAll){
@@ -2885,6 +2901,7 @@ function getFilteredSortedProblemItems(){
   }
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
+  if(sortByPriority && !showPriorityDone) items = items.filter(it=>!it.p.priorityDone);
 
   if(sortByPriority){
     items.sort((a,b)=>{
@@ -2953,6 +2970,16 @@ function renderProblemList(){
       deleteProblem(btn.dataset.id);
     });
   });
+  problemList.querySelectorAll('.priority-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const found = findProblemById(btn.dataset.id);
+      if(!found) return;
+      found.problem.priorityDone = !found.problem.priorityDone;
+      saveState();
+      renderProblemList();
+    });
+  });
   problemList.querySelectorAll('.exclude-toggle-btn').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       e.stopPropagation();
@@ -2972,6 +2999,7 @@ document.getElementById('showExcludedToggle').addEventListener('change', renderP
 document.getElementById('groupByFieldToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
 document.getElementById('sortByPriorityToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
+document.getElementById('showPriorityDoneToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
 document.getElementById('problemYearFilter').addEventListener('change', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
