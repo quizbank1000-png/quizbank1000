@@ -1120,10 +1120,10 @@
       </div>
       <div class="problem-list" id="problemList"></div>
       <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
-      <button class="mini-btn secondary" id="priorityImportBtn" style="margin-top:6px;" title="엑셀 기출문제분석에서 뽑은 우선순위(랭킹) JSON을 일괄 적용합니다.">🎯 우선순위 일괄 적용</button>
+      <button class="mini-btn secondary" id="priorityImportBtn" style="margin-top:6px; padding:14px 4px; font-size:13px;" title="엑셀 기출문제분석에서 뽑은 우선순위(랭킹) JSON을 일괄 적용합니다.">🎯 우선순위 일괄 적용</button>
       <div id="priorityImportedAtText" style="font-size:10px; opacity:0.7; margin-top:2px; text-align:center;"></div>
       <input type="file" id="priorityImportFile" accept="application/json" style="display:none;">
-      <button class="mini-btn secondary" id="mockExamBtn" style="margin-top:6px;" title="전체 문제 중 유형이 겹치지 않게 13문제를 랜덤으로 뽑아 모의고사를 구성합니다.">🎓 모의고사 시작 (랜덤 13문제)</button>
+      <button class="mini-btn secondary" id="mockExamBtn" style="margin-top:6px; padding:14px 4px; font-size:13px;" title="전체 문제 중 유형이 겹치지 않게 13문제를 랜덤으로 뽑아 모의고사를 구성합니다.">🎓 모의고사 시작 (랜덤 13문제)</button>
     </div>
 
     <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
@@ -2270,7 +2270,7 @@ function renderStatusBox(){
     body.innerHTML = `
       🎯 <b>우선순위 진행</b>: ${studied.length}/${allItems.length} 학습 완료<br>
       ${lastLine}
-      <button class="mini-btn" style="width:100%; margin-top:6px; padding:6px 4px;" onclick="priorityContinueNext()">▶ 이어서 풀기</button>
+      <button class="mini-btn" style="display:block; width:100%; margin-top:6px; padding:6px 4px;" onclick="priorityContinueNext()">▶ 이어서 풀기</button>
       <hr style="border:none; border-top:1px solid rgba(255,255,255,0.15); margin:8px 0;">
       <div style="opacity:0.85;">${batchLabel}</div>
       <div style="display:flex; gap:5px; margin-top:5px;">
@@ -2278,7 +2278,7 @@ function renderStatusBox(){
         <button class="mini-btn" style="flex:1; padding:6px 4px;" onclick="loadPriorityBatchImages()" ${needCount===0?'disabled':''}>${needCount ? `📂 이 ${batch.length}개 이미지 불러오기` : '✅ 다 불러옴'}</button>
         <button class="mini-btn secondary" style="flex:0 0 auto; padding:6px 8px;" onclick="priorityBatchNext()" ${end>=total?'disabled':''}>▶</button>
       </div>
-      <button class="mini-btn secondary" style="width:100%; margin-top:4px; padding:4px;" onclick="priorityBatchReset()">↺ 1위부터 다시</button>
+      <button class="mini-btn secondary" style="display:block; width:100%; margin-top:4px; padding:4px;" onclick="priorityBatchReset()">↺ 1위부터 다시</button>
     `;
     return;
   }
@@ -2298,7 +2298,7 @@ function renderStatusBox(){
     body.innerHTML = `
       📄 <b>회차 진행</b>: ${studied.length}/${items.length} 문제 완료<br>
       ${lastLine}
-      <button class="mini-btn" style="width:100%; margin-top:6px; padding:6px 4px;" onclick="roundContinueNext()">▶ 이어서 풀기</button>
+      <button class="mini-btn" style="display:block; width:100%; margin-top:6px; padding:6px 4px;" onclick="roundContinueNext()">▶ 이어서 풀기</button>
     `;
     return;
   }
