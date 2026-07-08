@@ -1096,6 +1096,15 @@
         <input type="checkbox" id="sortByPriorityToggle">
         🎯 우선순위순 정렬 (기출빈도 높은 순)
       </label>
+      <div id="priorityBatchBox" style="display:none; margin:2px 0 6px; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:11px;">
+        <div id="priorityBatchStatus" style="margin-bottom:5px; opacity:0.85;"></div>
+        <div style="display:flex; gap:5px;">
+          <button class="mini-btn secondary" id="priorityBatchPrevBtn" style="flex:0 0 auto; padding:6px 8px;" title="이전 15개">◀</button>
+          <button class="mini-btn" id="priorityBatchLoadBtn" style="flex:1; padding:6px 4px;">이미지 불러오기</button>
+          <button class="mini-btn secondary" id="priorityBatchNextBtn" style="flex:0 0 auto; padding:6px 8px;" title="다음 15개">▶</button>
+        </div>
+        <button class="mini-btn secondary" id="priorityBatchResetBtn" style="width:100%; margin-top:4px; padding:4px;" title="1위부터 다시 시작">↺ 1위부터 다시</button>
+      </div>
       <div class="problem-list" id="problemList"></div>
       <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
       <button class="mini-btn secondary" id="priorityImportBtn" style="margin-top:6px;" title="엑셀 기출문제분석에서 뽑은 우선순위(랭킹) JSON을 일괄 적용합니다.">🎯 우선순위 일괄 적용</button>
@@ -1885,6 +1894,118 @@ async function archiveRoundImages(roundName){
     alert('압축 보관에 실패했습니다: ' + e.message);
   }
 }
+
+async function restoreSpecificProblemImages(roundName, nums){
+  const r = state.rounds[roundName];
+  if(!r || !r.archived || !r.archiveFileId) return;
+  if(typeof JSZip==='undefined'){ alert('압축 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'); return; }
+
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${r.archiveFileId}?alt=media`);
+  const buf = await res.arrayBuffer();
+  const zip = await JSZip.loadAsync(buf);
+  const fileNames = Object.keys(zip.files);
+
+  const numSet = new Set(nums.map(n=>String(n).trim()));
+  for(const p of r.problems){
+    if(!numSet.has(String(p.num).trim())) continue;
+    const counts = p._archivedImgCounts || {problemImgs:0, solutionImgs:0, myAnswerImgs:0};
+    for(const field of ARCHIVE_IMG_FIELDS){
+      const n = counts[field]||0;
+      if(!n) continue;
+      if((p[field]||[]).length === n) continue; // 이미 불러온 상태면 건너뜀
+      const arr = [];
+      for(let idx=0; idx<n; idx++){
+        const entry = fileNames.find(name=>name.startsWith(`${p.num}__${field}__${idx}.`));
+        if(!entry) continue;
+        const ext = entry.split('.').pop();
+        const bytes = await zip.files[entry].async('uint8array');
+        arr.push(uint8ArrayToDataURL(bytes, mimeFromExt(ext)));
+      }
+      p[field] = arr;
+    }
+  }
+}
+
+/* ---------------- 우선순위순 15개씩 이미지 불러오기 ---------------- */
+let priorityBatchOffset = 0;
+const PRIORITY_BATCH_SIZE = 15;
+
+function problemNeedsImageLoad(p){
+  // 압축 보관된 회차에서 아직 이미지를 안 불러온 문제인지 판단
+  const counts = p._archivedImgCounts;
+  if(!counts) return false; // 애초에 보관 이력 없음 (일반 문제이거나 이미지 자체가 없음)
+  return ARCHIVE_IMG_FIELDS.some(f=> (counts[f]||0) > 0 && (p[f]||[]).length !== (counts[f]||0));
+}
+
+function renderPriorityBatchBox(){
+  const box = document.getElementById('priorityBatchBox');
+  if(!box) return;
+  const scopeAll = document.getElementById('problemScopeAll').checked;
+  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
+  if(!scopeAll || !sortByPriority){ box.style.display='none'; return; }
+  box.style.display='block';
+
+  const {items} = getFilteredSortedProblemItems();
+  const total = items.length;
+  const start = Math.min(priorityBatchOffset, Math.max(0, total-1));
+  const end = Math.min(start+PRIORITY_BATCH_SIZE, total);
+  const batch = items.slice(start, end);
+  const needCount = batch.filter(it=>problemNeedsImageLoad(it.p)).length;
+
+  const statusEl = document.getElementById('priorityBatchStatus');
+  if(total===0){
+    statusEl.textContent = '표시할 문제가 없습니다.';
+  } else {
+    statusEl.textContent = `${start+1}~${end}번째 (총 ${total}개 중) · 압축 보관되어 안 불러온 문제 ${needCount}개`;
+  }
+  document.getElementById('priorityBatchPrevBtn').disabled = (start<=0);
+  document.getElementById('priorityBatchNextBtn').disabled = (end>=total);
+  document.getElementById('priorityBatchLoadBtn').textContent = needCount ? `📂 이 ${batch.length}개 이미지 불러오기 (${needCount}개 압축됨)` : '✅ 이미 다 불러온 상태';
+  document.getElementById('priorityBatchLoadBtn').disabled = (needCount===0);
+}
+
+async function loadPriorityBatchImages(){
+  const {items} = getFilteredSortedProblemItems();
+  const total = items.length;
+  const start = Math.min(priorityBatchOffset, Math.max(0, total-1));
+  const end = Math.min(start+PRIORITY_BATCH_SIZE, total);
+  const batch = items.slice(start, end).filter(it=>problemNeedsImageLoad(it.p));
+  if(!batch.length) return;
+
+  const byRound = {};
+  batch.forEach(it=>{
+    if(!byRound[it.roundName]) byRound[it.roundName] = [];
+    byRound[it.roundName].push(it.p.num);
+  });
+
+  setSyncStatus('busy', `우선순위 상위 이미지 불러오는 중... (회차 ${Object.keys(byRound).length}개)`);
+  try{
+    for(const [roundName, nums] of Object.entries(byRound)){
+      await restoreSpecificProblemImages(roundName, nums);
+    }
+    setSyncStatus('ok', '우선순위 이미지 불러오기 완료 (임시 조회 · 메인 데이터는 그대로 가벼움)');
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
+    alert('일부 이미지를 불러오지 못했습니다: ' + e.message);
+  }
+  renderProblemList();
+  renderSolveView();
+}
+
+document.getElementById('priorityBatchLoadBtn').addEventListener('click', loadPriorityBatchImages);
+document.getElementById('priorityBatchNextBtn').addEventListener('click', ()=>{
+  priorityBatchOffset += PRIORITY_BATCH_SIZE;
+  renderPriorityBatchBox();
+});
+document.getElementById('priorityBatchPrevBtn').addEventListener('click', ()=>{
+  priorityBatchOffset = Math.max(0, priorityBatchOffset - PRIORITY_BATCH_SIZE);
+  renderPriorityBatchBox();
+});
+document.getElementById('priorityBatchResetBtn').addEventListener('click', ()=>{
+  priorityBatchOffset = 0;
+  renderPriorityBatchBox();
+});
 
 async function restoreRoundImages(roundName){
   const r = state.rounds[roundName];
@@ -2743,14 +2864,13 @@ function renderProblemYearRoundFilterOptions(){
   if(Array.from(roundSel.options).some(o=>o.value===keepRound)) roundSel.value = keepRound;
 }
 
-function renderProblemList(){
-  problemList.innerHTML='';
+function getFilteredSortedProblemItems(){
   const scopeAll = document.getElementById('problemScopeAll').checked;
   const fieldVal = document.getElementById('problemFieldFilter').value;
   const yearVal = document.getElementById('problemYearFilter').value;
   const roundVal = document.getElementById('problemRoundFilterSel').value;
   const showExcluded = document.getElementById('showExcludedToggle').checked;
-  const groupView = document.getElementById('groupByFieldToggle').checked;
+  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
 
   let items = []; // {p, roundName}
   if(scopeAll){
@@ -2761,13 +2881,11 @@ function renderProblemList(){
     });
   } else {
     const r = getRound();
-    if(!r) return;
-    (r.problems||[]).forEach(p=> items.push({p, roundName:state.currentRound}));
+    if(r) (r.problems||[]).forEach(p=> items.push({p, roundName:state.currentRound}));
   }
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
 
-  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
   if(sortByPriority){
     items.sort((a,b)=>{
       const pa = (a.p.priority!=null && a.p.priority!=='') ? Number(a.p.priority) : Infinity;
@@ -2776,6 +2894,13 @@ function renderProblemList(){
       return 0;
     });
   }
+  return {items, scopeAll, fieldVal, showExcluded, sortByPriority};
+}
+
+function renderProblemList(){
+  problemList.innerHTML='';
+  const groupView = document.getElementById('groupByFieldToggle').checked;
+  const {items, scopeAll, fieldVal} = getFilteredSortedProblemItems();
 
   if(!groupView || fieldVal){
     // 기본: 년도·회차 순서 그대로(기존 방식) 플랫하게 표시. 특정 분야를 콕 집어 필터링했을 때도 플랫하게.
@@ -2839,12 +2964,14 @@ function renderProblemList(){
       renderSideStat();
     });
   });
+
+  renderPriorityBatchBox();
 }
 document.getElementById('problemFieldFilter').addEventListener('change', renderProblemList);
 document.getElementById('showExcludedToggle').addEventListener('change', renderProblemList);
 document.getElementById('groupByFieldToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
-document.getElementById('sortByPriorityToggle').addEventListener('change', renderProblemList);
+document.getElementById('sortByPriorityToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
 document.getElementById('problemYearFilter').addEventListener('change', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
@@ -2852,6 +2979,7 @@ document.getElementById('problemYearFilter').addEventListener('change', ()=>{
 document.getElementById('problemScopeAll').addEventListener('change', (e)=>{
   document.getElementById('problemGlobalFilters').style.display = e.target.checked ? 'flex' : 'none';
   if(e.target.checked) renderProblemYearRoundFilterOptions();
+  priorityBatchOffset = 0;
   renderProblemList();
 });
 
