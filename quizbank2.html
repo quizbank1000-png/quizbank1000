@@ -240,6 +240,11 @@
     border-radius:4px; padding:1px 4px; margin-left:4px;
   }
   .problem-chip.active .round-badge{ background: var(--blue-100); color: var(--blue-700); }
+  .priority-badge{
+    font-size:10px; font-weight:800; background:#f59e0b; color:#1a1200;
+    border-radius:4px; padding:1px 5px; margin-right:4px;
+  }
+  .problem-chip.active .priority-badge{ background:#fbbf24; color:#1a1200; }
   .problem-chip.excluded{ opacity:0.45; }
   .problem-chip.excluded:hover{ opacity:0.7; }
   .exclude-toggle-btn{
@@ -1087,8 +1092,14 @@
         <input type="checkbox" id="showExcludedToggle">
         🔕 복습 제외 문제도 표시
       </label>
+      <label class="checkbox-row small" title="기출 빈도(가족단위 랭킹) 순서대로 정렬합니다. '🌐 전체 문제에서 찾기'를 켜야 여러 회차를 넘나들며 정렬됩니다.">
+        <input type="checkbox" id="sortByPriorityToggle">
+        🎯 우선순위순 정렬 (기출빈도 높은 순)
+      </label>
       <div class="problem-list" id="problemList"></div>
       <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
+      <button class="mini-btn secondary" id="priorityImportBtn" style="margin-top:6px;" title="엑셀 기출문제분석에서 뽑은 우선순위(랭킹) JSON을 일괄 적용합니다.">🎯 우선순위 일괄 적용</button>
+      <input type="file" id="priorityImportFile" accept="application/json" style="display:none;">
     </div>
 
     <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
@@ -2374,6 +2385,69 @@ function importBulkData(data){
   alert(`가져오기 완료!\n회차: ${roundName}\n새 문제 ${addedProblems}개 / 업데이트된 문제 ${updatedProblems}개\n추가된 카드 ${addedCards}장 / 추가된 이미지 ${addedImgs}장`);
 }
 
+/* ---------------- 우선순위(기출빈도 랭킹) 일괄 적용 ---------------- */
+/* 가져올 JSON 형식:
+{
+  "priorities": [
+    {"round":"2017년 4회", "num":"05", "priority":1},
+    {"round":"2016년 2회", "num":"09", "priority":7}
+  ]
+}
+round+num이 이미 등록된 문제와 일치하면 그 문제에 priority 값(랭킹, 낮을수록 기출빈도 높음)을 부여한다.
+일치하는 문제가 없으면 건너뛴다(새 문제를 만들지 않음 — 문제/이미지는 항상 회차 가져오기로 먼저 등록되어 있어야 함).
+*/
+document.getElementById('priorityImportBtn').addEventListener('click', ()=>{
+  document.getElementById('priorityImportFile').click();
+});
+document.getElementById('priorityImportFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    let data;
+    try{ data = JSON.parse(ev.target.result); }
+    catch(err){ alert('JSON 파일을 읽지 못했습니다: ' + err.message); return; }
+    try{
+      importPriorityData(data);
+    }catch(err){
+      alert('우선순위 적용 중 오류가 발생했습니다: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function importPriorityData(data){
+  if(!Array.isArray(data.priorities) || !data.priorities.length){ alert('JSON에 priorities 배열이 없습니다.'); return; }
+  let matched = 0, unmatched = 0;
+  const unmatchedList = [];
+  data.priorities.forEach(item=>{
+    const roundName = String(item.round||'').trim();
+    const num = String(item.num||'').trim();
+    const r = state.rounds[roundName];
+    const p = r && (r.problems||[]).find(x=>String(x.num).trim()===num);
+    if(p){
+      p.priority = item.priority;
+      matched++;
+    } else {
+      unmatched++;
+      unmatchedList.push(`${roundName} ${num}번`);
+    }
+  });
+  renderProblemList();
+  renderProblemYearRoundFilterOptions();
+  saveState();
+  let msg = `우선순위 적용 완료!\n일치한 문제 ${matched}개에 랭킹을 부여했습니다.`;
+  if(unmatched){
+    msg += `\n일치하지 않은 항목 ${unmatched}개 (해당 회차·문제가 아직 앱에 없음).`;
+    if(unmatchedList.length<=15){
+      msg += `\n예: ${unmatchedList.join(', ')}`;
+    }
+  }
+  alert(msg);
+}
+
 /* ---------------- 분야(field) 관리 ---------------- */
 function buildFieldOptgroups(selectEl, includeAllOption, allOptionText){
   selectEl.innerHTML='';
@@ -2609,8 +2683,10 @@ function createProblemChip(p, roundName, showRoundBadge){
   const chip = document.createElement('div');
   chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'') + (p.excludeReview ? ' excluded':'');
   const sessCount = (p.solveSessions||[]).length;
+  const hasPriority = (p.priority!=null && p.priority!=='');
   chip.innerHTML = `
     <div class="problem-chip-info">
+      ${hasPriority ? `<span class="priority-badge" title="기출빈도 랭킹 ${escapeHtml(String(p.priority))}위">🎯${escapeHtml(String(p.priority))}</span>` : ''}
       <span>${p.num}번 ${p.solvedCorrect?'✅':''}${p.excludeReview?'🔕':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
       <span class="tag">${p.field}</span>
       ${showRoundBadge ? `<span class="round-badge">${escapeHtml(roundName)}</span>` : ''}
@@ -2691,6 +2767,16 @@ function renderProblemList(){
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
 
+  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
+  if(sortByPriority){
+    items.sort((a,b)=>{
+      const pa = (a.p.priority!=null && a.p.priority!=='') ? Number(a.p.priority) : Infinity;
+      const pb = (b.p.priority!=null && b.p.priority!=='') ? Number(b.p.priority) : Infinity;
+      if(pa!==pb) return pa-pb;
+      return 0;
+    });
+  }
+
   if(!groupView || fieldVal){
     // 기본: 년도·회차 순서 그대로(기존 방식) 플랫하게 표시. 특정 분야를 콕 집어 필터링했을 때도 플랫하게.
     items.forEach(it=>problemList.appendChild(createProblemChip(it.p, it.roundName, scopeAll)));
@@ -2758,6 +2844,7 @@ document.getElementById('problemFieldFilter').addEventListener('change', renderP
 document.getElementById('showExcludedToggle').addEventListener('change', renderProblemList);
 document.getElementById('groupByFieldToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
+document.getElementById('sortByPriorityToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemYearFilter').addEventListener('change', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
