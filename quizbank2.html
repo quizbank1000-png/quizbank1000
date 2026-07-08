@@ -253,6 +253,11 @@
   }
   .priority-toggle-btn:hover{ background:rgba(255,255,255,0.32); }
   .problem-chip.active .priority-toggle-btn{ background: var(--blue-100); }
+  .exam-badge{
+    font-size:10px; font-weight:800; background:#8b5cf6; color:#fff;
+    border-radius:4px; padding:1px 5px; margin-right:4px;
+  }
+  .problem-chip.active .exam-badge{ background:#a78bfa; color:#1a0f2e; }
   .problem-chip.excluded{ opacity:0.45; }
   .problem-chip.excluded:hover{ opacity:0.7; }
   .exclude-toggle-btn{
@@ -1046,6 +1051,7 @@
     <div>
       <h1>📚 <span class="sidebar-label">퀴즈뱅크2</span></h1>
       <div class="sub">년도·회차별 단서카드 훈련</div>
+      <div class="sub" id="ddayBadge" style="font-weight:800; color:#fca5a5;"></div>
     </div>
 
     <div class="sync-bar">
@@ -1083,44 +1089,35 @@
 
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <label>문제 목록</label>
-      <label class="checkbox-row small">
-        <input type="checkbox" id="problemScopeAll">
-        🌐 전체 문제에서 찾기 (모든 년도·회차)
-      </label>
+      <input type="text" id="problemSearchInput" placeholder="🔍 검색 (분야·번호·단서카드 키워드...)" style="margin-bottom:5px; width:100%; box-sizing:border-box; padding:6px 8px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12px;">
+      <select id="viewModeSelect" style="margin-bottom:5px;" title="문제 목록을 어떻게 보여줄지 선택합니다.">
+        <option value="round">📄 회차별 보기 (기본)</option>
+        <option value="all">🌐 전체 문제에서 찾기</option>
+        <option value="priority">🎯 우선순위순 보기 (기출빈도 높은 순)</option>
+        <option value="group">🗂 그룹·유형별로 묶어보기</option>
+      </select>
       <div class="problem-filter-row" id="problemGlobalFilters" style="display:none;">
         <select id="problemYearFilter"><option value="">전체 년도</option></select>
         <select id="problemRoundFilterSel"><option value="">전체 회차</option></select>
       </div>
       <select id="problemFieldFilter" style="margin-bottom:4px;"><option value="">전체 분야</option></select>
       <label class="checkbox-row small">
-        <input type="checkbox" id="groupByFieldToggle">
-        🗂 그룹·유형별로 묶어보기
-      </label>
-      <label class="checkbox-row small">
         <input type="checkbox" id="showExcludedToggle">
         🔕 복습 제외 문제도 표시
-      </label>
-      <label class="checkbox-row small" title="기출 빈도(가족단위 랭킹) 순서대로 정렬합니다. '🌐 전체 문제에서 찾기'를 켜야 여러 회차를 넘나들며 정렬됩니다.">
-        <input type="checkbox" id="sortByPriorityToggle">
-        🎯 우선순위순 정렬 (기출빈도 높은 순)
       </label>
       <label class="checkbox-row small" id="showPriorityDoneRow" style="display:none;" title="우선순위 학습에서 뺀(충분히 학습 완료한) 문제도 목록에 같이 표시합니다.">
         <input type="checkbox" id="showPriorityDoneToggle">
         ✅ 우선순위 완료 문제도 표시
       </label>
-      <div id="priorityBatchBox" style="display:none; margin:2px 0 6px; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:11px;">
-        <div id="priorityBatchStatus" style="margin-bottom:5px; opacity:0.85;"></div>
-        <div style="display:flex; gap:5px;">
-          <button class="mini-btn secondary" id="priorityBatchPrevBtn" style="flex:0 0 auto; padding:6px 8px;" title="이전 15개">◀</button>
-          <button class="mini-btn" id="priorityBatchLoadBtn" style="flex:1; padding:6px 4px;">이미지 불러오기</button>
-          <button class="mini-btn secondary" id="priorityBatchNextBtn" style="flex:0 0 auto; padding:6px 8px;" title="다음 15개">▶</button>
-        </div>
-        <button class="mini-btn secondary" id="priorityBatchResetBtn" style="width:100%; margin-top:4px; padding:4px;" title="1위부터 다시 시작">↺ 1위부터 다시</button>
+      <div id="statusBox" style="display:none; margin:2px 0 6px; padding:8px 9px; border-radius:8px; font-size:11px;">
+        <div id="statusBoxBody" style="line-height:1.55;"></div>
       </div>
       <div class="problem-list" id="problemList"></div>
       <button class="mini-btn" id="addProblemBtn" style="margin-top:8px; flex:0 0 auto; padding:14px 4px; font-size:13px;">+ 문제 추가</button>
       <button class="mini-btn secondary" id="priorityImportBtn" style="margin-top:6px;" title="엑셀 기출문제분석에서 뽑은 우선순위(랭킹) JSON을 일괄 적용합니다.">🎯 우선순위 일괄 적용</button>
+      <div id="priorityImportedAtText" style="font-size:10px; opacity:0.7; margin-top:2px; text-align:center;"></div>
       <input type="file" id="priorityImportFile" accept="application/json" style="display:none;">
+      <button class="mini-btn secondary" id="mockExamBtn" style="margin-top:6px;" title="전체 문제 중 유형이 겹치지 않게 13문제를 랜덤으로 뽑아 모의고사를 구성합니다.">🎓 모의고사 시작 (랜덤 13문제)</button>
     </div>
 
     <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
@@ -1251,6 +1248,9 @@
         <div class="stat-box 단서못읽음"><div class="num" id="statClue">0</div><div class="lbl">단서못읽음</div></div>
         <div class="stat-box 암기못함"><div class="num" id="statMemo">0</div><div class="lbl">암기못함</div></div>
       </div>
+      <h3 style="margin:18px 0 8px; font-size:14px;">🎯 우선순위 높은데 오답 많은 문제 (진짜 취약점 후보)</h3>
+      <div id="priorityWeakList"></div>
+      <h3 style="margin:18px 0 8px; font-size:14px;">전체 오답노트</h3>
       <div id="wrongList"></div>
       <div class="empty" id="statsEmpty" style="display:none;">아직 오답메모가 없습니다.</div>
     </div>
@@ -1268,6 +1268,18 @@
   </div>
 </div>
 
+
+<!-- 모의고사 결과 모달 -->
+<div class="overlay" id="overlayMockExamResult">
+  <div class="modal" style="width:560px; max-height:80vh; overflow-y:auto;">
+    <h3>🏁 모의고사 결과</h3>
+    <div class="desc" id="mockExamResultSummary"></div>
+    <div id="mockExamResultList" style="display:flex; flex-direction:column; gap:8px; margin:14px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayMockExamResult">닫기</button>
+    </div>
+  </div>
+</div>
 
 <!-- 회차 추가 모달 -->
 <div class="overlay" id="overlayRound">
@@ -1538,6 +1550,32 @@ let pendingWrongProblemRef = null; // {round, id} for link-to-clue flow
 
 function uid(){ return 'id'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 
+/* ---------------- 보기 모드 (체크박스 뭉치 → 드롭다운 하나로 통합) ---------------- */
+function getViewModeFlags(){
+  const sel = document.getElementById('viewModeSelect');
+  const mode = sel ? sel.value : 'round';
+  return {
+    mode,
+    scopeAll: mode !== 'round',
+    sortByPriority: mode === 'priority',
+    groupView: mode === 'group',
+  };
+}
+
+/* ---------------- D-day 카운터 ---------------- */
+const EXAM_DATE = new Date(2026, 9, 25); // 10월 25일 (month은 0-indexed)
+function renderDday(){
+  const el = document.getElementById('ddayBadge');
+  if(!el) return;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diffDays = Math.ceil((EXAM_DATE - today) / (1000*60*60*24));
+  if(diffDays > 0) el.textContent = `⏳ 실기시험 D-${diffDays}`;
+  else if(diffDays === 0) el.textContent = `⏳ 실기시험 D-DAY`;
+  else el.textContent = `시험일이 지났습니다 (D+${-diffDays})`;
+}
+
+
 /* 기존 데이터(단일 이미지 필드)를 다중 이미지 배열 필드로 변환 */
 function migrateImageFields(){
   Object.values(state.rounds||{}).forEach(r=>{
@@ -1735,10 +1773,12 @@ async function loadDataFromDrive(){
       currentProblemId: parsed.currentProblemId || null,
       fields: parsed.fields || DEFAULT_FIELDS.slice(),
       fieldGroups: parsed.fieldGroups || null,
+      mockExam: parsed.mockExam || null,
+      priorityImportedAt: parsed.priorityImportedAt || null,
     };
   } else {
     dataFileId = null;
-    state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice(), fieldGroups: null };
+    state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice(), fieldGroups: null, mockExam: null };
   }
   if(!state.rounds) state.rounds = {};
   ensureFieldsInit();
@@ -1938,9 +1978,50 @@ async function restoreSpecificProblemImages(roundName, nums){
   }
 }
 
-/* ---------------- 우선순위순 15개씩 이미지 불러오기 ---------------- */
+/* ---------------- 학습 진행 상황 (우선순위 이어풀기 / 회차 이어풀기) ---------------- */
+function isStudied(p){
+  return !!(p.solveSessions && p.solveSessions.length>0);
+}
+
+function numSortValue(numStr){
+  const n = parseFloat(String(numStr).replace(/[^\d.]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
+function getAllPriorityItemsSorted(){
+  // 필터와 무관하게 우선순위가 매겨진 전체 문제를 랭킹순으로 반환 (진행상황 계산용)
+  let items = [];
+  Object.entries(state.rounds).forEach(([rn, r])=>{
+    (r.problems||[]).forEach(p=>{
+      if(p.priority!=null && p.priority!=='') items.push({p, roundName:rn});
+    });
+  });
+  items.sort((a,b)=> Number(a.p.priority) - Number(b.p.priority));
+  return items;
+}
+
+function getCurrentRoundItemsSortedByNum(){
+  const r = getRound();
+  if(!r) return [];
+  const items = (r.problems||[]).map(p=>({p, roundName:state.currentRound}));
+  items.sort((a,b)=> numSortValue(a.p.num) - numSortValue(b.p.num));
+  return items;
+}
+
+/* ---------------- 모의고사 (랜덤 13문제, 유형 안 겹치게) ---------------- */
+let mockExamModeActive = false;
+const MOCK_EXAM_SIZE = 13;
 let priorityBatchOffset = 0;
 const PRIORITY_BATCH_SIZE = 15;
+
+function shuffleArr(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
 
 function problemNeedsImageLoad(p){
   // 압축 보관된 회차에서 아직 이미지를 안 불러온 문제인지 판단
@@ -1949,34 +2030,151 @@ function problemNeedsImageLoad(p){
   return ARCHIVE_IMG_FIELDS.some(f=> (counts[f]||0) > 0 && (p[f]||[]).length !== (counts[f]||0));
 }
 
-function renderPriorityBatchBox(){
-  const box = document.getElementById('priorityBatchBox');
-  if(!box) return;
-  const scopeAll = document.getElementById('problemScopeAll').checked;
-  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
-  const doneRow = document.getElementById('showPriorityDoneRow');
-  if(doneRow) doneRow.style.display = sortByPriority ? 'flex' : 'none';
-  if(!scopeAll || !sortByPriority){ box.style.display='none'; return; }
-  box.style.display='block';
-
-  const {items} = getFilteredSortedProblemItems();
-  const total = items.length;
-  const start = Math.min(priorityBatchOffset, Math.max(0, total-1));
-  const end = Math.min(start+PRIORITY_BATCH_SIZE, total);
-  const batch = items.slice(start, end);
-  const needCount = batch.filter(it=>problemNeedsImageLoad(it.p)).length;
-
-  const statusEl = document.getElementById('priorityBatchStatus');
-  if(total===0){
-    statusEl.textContent = '표시할 문제가 없습니다.';
-  } else {
-    statusEl.textContent = `${start+1}~${end}번째 (총 ${total}개 중) · 압축 보관되어 안 불러온 문제 ${needCount}개`;
+function generateMockExam(){
+  let pool = [];
+  Object.entries(state.rounds).forEach(([rn, r])=>{
+    (r.problems||[]).forEach(p=>{
+      if(p.excludeReview) return;
+      pool.push({p, roundName:rn});
+    });
+  });
+  if(pool.length < MOCK_EXAM_SIZE){
+    alert(`전체 문제가 ${MOCK_EXAM_SIZE}개 미만입니다 (현재 ${pool.length}개, 복습 제외 문제는 뺀 숫자). 문제를 더 등록한 뒤 다시 시도해주세요.`);
+    return;
   }
-  document.getElementById('priorityBatchPrevBtn').disabled = (start<=0);
-  document.getElementById('priorityBatchNextBtn').disabled = (end>=total);
-  document.getElementById('priorityBatchLoadBtn').textContent = needCount ? `📂 이 ${batch.length}개 이미지 불러오기 (${needCount}개 압축됨)` : '✅ 이미 다 불러온 상태';
-  document.getElementById('priorityBatchLoadBtn').disabled = (needCount===0);
+  if(state.mockExam && state.mockExam.items && state.mockExam.items.length){
+    if(!confirm('이미 진행 중인 모의고사가 있습니다. 새로 만들면 기존 모의고사 구성은 사라집니다 (문제별 학습기록은 그대로 남습니다). 새로 만들까요?')) return;
+  }
+
+  const byField = {};
+  pool.forEach(it=>{
+    const f = it.p.field || '(미분류)';
+    if(!byField[f]) byField[f] = [];
+    byField[f].push(it);
+  });
+
+  const fields = shuffleArr(Object.keys(byField));
+  const picked = [];
+  const usedIds = new Set();
+  fields.forEach(f=>{
+    if(picked.length>=MOCK_EXAM_SIZE) return;
+    const candidates = byField[f];
+    const choice = candidates[Math.floor(Math.random()*candidates.length)];
+    picked.push(choice);
+    usedIds.add(choice.p.id);
+  });
+  let overlapWarning = '';
+  if(picked.length < MOCK_EXAM_SIZE){
+    overlapWarning = `\n(참고: 서로 다른 유형이 ${picked.length}개뿐이라 나머지 ${MOCK_EXAM_SIZE-picked.length}문제는 유형이 겹칠 수 있습니다.)`;
+    const remaining = shuffleArr(pool.filter(it=>!usedIds.has(it.p.id)));
+    for(const it of remaining){
+      if(picked.length>=MOCK_EXAM_SIZE) break;
+      picked.push(it);
+      usedIds.add(it.p.id);
+    }
+  }
+
+  const finalOrder = shuffleArr(picked);
+  state.mockExam = {
+    createdAt: Date.now(),
+    items: finalOrder.map((it,idx)=>({roundName:it.roundName, problemId:it.p.id, no:idx+1}))
+  };
+  mockExamModeActive = true;
+  saveState();
+  renderProblemList();
+  loadMockExamImages();
+  alert(`모의고사 ${MOCK_EXAM_SIZE}문제가 구성되었습니다!${overlapWarning}`);
 }
+
+function getMockExamItems(){
+  if(!state.mockExam || !Array.isArray(state.mockExam.items)) return [];
+  return state.mockExam.items.map(entry=>{
+    const r = state.rounds[entry.roundName];
+    const p = r && (r.problems||[]).find(pp=>pp.id===entry.problemId);
+    return p ? {p, roundName:entry.roundName, no:entry.no} : null;
+  }).filter(Boolean);
+}
+
+async function loadMockExamImages(){
+  const items = getMockExamItems();
+  const byRound = {};
+  items.forEach(it=>{
+    if(!problemNeedsImageLoad(it.p)) return;
+    if(!byRound[it.roundName]) byRound[it.roundName] = [];
+    byRound[it.roundName].push(it.p.num);
+  });
+  if(!Object.keys(byRound).length){ renderProblemList(); return; }
+  setSyncStatus('busy', `모의고사 이미지 불러오는 중... (회차 ${Object.keys(byRound).length}개)`);
+  try{
+    for(const [roundName, nums] of Object.entries(byRound)){
+      await restoreSpecificProblemImages(roundName, nums);
+    }
+    setSyncStatus('ok', '모의고사 이미지 불러오기 완료');
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
+    alert('일부 이미지를 불러오지 못했습니다: ' + e.message);
+  }
+  renderProblemList();
+  renderSolveView();
+}
+
+function endMockExam(){
+  if(!confirm('모의고사를 종료할까요? (각 문제의 학습기록은 그대로 남습니다)')) return;
+  mockExamModeActive = false;
+  state.mockExam = null;
+  saveState();
+  renderProblemList();
+}
+
+/* 모의고사 결과 요약: 모의고사 생성 시각(createdAt) 이후에 채점된 세션만 "이번 모의고사 응시"로 집계 */
+function getMockExamAttempt(p){
+  if(!state.mockExam) return null;
+  const sessions = (p.solveSessions||[]).filter(s=> s.submittedAt >= state.mockExam.createdAt && s.result);
+  if(!sessions.length) return null;
+  return sessions[sessions.length-1];
+}
+
+function showMockExamResult(){
+  if(!state.mockExam){ return; }
+  const items = getMockExamItems();
+  let correctCount = 0, wrongCount = 0, unattemptedCount = 0, totalSec = 0;
+  const rows = items.map(it=>{
+    const attempt = getMockExamAttempt(it.p);
+    if(!attempt){ unattemptedCount++; }
+    else if(attempt.result==='correct'){ correctCount++; totalSec += attempt.durationSec||0; }
+    else { wrongCount++; totalSec += attempt.durationSec||0; }
+    return {it, attempt};
+  });
+  const mm = Math.floor(totalSec/60), ss = totalSec%60;
+  document.getElementById('mockExamResultSummary').innerHTML =
+    `✅ 정답 <b>${correctCount}</b> · ❌ 오답 <b>${wrongCount}</b> · ⬜ 미응시 <b>${unattemptedCount}</b> (총 ${items.length}문제)<br>` +
+    `⏱ 채점된 문제 총 풀이시간: ${mm}분 ${ss}초`;
+  const listEl = document.getElementById('mockExamResultList');
+  listEl.innerHTML = '';
+  rows.forEach(({it, attempt})=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.05);';
+    const icon = !attempt ? '⬜' : (attempt.result==='correct' ? '✅' : '❌');
+    const timeStr = attempt ? `${Math.floor((attempt.durationSec||0)/60)}분 ${(attempt.durationSec||0)%60}초` : '미응시';
+    row.innerHTML = `<span style="font-size:15px;">${icon}</span>
+      <span style="flex:1;">모의${escapeHtml(String(it.no))}번 · ${escapeHtml(it.roundName)} ${escapeHtml(String(it.p.num))}번 <span class="tag">${escapeHtml(it.p.field||'')}</span></span>
+      <span style="opacity:0.7; font-size:11px;">${timeStr}</span>`;
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', ()=>{
+      closeModal('overlayMockExamResult');
+      state.currentRound = it.roundName;
+      state.currentProblemId = it.p.id;
+      renderRoundSelect();
+      renderProblemList();
+      renderSolveView();
+    });
+    listEl.appendChild(row);
+  });
+  openModal('overlayMockExamResult');
+}
+
+document.getElementById('mockExamBtn').addEventListener('click', generateMockExam);
 
 async function loadPriorityBatchImages(){
   const {items} = getFilteredSortedProblemItems();
@@ -2007,19 +2205,121 @@ async function loadPriorityBatchImages(){
   renderSolveView();
 }
 
-document.getElementById('priorityBatchLoadBtn').addEventListener('click', loadPriorityBatchImages);
-document.getElementById('priorityBatchNextBtn').addEventListener('click', ()=>{
-  priorityBatchOffset += PRIORITY_BATCH_SIZE;
-  renderPriorityBatchBox();
-});
-document.getElementById('priorityBatchPrevBtn').addEventListener('click', ()=>{
-  priorityBatchOffset = Math.max(0, priorityBatchOffset - PRIORITY_BATCH_SIZE);
-  renderPriorityBatchBox();
-});
-document.getElementById('priorityBatchResetBtn').addEventListener('click', ()=>{
-  priorityBatchOffset = 0;
-  renderPriorityBatchBox();
-});
+function priorityBatchNext(){ priorityBatchOffset += PRIORITY_BATCH_SIZE; renderProblemList(); }
+function priorityBatchPrev(){ priorityBatchOffset = Math.max(0, priorityBatchOffset - PRIORITY_BATCH_SIZE); renderProblemList(); }
+function priorityBatchReset(){ priorityBatchOffset = 0; renderProblemList(); }
+
+function priorityContinueNext(){
+  const items = getAllPriorityItemsSorted();
+  const nextIt = items.find(it=> !isStudied(it.p) && !it.p.priorityDone && !it.p.excludeReview);
+  if(!nextIt){ alert('우선순위 목록의 모든 문제를 학습했습니다! 🎉\n("우선순위 완료 문제도 표시"를 꺼둔 상태라면 완료 표시한 문제도 포함해 이미 다 확인한 것입니다.)'); return; }
+  state.currentRound = nextIt.roundName;
+  state.currentProblemId = nextIt.p.id;
+  const idx = items.indexOf(nextIt);
+  priorityBatchOffset = Math.floor(idx / PRIORITY_BATCH_SIZE) * PRIORITY_BATCH_SIZE;
+  renderRoundSelect();
+  renderProblemList();
+  renderSolveView();
+  saveState();
+}
+
+function roundContinueNext(){
+  const items = getCurrentRoundItemsSortedByNum();
+  const nextIt = items.find(it=> !isStudied(it.p) && !it.p.excludeReview);
+  if(!nextIt){ alert(`"${state.currentRound}" 회차의 모든 문제를 학습했습니다! 🎉`); return; }
+  state.currentProblemId = nextIt.p.id;
+  renderProblemList();
+  renderSolveView();
+  saveState();
+}
+
+/* ---------------- 통합 상태 박스 (모의고사 / 우선순위 / 회차 진행) ---------------- */
+function renderStatusBox(){
+  const box = document.getElementById('statusBox');
+  const body = document.getElementById('statusBoxBody');
+  if(!box || !body) return;
+  const {scopeAll, sortByPriority} = getViewModeFlags();
+  const doneRow = document.getElementById('showPriorityDoneRow');
+  if(doneRow) doneRow.style.display = (sortByPriority && !mockExamModeActive) ? 'flex' : 'none';
+
+  if(mockExamModeActive && state.mockExam){
+    box.style.display='block';
+    box.style.border='1px solid #a78bfa';
+    box.style.background='rgba(139,92,246,0.10)';
+    const items = getMockExamItems();
+    const studied = items.filter(it=>isStudied(it.p));
+    const createdStr = new Date(state.mockExam.createdAt).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    body.innerHTML = `
+      🎓 <b>모의고사 모드</b> (생성 ${escapeHtml(createdStr)})<br>
+      <b>${studied.length}/${items.length}</b> 문제 완료
+      <div style="display:flex; gap:5px; margin-top:6px;">
+        <button class="mini-btn" style="flex:1; padding:6px 4px;" onclick="loadMockExamImages()">📂 이미지 불러오기</button>
+        <button class="mini-btn" style="flex:1; padding:6px 4px; background:#8b5cf6;" onclick="showMockExamResult()">🏁 결과 보기</button>
+        <button class="mini-btn secondary" style="flex:0 0 auto; padding:6px 8px;" onclick="endMockExam()">종료</button>
+      </div>`;
+    return;
+  }
+
+  if(scopeAll && sortByPriority){
+    const allItems = getAllPriorityItemsSorted();
+    if(!allItems.length){ box.style.display='none'; return; }
+    box.style.display='block';
+    box.style.border='1px solid #2b6';
+    box.style.background='rgba(40,180,120,0.08)';
+    const studied = allItems.filter(it=>isStudied(it.p));
+    let lastLine = '아직 학습 기록 없음';
+    if(studied.length){
+      const last = studied[studied.length-1];
+      lastLine = `최근 학습 순위: 🎯${escapeHtml(String(last.p.priority))}위 (${escapeHtml(last.roundName)} ${escapeHtml(String(last.p.num))}번)`;
+    }
+
+    const {items} = getFilteredSortedProblemItems();
+    const total = items.length;
+    const start = Math.min(priorityBatchOffset, Math.max(0, total-1));
+    const end = Math.min(start+PRIORITY_BATCH_SIZE, total);
+    const batch = items.slice(start, end);
+    const needCount = batch.filter(it=>problemNeedsImageLoad(it.p)).length;
+    const batchLabel = total===0 ? '표시할 문제가 없습니다.' : `${start+1}~${end}번째 (총 ${total}개 중) · 압축 미해제 ${needCount}개`;
+
+    body.innerHTML = `
+      🎯 <b>우선순위 진행</b>: ${studied.length}/${allItems.length} 학습 완료<br>
+      ${lastLine}
+      <button class="mini-btn" style="width:100%; margin-top:6px; padding:6px 4px;" onclick="priorityContinueNext()">▶ 이어서 풀기</button>
+      <hr style="border:none; border-top:1px solid rgba(255,255,255,0.15); margin:8px 0;">
+      <div style="opacity:0.85;">${batchLabel}</div>
+      <div style="display:flex; gap:5px; margin-top:5px;">
+        <button class="mini-btn secondary" style="flex:0 0 auto; padding:6px 8px;" onclick="priorityBatchPrev()" ${start<=0?'disabled':''}>◀</button>
+        <button class="mini-btn" style="flex:1; padding:6px 4px;" onclick="loadPriorityBatchImages()" ${needCount===0?'disabled':''}>${needCount ? `📂 이 ${batch.length}개 이미지 불러오기` : '✅ 다 불러옴'}</button>
+        <button class="mini-btn secondary" style="flex:0 0 auto; padding:6px 8px;" onclick="priorityBatchNext()" ${end>=total?'disabled':''}>▶</button>
+      </div>
+      <button class="mini-btn secondary" style="width:100%; margin-top:4px; padding:4px;" onclick="priorityBatchReset()">↺ 1위부터 다시</button>
+    `;
+    return;
+  }
+
+  if(!scopeAll){
+    const items = getCurrentRoundItemsSortedByNum();
+    if(!items.length){ box.style.display='none'; return; }
+    box.style.display='block';
+    box.style.border='1px solid #2b6';
+    box.style.background='rgba(40,180,120,0.08)';
+    const studied = items.filter(it=>isStudied(it.p));
+    let lastLine = '아직 학습 기록 없음';
+    if(studied.length){
+      const last = studied[studied.length-1];
+      lastLine = `최근 학습: ${escapeHtml(state.currentRound)} ${escapeHtml(String(last.p.num))}번까지`;
+    }
+    body.innerHTML = `
+      📄 <b>회차 진행</b>: ${studied.length}/${items.length} 문제 완료<br>
+      ${lastLine}
+      <button class="mini-btn" style="width:100%; margin-top:6px; padding:6px 4px;" onclick="roundContinueNext()">▶ 이어서 풀기</button>
+    `;
+    return;
+  }
+
+  box.style.display='none';
+}
+
 
 async function restoreRoundImages(roundName){
   const r = state.rounds[roundName];
@@ -2137,6 +2437,8 @@ async function saveDataToDrive(){
     currentProblemId: state.currentProblemId,
     fields: state.fields,
     fieldGroups: state.fieldGroups,
+    mockExam: state.mockExam || null,
+    priorityImportedAt: state.priorityImportedAt || null,
   });
   const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
 
@@ -2570,8 +2872,10 @@ function importPriorityData(data){
       unmatchedList.push(`${roundName} ${num}번`);
     }
   });
+  state.priorityImportedAt = Date.now();
   renderProblemList();
   renderProblemYearRoundFilterOptions();
+  renderPriorityImportedAtText();
   saveState();
   let msg = `우선순위 적용 완료!\n일치한 문제 ${matched}개에 랭킹을 부여했습니다.`;
   if(unmatched){
@@ -2582,6 +2886,15 @@ function importPriorityData(data){
   }
   alert(msg);
 }
+
+function renderPriorityImportedAtText(){
+  const el = document.getElementById('priorityImportedAtText');
+  if(!el) return;
+  if(!state.priorityImportedAt){ el.textContent = '아직 우선순위를 적용한 적 없음'; return; }
+  const d = new Date(state.priorityImportedAt);
+  el.textContent = `마지막 적용: ${d.toLocaleString('ko-KR', {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}`;
+}
+
 
 /* ---------------- 분야(field) 관리 ---------------- */
 function buildFieldOptgroups(selectEl, includeAllOption, allOptionText){
@@ -2814,13 +3127,14 @@ function renderProblemFieldFilterOptions(){
   if(state.fields.includes(keep)) sel.value = keep;
 }
 
-function createProblemChip(p, roundName, showRoundBadge){
+function createProblemChip(p, roundName, showRoundBadge, examNo){
   const chip = document.createElement('div');
   chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'') + (p.excludeReview ? ' excluded':'');
   const sessCount = (p.solveSessions||[]).length;
   const hasPriority = (p.priority!=null && p.priority!=='');
   chip.innerHTML = `
     <div class="problem-chip-info">
+      ${examNo!=null ? `<span class="exam-badge" title="모의고사 문제 순서">모의${escapeHtml(String(examNo))}</span>` : ''}
       ${hasPriority ? `<span class="priority-badge${p.priorityDone?' done':''}" title="기출빈도 랭킹 ${escapeHtml(String(p.priority))}위${p.priorityDone?' (우선순위 학습에서 뺀 문제)':''}">🎯${escapeHtml(String(p.priority))}${p.priorityDone?' ✔':''}</span>` : ''}
       <span>${p.num}번 ${p.solvedCorrect?'✅':''}${p.excludeReview?'🔕':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
       <span class="tag">${p.field}</span>
@@ -2879,13 +3193,29 @@ function renderProblemYearRoundFilterOptions(){
   if(Array.from(roundSel.options).some(o=>o.value===keepRound)) roundSel.value = keepRound;
 }
 
+function matchesSearch(it, searchVal){
+  if(!searchVal) return true;
+  const q = searchVal.toLowerCase();
+  const p = it.p;
+  if((p.field||'').toLowerCase().includes(q)) return true;
+  if(String(p.num||'').toLowerCase().includes(q)) return true;
+  if((it.roundName||'').toLowerCase().includes(q)) return true;
+  return (p.clueCards||[]).some(cc=>
+    (cc.keyword||'').toLowerCase().includes(q) || (cc.recall||'').toLowerCase().includes(q)
+  );
+}
+
 function getFilteredSortedProblemItems(){
-  const scopeAll = document.getElementById('problemScopeAll').checked;
+  if(mockExamModeActive && state.mockExam){
+    return {items: getMockExamItems(), scopeAll:true, fieldVal:'', showExcluded:true, sortByPriority:false, isMockExam:true};
+  }
+  const searchVal = (document.getElementById('problemSearchInput').value||'').trim();
+  const {scopeAll: modeScopeAll, sortByPriority, groupView} = getViewModeFlags();
+  const scopeAll = modeScopeAll || !!searchVal; // 검색어가 있으면 항상 전체 범위에서 찾음
   const fieldVal = document.getElementById('problemFieldFilter').value;
   const yearVal = document.getElementById('problemYearFilter').value;
   const roundVal = document.getElementById('problemRoundFilterSel').value;
   const showExcluded = document.getElementById('showExcludedToggle').checked;
-  const sortByPriority = document.getElementById('sortByPriorityToggle').checked;
   const showPriorityDone = document.getElementById('showPriorityDoneToggle').checked;
 
   let items = []; // {p, roundName}
@@ -2902,6 +3232,7 @@ function getFilteredSortedProblemItems(){
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
   if(sortByPriority && !showPriorityDone) items = items.filter(it=>!it.p.priorityDone);
+  if(searchVal) items = items.filter(it=>matchesSearch(it, searchVal));
 
   if(sortByPriority){
     items.sort((a,b)=>{
@@ -2911,17 +3242,21 @@ function getFilteredSortedProblemItems(){
       return 0;
     });
   }
-  return {items, scopeAll, fieldVal, showExcluded, sortByPriority};
+  return {items, scopeAll, fieldVal, showExcluded, sortByPriority, groupView, searchVal};
 }
 
 function renderProblemList(){
   problemList.innerHTML='';
-  const groupView = document.getElementById('groupByFieldToggle').checked;
-  const {items, scopeAll, fieldVal} = getFilteredSortedProblemItems();
+  const {items, scopeAll, fieldVal, isMockExam, groupView, searchVal} = getFilteredSortedProblemItems();
 
-  if(!groupView || fieldVal){
+  ['viewModeSelect','showExcludedToggle','problemFieldFilter','problemYearFilter','problemRoundFilterSel'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = mockExamModeActive;
+  });
+
+  if(isMockExam || !groupView || fieldVal || searchVal){
     // 기본: 년도·회차 순서 그대로(기존 방식) 플랫하게 표시. 특정 분야를 콕 집어 필터링했을 때도 플랫하게.
-    items.forEach(it=>problemList.appendChild(createProblemChip(it.p, it.roundName, scopeAll)));
+    items.forEach(it=>problemList.appendChild(createProblemChip(it.p, it.roundName, scopeAll, it.no)));
   } else {
     // "그룹·유형별로 묶어보기"를 켰을 때만: 그룹 → 분야(유형) 2단계로 묶어서 표시
     const groupOrder = state.fieldGroups.map(g=>g.name);
@@ -2992,23 +3327,27 @@ function renderProblemList(){
     });
   });
 
-  renderPriorityBatchBox();
+  renderStatusBox();
 }
 document.getElementById('problemFieldFilter').addEventListener('change', renderProblemList);
 document.getElementById('showExcludedToggle').addEventListener('change', renderProblemList);
-document.getElementById('groupByFieldToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
-document.getElementById('sortByPriorityToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
 document.getElementById('showPriorityDoneToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
 document.getElementById('problemYearFilter').addEventListener('change', ()=>{
   renderProblemYearRoundFilterOptions();
   renderProblemList();
 });
-document.getElementById('problemScopeAll').addEventListener('change', (e)=>{
-  document.getElementById('problemGlobalFilters').style.display = e.target.checked ? 'flex' : 'none';
-  if(e.target.checked) renderProblemYearRoundFilterOptions();
+document.getElementById('viewModeSelect').addEventListener('change', ()=>{
+  const {scopeAll} = getViewModeFlags();
+  document.getElementById('problemGlobalFilters').style.display = scopeAll ? 'flex' : 'none';
+  if(scopeAll) renderProblemYearRoundFilterOptions();
   priorityBatchOffset = 0;
   renderProblemList();
+});
+let searchDebounceTimer = null;
+document.getElementById('problemSearchInput').addEventListener('input', ()=>{
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(renderProblemList, 150);
 });
 
 function deleteProblem(problemId){
@@ -3884,17 +4223,54 @@ function renderTrapView(){
 function renderStats(){
   let counts = {공식모름:0, 단서못읽음:0, 암기못함:0};
   const all=[];
+  const byProblem = new Map(); // 문제별 오답 개수 집계 (우선순위 연동용)
   Object.entries(state.rounds).forEach(([roundName, r])=>{
     r.problems.forEach(p=>{
       (p.wrongNotes||[]).forEach(w=>{
         counts[w.reason] = (counts[w.reason]||0)+1;
         all.push({round:roundName, problem:p, note:w});
       });
+      if((p.wrongNotes||[]).length){
+        byProblem.set(p.id, {roundName, p, wrongCount:p.wrongNotes.length});
+      }
     });
   });
   document.getElementById('statFormula').textContent = counts['공식모름'];
   document.getElementById('statClue').textContent = counts['단서못읽음'];
   document.getElementById('statMemo').textContent = counts['암기못함'];
+
+  // 우선순위(기출빈도) 높은데 오답이 많은 문제 = 진짜 취약점 후보
+  const priorityWeakBox = document.getElementById('priorityWeakList');
+  if(priorityWeakBox){
+    const weak = Array.from(byProblem.values())
+      .filter(it=> it.p.priority!=null && it.p.priority!=='')
+      .sort((a,b)=>{
+        if(a.p.priority !== b.p.priority) return Number(a.p.priority)-Number(b.p.priority);
+        return b.wrongCount - a.wrongCount;
+      })
+      .slice(0, 10);
+    if(!weak.length){
+      priorityWeakBox.innerHTML = '<div class="empty" style="padding:10px;">우선순위가 매겨진 문제 중 오답메모가 있는 문제가 아직 없습니다.</div>';
+    } else {
+      priorityWeakBox.innerHTML = '';
+      weak.forEach(it=>{
+        const row = document.createElement('div');
+        row.className='trap-problem-row';
+        row.innerHTML = `
+          <div><span class="priority-badge">🎯${escapeHtml(String(it.p.priority))}</span> <b>${escapeHtml(it.roundName)}</b> · ${escapeHtml(String(it.p.num))}번 (${escapeHtml(it.p.field||'')})</div>
+          <span class="reason-badge">오답 ${it.wrongCount}회</span>`;
+        row.addEventListener('click', ()=>{
+          state.currentRound = it.roundName;
+          state.currentProblemId = it.p.id;
+          document.querySelector('.nav-btn[data-view="solve"]').click();
+          renderRoundSelect();
+          renderProblemList();
+          renderSolveView();
+        });
+        priorityWeakBox.appendChild(row);
+      });
+    }
+  }
 
   all.sort((a,b)=>b.note.createdAt-a.note.createdAt);
   const wrongList = document.getElementById('wrongList');
@@ -3903,8 +4279,9 @@ function renderStats(){
   all.forEach(item=>{
     const row = document.createElement('div');
     row.className='trap-problem-row';
+    const hasPriority = (item.problem.priority!=null && item.problem.priority!=='');
     row.innerHTML = `
-      <div><b>${item.round}</b> · ${item.problem.num}번 (${item.problem.field})
+      <div>${hasPriority?`<span class="priority-badge">🎯${escapeHtml(String(item.problem.priority))}</span> `:''}<b>${item.round}</b> · ${item.problem.num}번 (${item.problem.field})
         ${item.note.trapTags.length? '<div class="small-note">태그: '+item.note.trapTags.join(', ')+'</div>':''}
         ${item.note.memo? '<div class="small-note">'+escapeHtml(item.note.memo)+'</div>':''}
       </div>
@@ -3952,6 +4329,9 @@ document.getElementById('cancelClueBtn').addEventListener('click', ()=>closeModa
 /* ---------------- App UI Init (Drive 로그인 성공 후 호출됨) ---------------- */
 async function initAppUI(){
   ensureFieldsInit();
+  mockExamModeActive = !!(state.mockExam && state.mockExam.items && state.mockExam.items.length);
+  renderDday();
+  renderPriorityImportedAtText();
   renderNewProblemFieldOptions();
   renderProblemFieldFilterOptions();
   renderProblemYearRoundFilterOptions();
@@ -3980,6 +4360,29 @@ document.getElementById('btn-signout').addEventListener('click', ()=>{
   document.getElementById('app').style.display = 'none';
   document.getElementById('gate').style.display = 'flex';
   document.getElementById('gate-status').textContent = '로그인할 준비가 되었습니다.';
+});
+
+/* ---------------- 단축키 (회차 풀이 화면 전용) ---------------- */
+document.addEventListener('keydown', (e)=>{
+  const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+  if(tag==='input' || tag==='textarea' || tag==='select' || document.activeElement.isContentEditable) return;
+  if(document.querySelector('.overlay.show')) return; // 모달 열려있으면 단축키 비활성화
+  const solveView = document.getElementById('view-solve');
+  if(!solveView || solveView.style.display==='none') return;
+
+  if(e.code==='Space'){
+    e.preventDefault();
+    const startBtn = document.getElementById('startSolveBtn');
+    const submitBtn = document.getElementById('submitSolveBtn');
+    if(startBtn && !startBtn.disabled) startBtn.click();
+    else if(submitBtn && !submitBtn.disabled) submitBtn.click();
+  } else if(e.code==='ArrowLeft'){
+    e.preventDefault();
+    document.getElementById('prevProblemBtn').click();
+  } else if(e.code==='ArrowRight'){
+    e.preventDefault();
+    document.getElementById('nextProblemBtn').click();
+  }
 });
 
 initGoogleAuth();
