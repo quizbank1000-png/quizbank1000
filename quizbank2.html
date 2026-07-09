@@ -1107,6 +1107,11 @@
       <span id="user-email"></span>
       <button class="io-btn" id="btn-signout">로그아웃</button>
     </div>
+    <div id="syncConflictBanner" style="display:none; margin:0 0 8px; padding:7px 9px; border-radius:8px; background:#3a2b0a; border:1px solid #a86b1a; color:#ffcf7a; font-size:11.5px; line-height:1.5;">
+      ⚠️ 다른 기기에서 저장한 내용이 있는 것 같아요. 방금 그 내용을 백업으로 남기고 지금 이 화면 내용으로 덮어썼습니다.
+      <button class="mini-btn secondary" id="viewConflictBackupBtn" style="width:100%; margin-top:5px; padding:4px;">🗄 백업에서 이전 내용 확인하기</button>
+    </div>
+    <button class="io-btn" id="btn-backups" style="width:100%; margin-bottom:8px;" title="자동으로 주기적 백업되며, 예전 시점으로 복원할 수 있습니다">🗄 백업 관리</button>
 
     <div class="nav-group">
       <button class="nav-btn active" data-view="solve" title="회차 풀이"><span class="nav-icon">📝</span><span class="sidebar-label">회차풀이</span></button>
@@ -1146,7 +1151,8 @@
         <select id="problemYearFilter"><option value="">전체 년도</option></select>
         <select id="problemRoundFilterSel"><option value="">전체 회차</option></select>
       </div>
-      <select id="problemFieldFilter" style="margin-bottom:4px;"><option value="">전체 분야</option></select>
+      <select id="problemFieldFilter" style="margin-bottom:6px;"><option value="">전체 분야</option></select>
+      <div style="font-size:10.5px; color:var(--ink-soft, #8a93a3); margin:2px 0 3px 2px; font-weight:700;">표시 옵션</div>
       <label class="checkbox-row small">
         <input type="checkbox" id="showExcludedToggle">
         🔕 복습 제외 문제도 표시
@@ -1202,7 +1208,6 @@
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
           <button class="tool-btn" id="trapBtn" style="background:var(--red); color:#fff;">⚠️ 함정카드 등록</button>
-          <button class="tool-btn exam-toggle" id="examCardPackToggleBtn" style="display:none;">🗂 카드팩 보기</button>
           <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
           <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
           <div class="timer-group">
@@ -1322,6 +1327,23 @@
   <div class="modal lightbox-modal">
     <img id="lightboxImg" src="" alt="원본 이미지">
     <button class="btn cancel" data-close="overlayImageView">닫기</button>
+  </div>
+</div>
+
+<!-- 백업 관리 모달 -->
+<div class="overlay" id="overlayBackups">
+  <div class="modal" style="width:560px; max-height:80vh; overflow-y:auto;">
+    <h3>🗄 백업 관리</h3>
+    <div class="desc">약 20분 활동마다, 그리고 다른 기기와 저장 충돌이 감지될 때마다 자동으로 백업이 남습니다. 예전 시점으로 되돌리고 싶을 때 사용하세요. (복원 전에 현재 내용도 자동으로 백업됩니다)</div>
+    <div class="modal-actions" style="margin-bottom:10px;">
+      <button class="btn cancel" id="manualBackupBtn">💾 지금 백업 만들기</button>
+      <button class="btn cancel" id="refreshBackupsBtn">🔄 목록 새로고침</button>
+    </div>
+    <div id="backupListBox" style="display:flex; flex-direction:column; gap:6px;"></div>
+    <div class="empty" id="backupListEmpty" style="display:none;">아직 백업이 없습니다.</div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayBackups">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -1817,6 +1839,11 @@ async function loadDataFromDrive(){
       mockExam: parsed.mockExam || null,
       priorityImportedAt: parsed.priorityImportedAt || null,
     };
+    try{
+      const metaRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?fields=modifiedTime`);
+      const meta = await metaRes.json();
+      lastKnownRemoteModifiedTime = meta.modifiedTime || null;
+    }catch(e){ lastKnownRemoteModifiedTime = null; }
   } else {
     dataFileId = null;
     state = { rounds:{}, currentRound:null, currentProblemId:null, fields: DEFAULT_FIELDS.slice(), fieldGroups: null, mockExam: null };
@@ -2469,8 +2496,102 @@ document.getElementById('unarchiveRoundBtn').addEventListener('click', ()=>{
   if(state.currentRound) unarchiveRoundPermanently(state.currentRound);
 });
 
+/* ============================================================
+   저장 시스템: 디바운스 + 직렬화 + 재시도 + 충돌 감지 + 자동 백업
+   - saveState()는 즉시 업로드하지 않고 짧게(800ms) 모았다가 한 번만 업로드한다.
+     (카드 하나 뒤집을 때마다 전체 데이터를 매번 업로드하던 문제 개선)
+   - 업로드가 이미 진행 중일 때 또 저장 요청이 오면 큐에 표시해뒀다가,
+     끝나는 즉시 최신 state로 한 번 더 업로드한다 (동시에 두 업로드가 나가지 않도록 직렬화)
+   - 실패하면 최대 3회까지 재시도한다
+   - 업로드 전, 마지막으로 확인한 서버 수정시각 이후 다른 기기 등에서 파일이 바뀌었으면
+     그 내용을 충돌 백업 파일로 먼저 남겨서 잃어버리지 않게 한 뒤 진행한다
+   - 약 20분 활동마다 자동으로 타임스탬프 백업을 만들고, 오래된 백업은 정리한다(최근 10개 유지)
+============================================================ */
+const SAVE_DEBOUNCE_MS = 800;
+const BACKUP_INTERVAL_MS = 20*60*1000;
+const BACKUP_KEEP_COUNT = 10;
+
+let saveDebounceTimer = null;
+let saveInFlight = false;
+let saveQueuedAgain = false;
+let pendingSavePromise = null;
+let pendingSaveResolve = null;
+let lastKnownRemoteModifiedTime = null;
+let lastBackupAt = 0;
+
+/* 기존 코드 전체에서 saveState()/await saveState()로 그대로 호출되므로
+   시그니처(Promise를 반환하는 함수)는 그대로 유지한다 */
+function saveState(){
+  if(!pendingSavePromise){
+    pendingSavePromise = new Promise(resolve=>{ pendingSaveResolve = resolve; });
+  }
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+  return pendingSavePromise;
+}
+
+/* 디바운스를 기다리지 않고 지금 바로 저장을 실행한다 (로그아웃 등 확실히 저장해야 할 때) */
+function flushSaveNow(){
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = null;
+  return flushSave();
+}
+
+async function flushSave(){
+  saveDebounceTimer = null;
+  if(saveInFlight){
+    saveQueuedAgain = true;
+    return;
+  }
+  const resolveFn = pendingSaveResolve;
+  pendingSavePromise = null;
+  pendingSaveResolve = null;
+  saveInFlight = true;
+  try{
+    await saveDataToDriveWithRetry();
+  } finally {
+    saveInFlight = false;
+    if(resolveFn) resolveFn();
+    if(saveQueuedAgain){
+      saveQueuedAgain = false;
+      flushSave();
+    }
+  }
+}
+
+async function saveDataToDriveWithRetry(){
+  const MAX_TRIES = 3;
+  for(let attempt=1; attempt<=MAX_TRIES; attempt++){
+    try{
+      await saveDataToDrive();
+      return;
+    }catch(e){
+      console.error(`저장 시도 ${attempt}/${MAX_TRIES} 실패:`, e);
+      if(attempt===MAX_TRIES){
+        setSyncStatus('err', '저장 실패: ' + e.message + ' (다음 저장 때 다시 시도합니다)');
+        return;
+      }
+      await new Promise(r=>setTimeout(r, 1000*attempt));
+    }
+  }
+}
+
 async function saveDataToDrive(){
   setSyncStatus('busy', '저장 중...');
+
+  // 충돌 감지: 마지막으로 확인한 서버 수정시각 이후 다른 곳에서 바뀌었으면
+  // 먼저 그 내용을 백업으로 남긴다 (덮어써서 잃어버리지 않도록)
+  if(dataFileId && lastKnownRemoteModifiedTime){
+    try{
+      const metaRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?fields=modifiedTime`);
+      const meta = await metaRes.json();
+      if(meta.modifiedTime && meta.modifiedTime !== lastKnownRemoteModifiedTime){
+        await createBackupSnapshot('conflict').catch(e=>console.error('충돌 백업 실패:', e));
+        showConflictBanner();
+      }
+    }catch(e){ console.warn('충돌 확인 실패(무시하고 계속 저장):', e.message); }
+  }
+
   const persistRounds = buildPersistRounds();
   const body = JSON.stringify({
     rounds: persistRounds,
@@ -2483,40 +2604,171 @@ async function saveDataToDrive(){
   });
   const metadata = { name: DATA_FILE_NAME, parents: dataFileId ? undefined : [folderId] };
 
+  if(dataFileId){
+    const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${dataFileId}?uploadType=media&fields=modifiedTime`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body,
+    });
+    const updated = await res.json().catch(()=>null);
+    if(updated && updated.modifiedTime) lastKnownRemoteModifiedTime = updated.modifiedTime;
+  } else {
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+    form.append('file', new Blob([body], {type:'application/json'}));
+    const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime', {
+      method:'POST',
+      body: form,
+    });
+    const created = await res.json();
+    dataFileId = created.id;
+    lastKnownRemoteModifiedTime = created.modifiedTime || null;
+  }
+  setSyncStatus('ok', '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'));
+  renderArchiveBox();
+  maybeCreateScheduledBackup();
+}
+
+function showConflictBanner(){
+  const banner = document.getElementById('syncConflictBanner');
+  if(banner) banner.style.display = 'block';
+}
+
+function maybeCreateScheduledBackup(){
+  if(Date.now() - lastBackupAt < BACKUP_INTERVAL_MS) return;
+  lastBackupAt = Date.now();
+  createBackupSnapshot('auto').catch(e=>console.error('자동 백업 실패:', e));
+}
+
+function backupFileName(reason){
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `quizbank2_backup_${reason||'auto'}_${stamp}.json`;
+}
+
+async function createBackupSnapshot(reason){
+  if(!dataFileId || !folderId) return; // 아직 원본 파일이 없으면 백업할 것도 없음
+  await driveFetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}/copy`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name: backupFileName(reason), parents:[folderId] }),
+  });
+  await pruneOldBackups();
+}
+
+async function pruneOldBackups(){
+  const files = await listBackupFiles();
+  if(files.length <= BACKUP_KEEP_COUNT) return;
+  const toDelete = files.slice(BACKUP_KEEP_COUNT); // listBackupFiles는 최신순 정렬됨
+  for(const f of toDelete){
+    try{ await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, { method:'DELETE' }); }
+    catch(e){ console.warn('오래된 백업 삭제 실패:', f.name, e.message); }
+  }
+}
+
+async function listBackupFiles(){
+  if(!folderId) return [];
+  const q = encodeURIComponent(`'${folderId}' in parents and name contains 'quizbank2_backup_' and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,createdTime)&orderBy=createdTime desc&pageSize=100`);
+  const data = await res.json();
+  return data.files || [];
+}
+
+/* ---------------- 백업 관리 모달 ---------------- */
+function describeBackupName(name){
+  const m = name.match(/^quizbank2_backup_([a-z]+)_(.+)\.json$/);
+  if(!m) return { reasonLabel: name, timeLabel: '' };
+  const [, reason, stamp] = m;
+  const reasonLabel = reason==='conflict' ? '⚠️ 충돌 감지 시 백업'
+    : reason==='manual' ? '💾 수동 백업'
+    : reason==='restore' ? '↩️ 복원 전 백업'
+    : '🕐 자동 백업';
+  const timeLabel = stamp.replace('_', ' ').replace(/(\d{2})(\d{2})(\d{2})$/, '$1:$2:$3');
+  return { reasonLabel, timeLabel };
+}
+
+async function renderBackupList(){
+  const box = document.getElementById('backupListBox');
+  const empty = document.getElementById('backupListEmpty');
+  box.innerHTML = '<div class="empty">불러오는 중...</div>';
+  empty.style.display = 'none';
+  let files;
+  try{ files = await listBackupFiles(); }
+  catch(e){ box.innerHTML = `<div class="empty">백업 목록을 불러오지 못했습니다: ${escapeHtml(e.message)}</div>`; return; }
+  box.innerHTML = '';
+  if(!files.length){ box.style.display='none'; empty.style.display='block'; return; }
+  box.style.display='flex'; empty.style.display='none';
+  files.forEach(f=>{
+    const { reasonLabel, timeLabel } = describeBackupName(f.name);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12.5px;';
+    row.innerHTML = `
+      <div style="flex:1;">
+        <div style="font-weight:700;">${reasonLabel}</div>
+        <div style="color:var(--ink-soft); font-size:11px;">${timeLabel || new Date(f.createdTime).toLocaleString('ko-KR')}</div>
+      </div>
+      <button class="mini-btn secondary" data-id="${f.id}" data-name="${escapeHtml(f.name)}">↩️ 이 시점으로 복원</button>`;
+    row.querySelector('button').addEventListener('click', ()=>restoreFromBackup(f.id, f.name));
+    box.appendChild(row);
+  });
+}
+
+async function restoreFromBackup(backupFileId, backupName){
+  if(!confirm(`"${backupName}" 백업으로 복원할까요?\n현재 내용은 복원 전에 자동으로 백업되어 남습니다.\n복원 후에는 화면이 새로고침됩니다.`)) return;
   try{
-    if(dataFileId){
-      await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${dataFileId}?uploadType=media`, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json'},
-        body,
-      });
-    } else {
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
-      form.append('file', new Blob([body], {type:'application/json'}));
-      const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method:'POST',
-        body: form,
-      });
-      const created = await res.json();
-      dataFileId = created.id;
-    }
-    setSyncStatus('ok', '저장됨 · ' + new Date().toLocaleTimeString('ko-KR'));
-    renderArchiveBox();
+    setSyncStatus('busy', '복원 준비 중...');
+    await createBackupSnapshot('restore'); // 혹시 모르니 복원 직전 현재 상태도 백업
+    const fileRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${backupFileId}?alt=media`);
+    const parsed = await fileRes.json();
+    state = {
+      rounds: parsed.rounds || {},
+      currentRound: parsed.currentRound || null,
+      currentProblemId: parsed.currentProblemId || null,
+      fields: parsed.fields || DEFAULT_FIELDS.slice(),
+      fieldGroups: parsed.fieldGroups || null,
+      mockExam: parsed.mockExam || null,
+      priorityImportedAt: parsed.priorityImportedAt || null,
+    };
+    if(!state.rounds) state.rounds = {};
+    ensureFieldsInit();
+    migrateImageFields();
+    closeModal('overlayBackups');
+    await initAppUI();
+    await flushSaveNow(); // 복원한 내용을 즉시 메인 데이터로 저장
+    alert('복원이 완료되었습니다.');
   }catch(e){
-    setSyncStatus('err', '저장 실패: ' + e.message);
+    alert('복원 중 오류가 발생했습니다: ' + e.message);
     console.error(e);
   }
 }
 
-/* saveState()는 기존 코드 전체에서 그대로 호출되므로, 내부 구현만 Drive 저장으로 연결 */
-async function saveState(){
-  await saveDataToDrive();
-}
+document.getElementById('btn-backups').addEventListener('click', ()=>{
+  openModal('overlayBackups');
+  renderBackupList();
+});
+document.getElementById('refreshBackupsBtn').addEventListener('click', renderBackupList);
+document.getElementById('manualBackupBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('manualBackupBtn');
+  btn.disabled = true; btn.textContent = '백업 만드는 중...';
+  try{
+    await createBackupSnapshot('manual');
+    await renderBackupList();
+  }catch(e){
+    alert('백업 생성 중 오류가 발생했습니다: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '💾 지금 백업 만들기';
+});
+document.getElementById('viewConflictBackupBtn').addEventListener('click', ()=>{
+  document.getElementById('syncConflictBanner').style.display = 'none';
+  openModal('overlayBackups');
+  renderBackupList();
+});
 
 function seedDemo(){
   state = {
     fields: DEFAULT_FIELDS.slice(),
+
     rounds: {
       "2023년 2회": {
         problems: [
@@ -3414,19 +3666,18 @@ const examModeBtn = document.getElementById('examModeBtn');
 const viewTabsEl = document.querySelector('.view-tabs');
 const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn'].map(id=>document.getElementById(id));
 
-/* 카드팩 보기 토글: 평소 모드용/문제만 보기 모드용 각각 별도 버튼 + 상태 */
-let clueStripVisible = false;      // 평소 모드: 문제/풀이/나의답안 이미지 "위"에 카드팩을 보여줄지
-let examCardsVisible = false;      // 문제만 보기 모드: 툴바 아래 카드팩을 보여줄지 (기본은 문제만)
+/* 카드팩 보기 토글: 평소 모드/문제만 보기 모드 공통 버튼 하나 + 상태 하나
+   (예전엔 모드별로 버튼이 따로 있어서 헷갈렸음 → 위치·이름·동작을 통일) */
+let cardPackVisible = false; // 문제 위에 카드팩(단서/암기/템플릿/함정)을 접었다 펼쳤다
 const cardPackToggleBtn = document.getElementById('cardPackToggleBtn');
-const examCardPackToggleBtn = document.getElementById('examCardPackToggleBtn');
 
 function applyExamModeUI(){
   examModeBtn.classList.toggle('on', examMode);
   examModeBtn.textContent = examMode ? '🎯 문제만 보기 (끄려면 클릭)' : '🎯 문제만 보기';
   viewTabsEl.style.display = examMode ? 'none' : 'flex';
   examHideEls.forEach(el=>{ if(el) el.style.display = examMode ? 'none' : ''; });
-  cardPackToggleBtn.style.display = examMode ? 'none' : '';
-  examCardPackToggleBtn.style.display = examMode ? '' : 'none';
+  cardPackToggleBtn.classList.toggle('on', cardPackVisible);
+  cardPackToggleBtn.textContent = cardPackVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
   const problemPasteEl = document.getElementById('problemPaste');
   const examPracticeEl = document.getElementById('examPracticeView');
   if(examMode){
@@ -3435,16 +3686,12 @@ function applyExamModeUI(){
     clueStrip.style.display = 'none';
     problemPasteEl.style.display = 'none';
     examPracticeEl.style.display = 'flex';
-    examCardPackToggleBtn.classList.toggle('on', examCardsVisible);
-    examCardPackToggleBtn.textContent = examCardsVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
     const p = getProblem();
     if(p) renderExamPracticeView(p);
   } else {
     problemPasteEl.style.display = '';
     examPracticeEl.style.display = 'none';
-    clueStrip.style.display = clueStripVisible ? 'flex' : 'none';
-    cardPackToggleBtn.classList.toggle('on', clueStripVisible);
-    cardPackToggleBtn.textContent = clueStripVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
+    clueStrip.style.display = cardPackVisible ? 'flex' : 'none';
     const p = getProblem();
     if(p) renderHistoryBox(p);
   }
@@ -3454,11 +3701,7 @@ examModeBtn.addEventListener('click', ()=>{
   applyExamModeUI();
 });
 cardPackToggleBtn.addEventListener('click', ()=>{
-  clueStripVisible = !clueStripVisible;
-  applyExamModeUI();
-});
-examCardPackToggleBtn.addEventListener('click', ()=>{
-  examCardsVisible = !examCardsVisible;
+  cardPackVisible = !cardPackVisible;
   applyExamModeUI();
 });
 
@@ -3526,7 +3769,7 @@ function renderExamPracticeView(p){
   }
 
   // "카드팩 보기"를 켰을 때만, 툴바 바로 아래(문제 이미지 위)에 카드팩을 보여준다
-  if(examCardsVisible && cards.length){
+  if(cardPackVisible && cards.length){
     const cardBlock = document.createElement('div');
     cardBlock.className = 'exam-card-block';
     cards.forEach(c=>cardBlock.appendChild(renderExamCardHtml(c)));
@@ -4669,7 +4912,11 @@ document.getElementById('btn-save-client-id').addEventListener('click', ()=>{
   localStorage.setItem(CLIENT_ID_STORAGE_KEY, val);
   initGoogleAuth();
 });
-document.getElementById('btn-signout').addEventListener('click', ()=>{
+document.getElementById('btn-signout').addEventListener('click', async ()=>{
+  if(saveDebounceTimer || saveInFlight){
+    setSyncStatus('busy', '저장 마무리 중...');
+    await flushSaveNow();
+  }
   if(accessToken && window.google){
     google.accounts.oauth2.revoke(accessToken, ()=>{});
   }
@@ -4677,6 +4924,15 @@ document.getElementById('btn-signout').addEventListener('click', ()=>{
   document.getElementById('app').style.display = 'none';
   document.getElementById('gate').style.display = 'flex';
   document.getElementById('gate-status').textContent = '로그인할 준비가 되었습니다.';
+});
+
+/* 저장이 진행 중일 때 실수로 탭을 닫지 않도록 경고 */
+window.addEventListener('beforeunload', (e)=>{
+  if(saveDebounceTimer || saveInFlight || saveQueuedAgain){
+    e.preventDefault();
+    e.returnValue = '저장이 진행 중입니다. 잠시 후 닫아주세요.';
+    return e.returnValue;
+  }
 });
 
 /* ---------------- 단축키 (회차 풀이 화면 전용) ---------------- */
