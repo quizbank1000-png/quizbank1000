@@ -666,6 +666,33 @@
     grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
     gap:16px;
   }
+  .clue-bank-groups{ display:flex; flex-direction:column; gap:10px; }
+  .clue-bank-group{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:14px;
+    background: rgba(255,255,255,0.02);
+  }
+  .clue-bank-group-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+    padding-bottom:10px;
+    border-bottom:1px dashed var(--line);
+    font-weight:800;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .clue-bank-group-header .field-badge{ font-weight:600; font-size:12px; color: var(--ink-soft); }
+  .clue-bank-group-header .priority-badge2{ background:#fbbf24; color:#1a1200; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:800; }
+  .clue-bank-group-header .count-badge{ margin-left:auto; font-size:12px; font-weight:600; color: var(--ink-soft); }
+  .clue-bank-group-cards{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
+    gap:16px;
+  }
   .flash{
     background:#fff;
     border:1px solid var(--line);
@@ -1224,7 +1251,7 @@
       <div class="topbar">
         <div>
           <h2>🗂 단서카드함 / 암기카드함</h2>
-          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제별로 단서→암기→템플릿→함정 순서로 모아서 보여줍니다</div>
+          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제 단위로 묶여서(회차·문제번호·우선순위 아래에 그 문제의 카드들) 보여지고, 각 문제 안에서는 단서→암기→템플릿→함정 순서입니다 · 데이터가 많아 기본으로 우선순위 1위 문제만 표시됩니다 (우선순위 칸을 비우면 전체가 보여요)</div>
         </div>
       </div>
       <div class="filter-row">
@@ -1240,7 +1267,7 @@
         <select id="clueProblemFilter"><option value="">전체 문제</option></select>
         <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
           🎯 우선순위
-          <input type="number" id="cluePriorityMax" min="1" placeholder="N위 이내" style="width:80px; padding:4px 6px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12.5px;">
+          <input type="number" id="cluePriorityMax" min="1" value="1" placeholder="N위 이내" style="width:80px; padding:4px 6px; border-radius:6px; border:1px solid #333; background:#fff; color:#111; font-size:12.5px;">
         </label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
           <input type="checkbox" id="cluePriorityOnly" style="width:auto;"> 우선순위 매겨진 문제만
@@ -1249,7 +1276,7 @@
           <input type="checkbox" id="weakOnly" style="width:auto;"> 약한 카드만 보기
         </label>
       </div>
-      <div class="card-grid" id="clueGrid"></div>
+      <div class="clue-bank-groups" id="clueGrid"></div>
       <div class="empty" id="clueEmpty" style="display:none;">등록된 단서카드가 없습니다. 문제를 풀면서 "단서카드 등록"으로 채워보세요.</div>
     </div>
 
@@ -4299,6 +4326,79 @@ function renderClueBank(){
   }
   refreshProblemFilterOptions();
 
+  function createClueBankCard(c){
+    const isMemo = c.type==='memo';
+    const isTemplate = c.type==='template';
+    const isTrap = c.type==='trap';
+    const typeClass = isMemo ? ' memo' : (isTemplate ? ' template' : (isTrap ? ' trap' : ''));
+    const typeLabel = isMemo ? '🧠 암기카드' : (isTemplate ? '📐 템플릿카드' : (isTrap ? '⚠️ 함정카드' : '💡 단서카드'));
+    const hist = c.reviewHistory || [];
+    const total = hist.length;
+    const correct = hist.filter(h=>h.result==='correct').length;
+    const wrong = total - correct;
+    const card = document.createElement('div');
+    card.className='flash' + typeClass;
+    card.innerHTML = `
+      <div class="flash-inner">
+        <div class="flash-face flash-front">
+          <div>
+            <div class="type-pip">${typeLabel}</div>
+            <div class="kw">${formatCardText(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+          </div>
+          <div class="flash-foot">
+            <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
+          </div>
+          <div class="card-manage-row">
+            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+          </div>
+        </div>
+        <div class="flash-face flash-back">
+          <div>
+            <div class="type-pip">${typeLabel} 정답</div>
+            <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+          </div>
+          <div class="flash-foot">
+            <div class="review-row">
+              <button class="review-btn ok" data-r="correct">✅ 맞음</button>
+              <button class="review-btn no" data-r="wrong">❌ 틀림</button>
+            </div>
+          </div>
+          <div class="card-manage-row">
+            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+          </div>
+        </div>
+      </div>`;
+    card.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('review-btn')) return;
+      if(e.target.classList.contains('card-manage-btn')) return;
+      card.classList.toggle('flipped');
+    });
+    card.querySelectorAll('.review-btn').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        recordReview(c.id, btn.dataset.r);
+        doRender();
+      });
+    });
+    card.querySelectorAll('.card-manage-btn.edit').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const found = findClueCardById(btn.dataset.id);
+        if(found) openClueModal(found.card.type, found.card);
+      });
+    });
+    card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        deleteClueCardById(btn.dataset.id);
+        doRender();
+      });
+    });
+    return card;
+  }
+
   function doRender(){
     let list = allClues();
     const typeFilter = document.getElementById('clueTypeFilter').value;
@@ -4316,87 +4416,42 @@ function renderClueBank(){
     const grid = document.getElementById('clueGrid');
     grid.innerHTML='';
     document.getElementById('clueEmpty').style.display = list.length? 'none':'block';
+
+    // 문제(pid) 단위로 순서를 유지하며 그룹핑 (allClues()가 이미 회차→문제번호→카드종류 순으로 정렬되어 있음)
+    const groups = [];
+    const groupByPid = new Map();
     list.forEach(c=>{
-      const isMemo = c.type==='memo';
-      const isTemplate = c.type==='template';
-      const isTrap = c.type==='trap';
-      const typeClass = isMemo ? ' memo' : (isTemplate ? ' template' : (isTrap ? ' trap' : ''));
-      const typeLabel = isMemo ? '🧠 암기카드' : (isTemplate ? '📐 템플릿카드' : (isTrap ? '⚠️ 함정카드' : '💡 단서카드'));
-      const hist = c.reviewHistory || [];
-      const total = hist.length;
-      const correct = hist.filter(h=>h.result==='correct').length;
-      const wrong = total - correct;
-      const card = document.createElement('div');
-      card.className='flash' + typeClass;
-      card.innerHTML = `
-        <div class="flash-inner">
-          <div class="flash-face flash-front">
-            <div>
-              <div class="type-pip">${typeLabel}</div>
-              <div class="kw">${formatCardText(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
-            </div>
-            <div class="flash-foot">
-              <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
-              ${c.priority!=null ? `<span class="review-stat" style="color:#fbbf24;">🎯${c.priority}위</span>` : ''}
-              <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
-            </div>
-            <div class="card-manage-row">
-              <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-              <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
-            </div>
-          </div>
-          <div class="flash-face flash-back">
-            <div>
-              <div class="type-pip">${typeLabel} 정답</div>
-              <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
-            </div>
-            <div class="flash-foot">
-              <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.problemNum}번 문제로</span>
-              <div class="review-row">
-                <button class="review-btn ok" data-r="correct">✅ 맞음</button>
-                <button class="review-btn no" data-r="wrong">❌ 틀림</button>
-              </div>
-            </div>
-            <div class="card-manage-row">
-              <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-              <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
-            </div>
-          </div>
-        </div>`;
-      card.addEventListener('click', (e)=>{
-        if(e.target.classList.contains('review-btn')) return;
-        if(e.target.classList.contains('goto-problem')) return;
-        if(e.target.classList.contains('card-manage-btn')) return;
-        card.classList.toggle('flipped');
-      });
-      card.querySelectorAll('.goto-problem').forEach(el=>{
+      let g = groupByPid.get(c.pid);
+      if(!g){
+        g = { pid:c.pid, round:c.round, problemNum:c.problemNum, field:c.field, priority:c.priority, cards:[] };
+        groupByPid.set(c.pid, g);
+        groups.push(g);
+      }
+      g.cards.push(c);
+    });
+
+    groups.forEach(g=>{
+      const groupEl = document.createElement('div');
+      groupEl.className = 'clue-bank-group';
+      const header = document.createElement('div');
+      header.className = 'clue-bank-group-header';
+      header.innerHTML = `
+        <span class="goto-problem" data-pid="${g.pid}" data-round="${escapeHtml(g.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${g.round} · ${g.problemNum}번</span>
+        <span class="field-badge">${escapeHtml(g.field||'')}</span>
+        ${g.priority!=null ? `<span class="priority-badge2">🎯${g.priority}위</span>` : ''}
+        <span class="count-badge">카드 ${g.cards.length}장</span>`;
+      header.querySelectorAll('.goto-problem').forEach(el=>{
         el.addEventListener('click', (e)=>{
           e.stopPropagation();
           goToProblem(el.dataset.round, el.dataset.pid);
         });
       });
-      card.querySelectorAll('.review-btn').forEach(btn=>{
-        btn.addEventListener('click',(e)=>{
-          e.stopPropagation();
-          recordReview(c.id, btn.dataset.r);
-          doRender();
-        });
-      });
-      card.querySelectorAll('.card-manage-btn.edit').forEach(btn=>{
-        btn.addEventListener('click',(e)=>{
-          e.stopPropagation();
-          const found = findClueCardById(btn.dataset.id);
-          if(found) openClueModal(found.card.type, found.card);
-        });
-      });
-      card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
-        btn.addEventListener('click',(e)=>{
-          e.stopPropagation();
-          deleteClueCardById(btn.dataset.id);
-          doRender();
-        });
-      });
-      grid.appendChild(card);
+      const cardsWrap = document.createElement('div');
+      cardsWrap.className = 'clue-bank-group-cards';
+      g.cards.forEach(c=>cardsWrap.appendChild(createClueBankCard(c)));
+      groupEl.appendChild(header);
+      groupEl.appendChild(cardsWrap);
+      grid.appendChild(groupEl);
     });
   }
   fieldFilter.onchange = doRender;
