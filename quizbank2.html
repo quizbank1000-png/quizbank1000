@@ -544,6 +544,18 @@
   .paste-img-grid.mini{ flex-direction:row; flex-wrap:wrap; gap:5px; }
   .paste-img-grid.mini .paste-img-item{ width:auto; }
   .paste-img-grid.mini .paste-img-item img{ width:auto; max-width:100px; max-height:100px; }
+  .exam-practice-view{ display:flex; flex-direction:column; gap:16px; width:100%; }
+  .exam-practice-view .exam-img-block img{ max-width:100%; border-radius:8px; display:block; cursor:zoom-in; box-shadow: var(--shadow); }
+  .exam-practice-view .exam-card-block{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+    gap:14px;
+    padding:10px;
+    border-radius:12px;
+    background: rgba(255,255,255,0.03);
+    border:1px dashed var(--line);
+  }
+  .exam-practice-view .exam-empty-note{ font-size:12.5px; color: var(--ink-soft); text-align:center; padding:10px; }
   .paste-add-hint.mini{ font-size:10.5px; padding:5px; }
   /* ---- 이미지 원본크기 보기(라이트박스) ---- */
   .overlay.lightbox-overlay{ z-index:200; background: rgba(5,10,20,0.78); }
@@ -1178,6 +1190,7 @@
               <div class="hint-icon">🖼️</div>
               <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
             </div>
+            <div class="exam-practice-view" id="examPracticeView" style="display:none;"></div>
           </div>
           <div id="solutionPane" style="display:none;">
             <div class="paste-zone" id="solutionPaste" tabindex="0">
@@ -3492,10 +3505,18 @@ function applyExamModeUI(){
   viewTabsEl.style.display = examMode ? 'none' : 'flex';
   clueStrip.style.display = examMode ? 'none' : 'flex';
   examHideEls.forEach(el=>{ if(el) el.style.display = examMode ? 'none' : ''; });
+  const problemPasteEl = document.getElementById('problemPaste');
+  const examPracticeEl = document.getElementById('examPracticeView');
   if(examMode){
     switchTab('problem');
     document.getElementById('historyBox').style.display = 'none';
+    problemPasteEl.style.display = 'none';
+    examPracticeEl.style.display = 'flex';
+    const p = getProblem();
+    if(p) renderExamPracticeView(p);
   } else {
+    problemPasteEl.style.display = '';
+    examPracticeEl.style.display = 'none';
     const p = getProblem();
     if(p) renderHistoryBox(p);
   }
@@ -3504,6 +3525,114 @@ examModeBtn.addEventListener('click', ()=>{
   examMode = !examMode;
   applyExamModeUI();
 });
+
+/* 배열을 n개의 덩어리로 최대한 균등하게 나눈다 (문제 이미지 사이사이에 카드를 분배하기 위함) */
+function chunkEvenly(arr, n){
+  if(n<=0) return [arr];
+  const result = [];
+  const base = Math.floor(arr.length/n);
+  let extra = arr.length % n;
+  let idx = 0;
+  for(let i=0;i<n;i++){
+    const size = base + (i<extra?1:0);
+    result.push(arr.slice(idx, idx+size));
+    idx += size;
+  }
+  return result;
+}
+
+/* "문제만 보기" 모드 전용: 문제 이미지 사이사이에 그 문제의 단서/암기/템플릿/함정카드를
+   뒤집어볼 수 있는 카드로 끼워넣어서, 문제를 보며 바로 카드를 회상연습할 수 있게 한다. */
+function renderExamCardHtml(c){
+  const isMemo = c.type==='memo';
+  const isTemplate = c.type==='template';
+  const isTrap = c.type==='trap';
+  const typeClass = isMemo ? ' memo' : (isTemplate ? ' template' : (isTrap ? ' trap' : ''));
+  const typeLabel = isMemo ? '🧠 암기카드' : (isTemplate ? '📐 템플릿카드' : (isTrap ? '⚠️ 함정카드' : '💡 단서카드'));
+  const div = document.createElement('div');
+  div.className = 'flash' + typeClass;
+  div.innerHTML = `
+    <div class="flash-inner">
+      <div class="flash-face flash-front">
+        <div>
+          <div class="type-pip">${typeLabel}</div>
+          <div class="kw">${formatCardText(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+        </div>
+        <div class="flash-foot"><span>👆 클릭해서 뒤집기</span></div>
+      </div>
+      <div class="flash-face flash-back">
+        <div>
+          <div class="type-pip">${typeLabel} 정답</div>
+          <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+        </div>
+        <div class="flash-foot">
+          <div class="review-row">
+            <button class="review-btn ok" data-r="correct">✅ 맞음</button>
+            <button class="review-btn no" data-r="wrong">❌ 틀림</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  div.addEventListener('click', (e)=>{
+    if(e.target.classList.contains('review-btn')) return;
+    div.classList.toggle('flipped');
+  });
+  div.querySelectorAll('.review-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      recordReview(c.id, btn.dataset.r);
+    });
+  });
+  return div;
+}
+
+function renderExamPracticeView(p){
+  const container = document.getElementById('examPracticeView');
+  container.innerHTML = '';
+  const images = p.problemImgs || [];
+  const cards = (p.clueCards || []).slice().sort((a,b)=>{
+    const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
+    const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
+    return ta - tb;
+  });
+
+  if(!images.length && !cards.length){
+    const note = document.createElement('div');
+    note.className = 'exam-empty-note';
+    note.textContent = '등록된 문제 이미지나 카드가 없습니다.';
+    container.appendChild(note);
+    return;
+  }
+
+  const chunks = images.length ? chunkEvenly(cards, images.length) : [cards];
+
+  if(!images.length){
+    // 이미지가 없으면 카드만 모아서 보여준다
+    const block = document.createElement('div');
+    block.className = 'exam-card-block';
+    chunks[0].forEach(c=>block.appendChild(renderExamCardHtml(c)));
+    container.appendChild(block);
+    return;
+  }
+
+  images.forEach((src, i)=>{
+    const imgBlock = document.createElement('div');
+    imgBlock.className = 'exam-img-block';
+    const img = document.createElement('img');
+    img.src = src;
+    img.addEventListener('click', ()=>openLightbox(src));
+    imgBlock.appendChild(img);
+    container.appendChild(imgBlock);
+
+    const chunk = chunks[i] || [];
+    if(chunk.length){
+      const cardBlock = document.createElement('div');
+      cardBlock.className = 'exam-card-block';
+      chunk.forEach(c=>cardBlock.appendChild(renderExamCardHtml(c)));
+      container.appendChild(cardBlock);
+    }
+  });
+}
 
 function renderSolveView(){
   const p = getProblem();
