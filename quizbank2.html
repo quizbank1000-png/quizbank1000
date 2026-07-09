@@ -1171,10 +1171,12 @@
 
         <div class="solve-toolbar">
           <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
+          <button class="tool-btn exam-toggle" id="cardPackToggleBtn">🗂 카드팩 보기</button>
           <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
           <button class="tool-btn" id="trapBtn" style="background:var(--red); color:#fff;">⚠️ 함정카드 등록</button>
+          <button class="tool-btn exam-toggle" id="examCardPackToggleBtn" style="display:none;">🗂 카드팩 보기</button>
           <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
           <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
           <div class="timer-group">
@@ -1183,6 +1185,8 @@
             <button class="tool-btn timer-stop" id="submitSolveBtn" disabled>⏹ 답안제출</button>
           </div>
         </div>
+
+        <div class="clue-strip" id="clueStrip" style="display:none;"></div>
 
         <div class="paste-card">
           <div id="problemPane">
@@ -1205,8 +1209,6 @@
             </div>
           </div>
         </div>
-
-        <div class="clue-strip" id="clueStrip"></div>
 
         <div class="history-box" id="historyBox" style="display:none;">
           <h4>⏱ 회독 이력 (풀이 소요시간) <span class="count-pill" id="historyCount">0회독</span></h4>
@@ -3500,30 +3502,51 @@ const examModeBtn = document.getElementById('examModeBtn');
 const viewTabsEl = document.querySelector('.view-tabs');
 const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn'].map(id=>document.getElementById(id));
 
+/* 카드팩 보기 토글: 평소 모드용/문제만 보기 모드용 각각 별도 버튼 + 상태 */
+let clueStripVisible = false;      // 평소 모드: 문제/풀이/나의답안 이미지 "위"에 카드팩을 보여줄지
+let examCardsVisible = false;      // 문제만 보기 모드: 툴바 아래 카드팩을 보여줄지 (기본은 문제만)
+const cardPackToggleBtn = document.getElementById('cardPackToggleBtn');
+const examCardPackToggleBtn = document.getElementById('examCardPackToggleBtn');
+
 function applyExamModeUI(){
   examModeBtn.classList.toggle('on', examMode);
   examModeBtn.textContent = examMode ? '🎯 문제만 보기 (끄려면 클릭)' : '🎯 문제만 보기';
   viewTabsEl.style.display = examMode ? 'none' : 'flex';
-  clueStrip.style.display = examMode ? 'none' : 'flex';
   examHideEls.forEach(el=>{ if(el) el.style.display = examMode ? 'none' : ''; });
+  cardPackToggleBtn.style.display = examMode ? 'none' : '';
+  examCardPackToggleBtn.style.display = examMode ? '' : 'none';
   const problemPasteEl = document.getElementById('problemPaste');
   const examPracticeEl = document.getElementById('examPracticeView');
   if(examMode){
     switchTab('problem');
     document.getElementById('historyBox').style.display = 'none';
+    clueStrip.style.display = 'none';
     problemPasteEl.style.display = 'none';
     examPracticeEl.style.display = 'flex';
+    examCardPackToggleBtn.classList.toggle('on', examCardsVisible);
+    examCardPackToggleBtn.textContent = examCardsVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
     const p = getProblem();
     if(p) renderExamPracticeView(p);
   } else {
     problemPasteEl.style.display = '';
     examPracticeEl.style.display = 'none';
+    clueStrip.style.display = clueStripVisible ? 'flex' : 'none';
+    cardPackToggleBtn.classList.toggle('on', clueStripVisible);
+    cardPackToggleBtn.textContent = clueStripVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
     const p = getProblem();
     if(p) renderHistoryBox(p);
   }
 }
 examModeBtn.addEventListener('click', ()=>{
   examMode = !examMode;
+  applyExamModeUI();
+});
+cardPackToggleBtn.addEventListener('click', ()=>{
+  clueStripVisible = !clueStripVisible;
+  applyExamModeUI();
+});
+examCardPackToggleBtn.addEventListener('click', ()=>{
+  examCardsVisible = !examCardsVisible;
   applyExamModeUI();
 });
 
@@ -3605,8 +3628,8 @@ function renderExamPracticeView(p){
     return;
   }
 
-  // 카드팩을 먼저 (툴바 바로 아래) 보여주고, 그 아래에 문제 이미지를 이어서 보여준다
-  if(cards.length){
+  // "카드팩 보기"를 켰을 때만, 툴바 바로 아래(문제 이미지 위)에 카드팩을 보여준다
+  if(examCardsVisible && cards.length){
     const cardBlock = document.createElement('div');
     cardBlock.className = 'exam-card-block';
     cards.forEach(c=>cardBlock.appendChild(renderExamCardHtml(c)));
