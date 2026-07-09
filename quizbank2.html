@@ -1186,6 +1186,7 @@
 
         <div class="paste-card">
           <div id="problemPane">
+            <div class="clue-strip" id="clueStrip"></div>
             <div class="paste-zone" id="problemPaste" tabindex="0">
               <div class="hint-icon">🖼️</div>
               <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
@@ -1206,7 +1207,6 @@
           </div>
         </div>
 
-        <div class="clue-strip" id="clueStrip"></div>
         <div class="history-box" id="historyBox" style="display:none;">
           <h4>⏱ 회독 이력 (풀이 소요시간) <span class="count-pill" id="historyCount">0회독</span></h4>
           <div id="historyList"></div>
@@ -3604,18 +3604,15 @@ function renderExamPracticeView(p){
     return;
   }
 
-  const chunks = images.length ? chunkEvenly(cards, images.length) : [cards];
-
-  if(!images.length){
-    // 이미지가 없으면 카드만 모아서 보여준다
-    const block = document.createElement('div');
-    block.className = 'exam-card-block';
-    chunks[0].forEach(c=>block.appendChild(renderExamCardHtml(c)));
-    container.appendChild(block);
-    return;
+  // 카드팩을 먼저 (툴바 바로 아래) 보여주고, 그 아래에 문제 이미지를 이어서 보여준다
+  if(cards.length){
+    const cardBlock = document.createElement('div');
+    cardBlock.className = 'exam-card-block';
+    cards.forEach(c=>cardBlock.appendChild(renderExamCardHtml(c)));
+    container.appendChild(cardBlock);
   }
 
-  images.forEach((src, i)=>{
+  images.forEach(src=>{
     const imgBlock = document.createElement('div');
     imgBlock.className = 'exam-img-block';
     const img = document.createElement('img');
@@ -3623,14 +3620,6 @@ function renderExamPracticeView(p){
     img.addEventListener('click', ()=>openLightbox(src));
     imgBlock.appendChild(img);
     container.appendChild(imgBlock);
-
-    const chunk = chunks[i] || [];
-    if(chunk.length){
-      const cardBlock = document.createElement('div');
-      cardBlock.className = 'exam-card-block';
-      chunk.forEach(c=>cardBlock.appendChild(renderExamCardHtml(c)));
-      container.appendChild(cardBlock);
-    }
   });
 }
 
