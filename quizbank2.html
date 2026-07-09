@@ -3908,50 +3908,71 @@ function deleteClueCardById(cardId){
    그대로 사용한다. */
 let richEditorWindow = null;
 let richEditorMessageHandler = null;
+let richEditorReady = false; // 열려있는 에디터 창이 이미 핸드셰이크를 마쳤는지 (창 재사용 시 사용)
+
+function sendCardToRichEditor(card){
+  richEditorWindow.postMessage({
+    type:'qb2-load-card',
+    card:{
+      id: card.id, type: card.type,
+      keyword: card.keyword,
+      keywordImgs: card.keywordImgs || [],
+      recall: card.recall,
+      recallHtml: card.recallHtml || null,
+      recallImgs: card.recallImgs || []
+    }
+  }, '*');
+}
 
 function openRichCardEditor(cardId, onSaved){
   const found = findClueCardById(cardId);
   if(!found){ alert('카드를 찾을 수 없습니다.'); return; }
   const card = found.card;
 
+  const reuseExisting = richEditorWindow && !richEditorWindow.closed;
+
   if(richEditorMessageHandler) window.removeEventListener('message', richEditorMessageHandler);
-  richEditorWindow = window.open('edit_card.html', 'qb2CardEditor', 'width=1100,height=900');
-  if(!richEditorWindow){
-    alert('팝업이 차단된 것 같습니다. 브라우저의 팝업 차단을 허용해주세요.\n(edit_card.html 파일이 quizbank2.html과 같은 폴더에 있어야 합니다)');
-    return;
+  if(!reuseExisting){
+    richEditorReady = false;
+    richEditorWindow = window.open('edit_card.html', 'qb2CardEditor', 'width=1100,height=900');
+    if(!richEditorWindow){
+      alert('팝업이 차단된 것 같습니다. 브라우저의 팝업 차단을 허용해주세요.\n(edit_card.html 파일이 quizbank2.html과 같은 폴더에 있어야 합니다)');
+      return;
+    }
   }
 
   richEditorMessageHandler = function(e){
     if(!e.data || typeof e.data !== 'object') return;
     if(e.source !== richEditorWindow) return;
     if(e.data.type === 'qb2-editor-ready'){
-      richEditorWindow.postMessage({
-        type:'qb2-load-card',
-        card:{
-          id: card.id, type: card.type,
-          keyword: card.keyword,
-          recall: card.recall,
-          recallHtml: card.recallHtml || null,
-          recallImgs: card.recallImgs || []
-        }
-      }, '*');
+      richEditorReady = true;
+      sendCardToRichEditor(card);
     } else if(e.data.type === 'qb2-save-card'){
       const c = e.data.card || {};
       card.type = c.type || card.type;
       card.keyword = (c.keyword||'').trim() || card.keyword;
+      card.keywordImgs = Array.isArray(c.keywordImgs) ? c.keywordImgs : (card.keywordImgs||[]);
       card.recallHtml = c.recallHtml || '';
       card.recall = (c.recallText||'').trim();
+      card.recallImgs = []; // 기존 recallImgs는 이제 recallHtml 안에 이미지로 포함되어 있으므로 비워서 중복 표시를 막는다
       saveState();
       renderSideStat();
       if(typeof onSaved === 'function') onSaved();
       const cur = getProblem();
       if(cur && cur.id===found.problem.id) renderClueStrip(cur);
       if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
-      window.removeEventListener('message', richEditorMessageHandler);
-      richEditorMessageHandler = null;
     }
   };
   window.addEventListener('message', richEditorMessageHandler);
+
+  if(reuseExisting){
+    richEditorWindow.focus();
+    if(richEditorReady){
+      // 이미 열려있는 창은 새로 로드되지 않으므로 ready 신호를 기다리지 않고 바로 카드 데이터를 보낸다
+      sendCardToRichEditor(card);
+    }
+    // 아직 이전 카드 로딩 중(ready 전)이라면 위 핸들러가 ready 수신 즉시 이 카드를 보낸다
+  }
 }
 
 /* 카드 뒷면(recall) 표시용 HTML을 만든다: recallHtml(서식 있는 버전)이 있으면
