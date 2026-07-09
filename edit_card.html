@@ -2088,20 +2088,31 @@ editArea.addEventListener('input', markBridgeDirty);
 problemTitle.addEventListener('input', markBridgeDirty);
 document.getElementById('cardTypeSelect').addEventListener('change', markBridgeDirty);
 
-/* editArea에 이미지 붙여넣기 지원 (Ctrl+V로 캡쳐 이미지를 카드 내용 안에 바로 삽입) */
+/* editArea 붙여넣기: 이미지는 그대로 삽입, 텍스트는 항상 서식 없이(plain text)만 넣어서
+   웹페이지 등에서 복사한 외부 서식(폰트·색상·링크 등)이 카드 디자인에 섞이지 않게 한다.
+   카드 안의 색상/굵기 등은 이 편집기의 툴바(공식/기호/단계번호 등)로만 넣도록 유도한다. */
 editArea.addEventListener('paste', (e)=>{
-  const items = (e.clipboardData || window.clipboardData).items;
+  const clipboard = e.clipboardData || window.clipboardData;
+  const items = clipboard.items;
   const imageItem = Array.from(items||[]).find(item=>item.type.indexOf('image')!==-1);
-  if(!imageItem) return; // 이미지가 아니면 기본 텍스트 붙여넣기 동작 유지
+  if(imageItem){
+    e.preventDefault();
+    const blob = imageItem.getAsFile();
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      document.execCommand('insertHTML', false, `<img src="${ev.target.result}" style="max-width:100%; border-radius:6px; display:block; margin:6px 0;">`);
+      scheduleAutosave();
+      updatePreview();
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  // 이미지가 아니면(텍스트/HTML) 서식을 다 버리고 순수 텍스트로만 삽입
   e.preventDefault();
-  const blob = imageItem.getAsFile();
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    document.execCommand('insertHTML', false, `<img src="${ev.target.result}" style="max-width:100%; border-radius:6px; display:block; margin:6px 0;">`);
-    scheduleAutosave();
-    updatePreview();
-  };
-  reader.readAsDataURL(blob);
+  const text = clipboard.getData('text/plain');
+  if(text) document.execCommand('insertText', false, text);
+  scheduleAutosave();
+  updatePreview();
 });
 
 updatePreview();
