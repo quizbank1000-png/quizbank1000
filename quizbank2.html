@@ -1208,7 +1208,7 @@
       <div class="topbar">
         <div>
           <h2>🗂 단서카드함 / 암기카드함</h2>
-          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드를 구분해서 볼 수 있습니다</div>
+          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제별로 단서→암기→템플릿→함정 순서로 모아서 보여줍니다</div>
         </div>
       </div>
       <div class="filter-row">
@@ -1222,6 +1222,13 @@
         <select id="clueFieldFilter"><option value="">전체 분야</option></select>
         <select id="clueRoundFilter"><option value="">전체 회차</option></select>
         <select id="clueProblemFilter"><option value="">전체 문제</option></select>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
+          🎯 우선순위
+          <input type="number" id="cluePriorityMax" min="1" placeholder="N위 이내" style="width:80px; padding:4px 6px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12.5px;">
+        </label>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
+          <input type="checkbox" id="cluePriorityOnly" style="width:auto;"> 우선순위 매겨진 문제만
+        </label>
         <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft);">
           <input type="checkbox" id="weakOnly" style="width:auto;"> 약한 카드만 보기
         </label>
@@ -4036,23 +4043,27 @@ function goToProblem(roundName, problemId){
   renderSolveView();
 }
 
-const CARD_TYPE_ORDER = { clue:0, trap:1, template:2, memo:3 };
+const CARD_TYPE_ORDER = { clue:0, memo:1, template:2, trap:3 };
 function allClues(){
   const arr=[];
   Object.entries(state.rounds).forEach(([roundName, r])=>{
     r.problems.forEach(p=>{
       (p.clueCards||[]).forEach(c=>{
-        arr.push({...c, round:roundName, field:p.field, problemNum:p.num, pid:p.id});
+        arr.push({...c, round:roundName, field:p.field, problemNum:p.num, pid:p.id, priority: (p.priority!=null && p.priority!=='') ? Number(p.priority) : null});
       });
     });
   });
   return arr.sort((a,b)=>{
-    const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
-    const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
-    if(ta !== tb) return ta - tb;
+    // 1) 회차
+    if(a.round !== b.round) return a.round < b.round ? -1 : 1;
+    // 2) 같은 회차 내 문제번호
     const pa = String(a.problemNum).padStart(6,'0');
     const pb = String(b.problemNum).padStart(6,'0');
     if(pa !== pb) return pa < pb ? -1 : 1;
+    // 3) 같은 문제 내 카드종류: 단서 → 암기 → 템플릿 → 함정
+    const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
+    const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
+    if(ta !== tb) return ta - tb;
     return b.createdAt - a.createdAt;
   });
 }
@@ -4097,6 +4108,11 @@ function renderClueBank(){
     if(roundFilter.value) list = list.filter(c=>c.round===roundFilter.value);
     if(problemFilter.value) list = list.filter(c=>c.pid===problemFilter.value);
     if(document.getElementById('weakOnly').checked) list = list.filter(c=>c.weak>0);
+    const priorityOnly = document.getElementById('cluePriorityOnly').checked;
+    if(priorityOnly) list = list.filter(c=>c.priority!=null);
+    const priorityMaxRaw = document.getElementById('cluePriorityMax').value;
+    const priorityMax = priorityMaxRaw!=='' ? Number(priorityMaxRaw) : null;
+    if(priorityMax!=null && !isNaN(priorityMax)) list = list.filter(c=>c.priority!=null && c.priority<=priorityMax);
 
     const grid = document.getElementById('clueGrid');
     grid.innerHTML='';
@@ -4122,6 +4138,7 @@ function renderClueBank(){
             </div>
             <div class="flash-foot">
               <span class="goto-problem" data-pid="${c.pid}" data-round="${escapeHtml(c.round)}" style="cursor:pointer; text-decoration:underline;">🔗 ${c.round} · ${c.problemNum}번</span>
+              ${c.priority!=null ? `<span class="review-stat" style="color:#fbbf24;">🎯${c.priority}위</span>` : ''}
               <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
             </div>
             <div class="card-manage-row">
@@ -4188,6 +4205,8 @@ function renderClueBank(){
   problemFilter.onchange = doRender;
   document.getElementById('weakOnly').onchange = doRender;
   document.getElementById('clueTypeFilter').onchange = doRender;
+  document.getElementById('cluePriorityOnly').onchange = doRender;
+  document.getElementById('cluePriorityMax').oninput = doRender;
   doRender();
 }
 
