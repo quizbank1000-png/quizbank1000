@@ -1186,7 +1186,6 @@
 
         <div class="paste-card">
           <div id="problemPane">
-            <div class="clue-strip" id="clueStrip"></div>
             <div class="paste-zone" id="problemPaste" tabindex="0">
               <div class="hint-icon">🖼️</div>
               <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
@@ -1206,6 +1205,8 @@
             </div>
           </div>
         </div>
+
+        <div class="clue-strip" id="clueStrip"></div>
 
         <div class="history-box" id="historyBox" style="display:none;">
           <h4>⏱ 회독 이력 (풀이 소요시간) <span class="count-pill" id="historyCount">0회독</span></h4>
@@ -3725,37 +3726,94 @@ function renderPasteZone(zoneEl, imgs, onChange, label, icon){
 
 function renderClueStrip(p){
   clueStrip.innerHTML='';
-  p.clueCards.forEach(c=>{
-    const chip = document.createElement('div');
-    const typeClass = c.type==='memo' ? ' memo' : (c.type==='template' ? ' template' : (c.type==='trap' ? ' trap' : ''));
-    chip.className='clue-chip' + typeClass;
-    const label = c.type==='memo' ? '🧠' : (c.type==='template' ? '📐' : (c.type==='trap' ? '⚠️' : '💡'));
-    chip.innerHTML = `
-      <div class="clue-chip-head">
-        <b>${label} ${formatCardText(c.keyword)}</b>
-        <span class="clue-chip-actions">
-          <button class="chip-edit-btn" data-id="${c.id}" title="수정">✏️</button>
-          <button class="chip-del-btn" data-id="${c.id}" title="삭제">🗑</button>
-        </span>
-      </div>
-      ${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}
-      <div class="clue-chip-recall">→ ${formatCardText(c.recall)}</div>
-      ${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}`;
-    clueStrip.appendChild(chip);
+  const cards = (p.clueCards||[]).slice().sort((a,b)=>{
+    const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
+    const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
+    return ta - tb;
   });
-  clueStrip.querySelectorAll('.chip-edit-btn').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const found = findClueCardById(btn.dataset.id);
-      if(found) openClueModal(found.card.type, found.card);
+  if(!cards.length){
+    const empty = document.createElement('div');
+    empty.className = 'exam-empty-note';
+    empty.style.width = '100%';
+    empty.textContent = '등록된 카드가 없습니다. 위 버튼으로 단서/암기/템플릿/함정카드를 등록해보세요.';
+    clueStrip.appendChild(empty);
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'card-grid';
+  grid.style.width = '100%';
+  cards.forEach(c=>{
+    const isMemo = c.type==='memo';
+    const isTemplate = c.type==='template';
+    const isTrap = c.type==='trap';
+    const typeClass = isMemo ? ' memo' : (isTemplate ? ' template' : (isTrap ? ' trap' : ''));
+    const typeLabel = isMemo ? '🧠 암기카드' : (isTemplate ? '📐 템플릿카드' : (isTrap ? '⚠️ 함정카드' : '💡 단서카드'));
+    const hist = c.reviewHistory || [];
+    const total = hist.length;
+    const correct = hist.filter(h=>h.result==='correct').length;
+    const wrong = total - correct;
+    const card = document.createElement('div');
+    card.className = 'flash' + typeClass;
+    card.innerHTML = `
+      <div class="flash-inner">
+        <div class="flash-face flash-front">
+          <div>
+            <div class="type-pip">${typeLabel}</div>
+            <div class="kw">${formatCardText(c.keyword)}${(c.keywordImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+          </div>
+          <div class="flash-foot">
+            <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
+          </div>
+          <div class="card-manage-row">
+            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+          </div>
+        </div>
+        <div class="flash-face flash-back">
+          <div>
+            <div class="type-pip">${typeLabel} 정답</div>
+            <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+          </div>
+          <div class="flash-foot">
+            <div class="review-row">
+              <button class="review-btn ok" data-r="correct">✅ 맞음</button>
+              <button class="review-btn no" data-r="wrong">❌ 틀림</button>
+            </div>
+          </div>
+          <div class="card-manage-row">
+            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+          </div>
+        </div>
+      </div>`;
+    card.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('review-btn')) return;
+      if(e.target.classList.contains('card-manage-btn')) return;
+      card.classList.toggle('flipped');
     });
-  });
-  clueStrip.querySelectorAll('.chip-del-btn').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      deleteClueCardById(btn.dataset.id);
+    card.querySelectorAll('.review-btn').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        recordReview(c.id, btn.dataset.r);
+        renderClueStrip(p);
+      });
     });
+    card.querySelectorAll('.card-manage-btn.edit').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const found = findClueCardById(btn.dataset.id);
+        if(found) openClueModal(found.card.type, found.card);
+      });
+    });
+    card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        deleteClueCardById(btn.dataset.id);
+      });
+    });
+    grid.appendChild(card);
   });
+  clueStrip.appendChild(grid);
 }
 
 function findClueCardById(cardId){
