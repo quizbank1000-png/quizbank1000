@@ -776,7 +776,7 @@
   }
   .review-btn.ok{ background:#1f8a52; color:#fff; }
   .review-btn.no{ background:#c84438; color:#fff; }
-  .card-manage-row{ display:flex; gap:5px; }
+  .card-manage-row{ display:flex; gap:5px; flex-wrap:wrap; }
   .card-manage-btn{
     border:none; border-radius:6px; font-size:11px; font-weight:700;
     padding:4px 8px; cursor:pointer; background: rgba(255,255,255,0.5);
@@ -1116,8 +1116,6 @@
       <button class="nav-btn" id="manageFieldsBtn" title="분야 관리"><span class="nav-icon">⚙️</span><span class="sidebar-label">분야관리</span></button>
       <button class="nav-btn" id="bulkImportBtn" title="JSON으로 문제/카드 일괄 가져오기"><span class="nav-icon">📥</span><span class="sidebar-label">가져오기</span></button>
       <input type="file" id="bulkImportFile" accept="application/json" style="display:none;">
-      <button class="nav-btn" id="cardPackReplaceBtn" title="기존 단서/암기/템플릿/함정카드를 모두 삭제하고 카드팩 JSON({rounds:{...}} 형식)의 카드로 전체 교체" style="background:var(--red); color:#fff;"><span class="nav-icon">🔄</span><span class="sidebar-label">카드팩 전체교체</span></button>
-      <input type="file" id="cardPackReplaceFile" accept="application/json" style="display:none;">
     </div>
 
     <div class="round-select-box">
@@ -2801,124 +2799,6 @@ function importBulkData(data){
   alert(`가져오기 완료!\n회차: ${roundName}\n새 문제 ${addedProblems}개 / 업데이트된 문제 ${updatedProblems}개\n추가된 카드 ${addedCards}장 / 추가된 이미지 ${addedImgs}장`);
 }
 
-/* ---------------- 카드팩 전체교체 (기존 단서/암기/템플릿/함정카드 전부 삭제 후 카드팩으로 재등록) ---------------- */
-/* 가져올 JSON 형식 (카드팩 전체백업):
-{
-  "rounds": {
-    "2016년 1회": {
-      "problems": [
-        { "num":"01", "field":"배관펌프", "priority":null,
-          "clueCards":[ {"type":"clue"|"memo"|"template"|"trap", "keyword":"...", "recall":"..."} ] }
-      ]
-    },
-    ...
-  }
-}
-문제/풀이 이미지는 포함하지 않는 카드 전용 백업. 실행 시:
-1) 현재 앱에 등록된 모든 회차·문제의 clueCards(단서/암기/템플릿/함정카드)를 전부 비운다.
-2) 카드팩의 회차명+문제번호(num) 기준으로 문제를 찾아(없으면 새로 생성) clueCards를 새로 채운다.
-   기존 문제의 field/priority/이미지는 그대로 유지한다.
-*/
-document.getElementById('cardPackReplaceBtn').addEventListener('click', ()=>{
-  document.getElementById('cardPackReplaceFile').click();
-});
-document.getElementById('cardPackReplaceFile').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    let data;
-    try{ data = JSON.parse(ev.target.result); }
-    catch(err){ alert('JSON 파일을 읽지 못했습니다: ' + err.message); return; }
-    try{
-      importFullCardPack(data);
-    }catch(err){
-      alert('카드팩 전체교체 중 오류가 발생했습니다: ' + err.message);
-      console.error(err);
-    }
-  };
-  reader.readAsText(file);
-  e.target.value = '';
-});
-
-function importFullCardPack(data){
-  if(!data || typeof data.rounds !== 'object' || !data.rounds){
-    alert('JSON에 rounds 객체가 없습니다. 카드팩 백업 형식({rounds:{...}})인지 확인해주세요.');
-    return;
-  }
-  const roundNames = Object.keys(data.rounds);
-  if(!roundNames.length){ alert('카드팩에 회차 데이터가 없습니다.'); return; }
-
-  let existingProblems = 0, existingCards = 0;
-  Object.values(state.rounds||{}).forEach(r=>{
-    (r.problems||[]).forEach(p=>{ existingProblems++; existingCards += (p.clueCards||[]).length; });
-  });
-
-  if(!confirm(
-    `현재 앱에 등록된 모든 회차의 단서카드/암기카드/템플릿카드/함정카드를 전부 삭제합니다.\n`+
-    `(대상: 문제 ${existingProblems}개 · 카드 ${existingCards}장)\n\n`+
-    `그 다음 "${roundNames.length}개 회차" 카드팩의 카드를 새로 등록합니다.\n`+
-    `문제의 풀이 이미지 등 카드 외 데이터는 그대로 유지됩니다.\n\n`+
-    `계속할까요? 이 작업은 되돌릴 수 없습니다.`
-  )) return;
-
-  // 1) 기존 회차의 모든 문제에서 clueCards 전부 비우기
-  Object.values(state.rounds||{}).forEach(r=>{
-    (r.problems||[]).forEach(p=>{ p.clueCards = []; });
-  });
-
-  // 2) 카드팩 내용으로 재등록
-  let addedProblems = 0, addedCards = 0, touchedRounds = 0;
-  roundNames.forEach(roundName=>{
-    const incomingRound = data.rounds[roundName] || {};
-    const incomingProblems = Array.isArray(incomingRound.problems) ? incomingRound.problems : [];
-    if(!incomingProblems.length) return;
-    touchedRounds++;
-    if(!state.rounds[roundName]) state.rounds[roundName] = { problems: [] };
-    const r = state.rounds[roundName];
-    if(r.archived){
-      alert(`"${roundName}" 회차는 압축 보관된 상태라 건너뜁니다.\n먼저 "📂 이미지 불러오기"로 복원한 뒤 다시 시도해주세요.`);
-      return;
-    }
-    incomingProblems.forEach(incoming=>{
-      const num = String(incoming.num || '?').trim();
-      let p = r.problems.find(x=>String(x.num).trim()===num);
-      if(!p){
-        p = { id:uid(), num, field: incoming.field || (state.fields[0]||''),
-              priority: (typeof incoming.priority === 'number' ? incoming.priority : null),
-              excludeReview:false,
-              problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[],
-              solvedCorrect:false, solveSessions:[], runningStartedAt:null };
-        r.problems.push(p);
-        addedProblems++;
-      }
-      if(!Array.isArray(p.clueCards)) p.clueCards = [];
-      (incoming.clueCards||[]).forEach(cc=>{
-        p.clueCards.push({
-          id: uid(), type: cc.type || 'clue',
-          keyword: cc.keyword || '', recall: cc.recall || '',
-          keywordImgs: cc.keywordImgs || [], recallImgs: cc.recallImgs || [],
-          weak:0, reviewHistory:[], createdAt: Date.now()
-        });
-        addedCards++;
-      });
-    });
-  });
-
-  if(roundNames.length && state.rounds[roundNames[0]]){
-    state.currentRound = roundNames[0];
-    if(state.rounds[roundNames[0]].problems.length) state.currentProblemId = state.rounds[roundNames[0]].problems[0].id;
-  }
-  if(typeof ensureFieldsInit === 'function') ensureFieldsInit();
-  renderRoundSelect();
-  if(typeof renderProblemYearRoundFilterOptions==='function') renderProblemYearRoundFilterOptions();
-  renderProblemList();
-  renderSolveView();
-  renderArchiveBox();
-  saveState();
-  alert(`카드팩 전체교체 완료!\n기존 카드 ${existingCards}장 삭제\n대상 회차 ${touchedRounds}개 · 새 문제 ${addedProblems}개 추가\n등록된 카드 ${addedCards}장`);
-}
-
 /* ---------------- 우선순위(기출빈도 랭킹) 일괄 적용 ---------------- */
 /* 가져올 JSON 형식:
 {
@@ -3582,21 +3462,6 @@ examCardPackToggleBtn.addEventListener('click', ()=>{
   applyExamModeUI();
 });
 
-/* 배열을 n개의 덩어리로 최대한 균등하게 나눈다 (문제 이미지 사이사이에 카드를 분배하기 위함) */
-function chunkEvenly(arr, n){
-  if(n<=0) return [arr];
-  const result = [];
-  const base = Math.floor(arr.length/n);
-  let extra = arr.length % n;
-  let idx = 0;
-  for(let i=0;i<n;i++){
-    const size = base + (i<extra?1:0);
-    result.push(arr.slice(idx, idx+size));
-    idx += size;
-  }
-  return result;
-}
-
 /* "문제만 보기" 모드 전용: 문제 이미지 사이사이에 그 문제의 단서/암기/템플릿/함정카드를
    뒤집어볼 수 있는 카드로 끼워넣어서, 문제를 보며 바로 카드를 회상연습할 수 있게 한다. */
 function renderExamCardHtml(c){
@@ -3820,9 +3685,9 @@ function renderClueStrip(p){
             <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
           </div>
           <div class="card-manage-row">
-            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
-            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            <button class="card-manage-btn edit" data-id="${c.id}" title="수정">✏️</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}" title="리치에디터로 열기">📝</button>
+            <button class="card-manage-btn del" data-id="${c.id}" title="삭제">🗑</button>
           </div>
         </div>
         <div class="flash-face flash-back">
@@ -3837,9 +3702,9 @@ function renderClueStrip(p){
             </div>
           </div>
           <div class="card-manage-row">
-            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
-            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            <button class="card-manage-btn edit" data-id="${c.id}" title="수정">✏️</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}" title="리치에디터로 열기">📝</button>
+            <button class="card-manage-btn del" data-id="${c.id}" title="삭제">🗑</button>
           </div>
         </div>
       </div>`;
@@ -3909,6 +3774,19 @@ function deleteClueCardById(cardId){
 let richEditorWindow = null;
 let richEditorMessageHandler = null;
 let richEditorReady = false; // 열려있는 에디터 창이 이미 핸드셰이크를 마쳤는지 (창 재사용 시 사용)
+let richEditorCloseWatcher = null; // 창을 저장 없이 그냥 닫았을 때 리스너를 정리하기 위한 폴링 타이머
+
+function cleanupRichEditorListener(){
+  if(richEditorMessageHandler){
+    window.removeEventListener('message', richEditorMessageHandler);
+    richEditorMessageHandler = null;
+  }
+  if(richEditorCloseWatcher){
+    clearInterval(richEditorCloseWatcher);
+    richEditorCloseWatcher = null;
+  }
+  richEditorReady = false;
+}
 
 function sendCardToRichEditor(card){
   richEditorWindow.postMessage({
@@ -3931,9 +3809,8 @@ function openRichCardEditor(cardId, onSaved){
 
   const reuseExisting = richEditorWindow && !richEditorWindow.closed;
 
-  if(richEditorMessageHandler) window.removeEventListener('message', richEditorMessageHandler);
+  cleanupRichEditorListener();
   if(!reuseExisting){
-    richEditorReady = false;
     richEditorWindow = window.open('edit_card.html', 'qb2CardEditor', 'width=1100,height=900');
     if(!richEditorWindow){
       alert('팝업이 차단된 것 같습니다. 브라우저의 팝업 차단을 허용해주세요.\n(edit_card.html 파일이 quizbank2.html과 같은 폴더에 있어야 합니다)');
@@ -3964,6 +3841,13 @@ function openRichCardEditor(cardId, onSaved){
     }
   };
   window.addEventListener('message', richEditorMessageHandler);
+
+  // 저장 없이(X 버튼 등으로) 창을 닫아버린 경우를 감지해서 리스너를 정리한다
+  richEditorCloseWatcher = setInterval(()=>{
+    if(!richEditorWindow || richEditorWindow.closed){
+      cleanupRichEditorListener();
+    }
+  }, 800);
 
   if(reuseExisting){
     richEditorWindow.focus();
@@ -4213,6 +4097,11 @@ function openClueModal(type, editCard){
 }
 document.getElementById('richEditFromModalBtn').addEventListener('click', ()=>{
   if(!pendingEditId) return;
+  const found = findClueCardById(pendingEditId);
+  const kw = document.getElementById('clueKeyword').value.trim();
+  const rc = document.getElementById('clueRecall').value.trim();
+  const changed = found && (kw !== (found.card.keyword||'') || rc !== (found.card.recall||''));
+  if(changed && !confirm('여기에 입력한 내용은 저장되지 않았습니다. 저장하지 않고 리치에디터를 열까요?')) return;
   const id = pendingEditId;
   closeModal('overlayClue');
   openRichCardEditor(id, ()=>{});
@@ -4454,9 +4343,9 @@ function renderClueBank(){
             <span class="review-stat" style="color:var(--blue-700);">회독 ${total}회 (✅${correct}/❌${wrong})</span>
           </div>
           <div class="card-manage-row">
-            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
-            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            <button class="card-manage-btn edit" data-id="${c.id}" title="수정">✏️</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}" title="리치에디터로 열기">📝</button>
+            <button class="card-manage-btn del" data-id="${c.id}" title="삭제">🗑</button>
           </div>
         </div>
         <div class="flash-face flash-back">
@@ -4471,9 +4360,9 @@ function renderClueBank(){
             </div>
           </div>
           <div class="card-manage-row">
-            <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
-            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
-            <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
+            <button class="card-manage-btn edit" data-id="${c.id}" title="수정">✏️</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}" title="리치에디터로 열기">📝</button>
+            <button class="card-manage-btn del" data-id="${c.id}" title="삭제">🗑</button>
           </div>
         </div>
       </div>`;
