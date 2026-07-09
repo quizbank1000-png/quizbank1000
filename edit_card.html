@@ -423,6 +423,18 @@
     <button type="button" id="timerToggleBtn">⏱ 타이머</button>
   </div>
 
+  <div class="kw-img-row" style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+    <span class="tb-label" style="flex:none;">🖼️ 키워드 이미지</span>
+    <div id="keywordImgZone" tabindex="0" style="flex:1; min-width:220px; border:1.5px dashed var(--line); border-radius:8px; padding:6px 10px; font-size:11.5px; color:var(--ink-soft); cursor:text; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+      <span id="keywordImgHint">📎 카드 앞면에 넣을 이미지가 있으면 여기 클릭 후 Ctrl+V (선택)</span>
+    </div>
+  </div>
+
+  <div class="tb-label" style="margin:0 0 4px 2px; font-weight:700; color:var(--ink-soft); font-size:11.5px;">👀 미리보기 (실제 카드에 이렇게 표시돼요 — 왼쪽 앞면 / 오른쪽 뒷면)</div>
+  <div class="preview-panel" id="previewPanel" style="display:flex; gap:10px; margin-bottom:12px; border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+    <div id="previewFront" style="flex:1; background:var(--blue-100); color:var(--blue-900); padding:12px 14px; font-size:13px; font-weight:700; line-height:1.6; min-height:60px;"></div>
+    <div id="previewBack" style="flex:1; background:var(--blue-900); color:#fff; padding:12px 14px; font-size:13px; line-height:1.6; min-height:60px; overflow:auto; max-height:220px;"></div>
+  </div>
   <!-- 보관함 -->
   <div class="archive-panel" id="archivePanel">
     <div class="archive-head">
@@ -1354,6 +1366,15 @@ document.getElementById('fracInsertBtn').addEventListener('click', ()=>{
 });
 
 /* ================= 자동 저장 ================= */
+/* 퀴즈뱅크2 브릿지 상태 (자동저장 로직보다 먼저 선언되어야 함) */
+let bridgeMode = false;
+let bridgeCardId = null;
+let bridgeDirty = false;
+let keywordImgs = [];
+function currentAutosaveKey(){
+  return bridgeMode && bridgeCardId ? ('qb2_card_autosave_' + bridgeCardId) : AUTOSAVE_KEY;
+}
+
 const AUTOSAVE_KEY = 'scratch_editor_autosave_v1';
 let autosaveTimer = null;
 
@@ -1368,12 +1389,14 @@ function doAutosave(){
     const data = {
       title: problemTitle.value,
       html: sourceMode ? editSource.value : editArea.innerHTML,
+      cardType: document.getElementById('cardTypeSelect') ? document.getElementById('cardTypeSelect').value : undefined,
+      keywordImgs: typeof keywordImgs !== 'undefined' ? keywordImgs : [],
       lineHeight: editArea.style.lineHeight || DEFAULT_LH,
       align: editArea.style.textAlign || DEFAULT_ALIGN,
       fontSize: editArea.style.fontSize || DEFAULT_FS,
       savedAt: Date.now()
     };
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    localStorage.setItem(currentAutosaveKey(), JSON.stringify(data));
     autosaveBadge.textContent = '✅ 자동 저장됨';
     autosaveBadge.classList.add('saved');
   } catch(e){
@@ -1382,11 +1405,16 @@ function doAutosave(){
 }
 function restoreAutosave(){
   try{
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    const raw = localStorage.getItem(currentAutosaveKey());
     if(!raw) return;
     const data = JSON.parse(raw);
     problemTitle.value = data.title || '';
     editArea.innerHTML = data.html || '';
+    if(data.cardType && document.getElementById('cardTypeSelect')) document.getElementById('cardTypeSelect').value = data.cardType;
+    if(Array.isArray(data.keywordImgs) && typeof keywordImgs !== 'undefined'){
+      keywordImgs = data.keywordImgs;
+      if(typeof renderKeywordImgZone === 'function') renderKeywordImgZone();
+    }
     editArea.style.lineHeight = data.lineHeight || DEFAULT_LH;
     editArea.style.textAlign = data.align || DEFAULT_ALIGN;
     editArea.style.fontSize = data.fontSize || DEFAULT_FS;
@@ -1407,7 +1435,7 @@ window.addEventListener('beforeunload', ()=>{ clearTimeout(autosaveTimer); doAut
 editArea.style.lineHeight = DEFAULT_LH;
 editArea.style.textAlign = DEFAULT_ALIGN;
 editArea.style.fontSize = DEFAULT_FS;
-restoreAutosave();
+if(!window.opener) restoreAutosave(); // 브릿지 모드에서는 opener가 보내주는 카드로 채우므로 독립 실행용 자동저장 복원은 생략
 
 /* ================= 답안 보관함 ================= */
 const ARCHIVE_KEY = 'answer_archive_v1';
@@ -1886,19 +1914,22 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   editArea.innerHTML = '';
   editSource.value = '';
   problemTitle.value = '';
+  keywordImgs = [];
+  if(typeof renderKeywordImgZone === 'function') renderKeywordImgZone();
+  if(typeof updatePreview === 'function') updatePreview();
   doAutosave();
   editArea.focus();
 });
 
 /* ================= 퀴즈뱅크2 카드 연동 브릿지 =================
-   퀴즈뱅크2의 카드 목록에서 "📝 리치에디터로 수정"을 누르면 이 창이
+   퀴즈뱅크2의 카드 목록에서 "📝 리치에디터"를 누르면 이 창이
    window.open()으로 열리고, 아래 handshake로 카드 데이터를 주고받는다.
    1) 이 창 로드 → opener에게 'qb2-editor-ready' 전송
    2) 퀴즈뱅크2 → 'qb2-load-card' 로 카드 데이터 전달 → 폼에 채움
    3) 사용자가 "💾 저장하고 돌아가기" 클릭 → 'qb2-save-card' 로 결과 전송 후 창 닫기
+   (같은 창이 열려있는 상태로 다른 카드를 또 열면, 페이지가 새로 로드되지 않으므로
+    퀴즈뱅크2 쪽에서 ready 신호를 기다리지 않고 바로 카드 데이터를 다시 보내준다)
 ================================================================= */
-let bridgeMode = false;
-let bridgeCardId = null;
 
 function enterBridgeMode(){
   bridgeMode = true;
@@ -1907,11 +1938,87 @@ function enterBridgeMode(){
   document.getElementById('editorDesc').innerHTML = '퀴즈뱅크2에서 연결된 카드를 편집하는 중입니다. 다 작성했으면 <b>💾 저장하고 돌아가기</b>를 눌러주세요. (보관함/PDF/이미지 저장 기능도 그대로 쓸 수 있어요)';
 }
 
+function markBridgeDirty(){
+  if(!bridgeMode) return;
+  bridgeDirty = true;
+}
+
+function renderKeywordImgZone(){
+  const zone = document.getElementById('keywordImgZone');
+  zone.querySelectorAll('.kw-img-thumb').forEach(el=>el.remove());
+  keywordImgs.forEach((src, idx)=>{
+    const wrap = document.createElement('span');
+    wrap.className = 'kw-img-thumb';
+    wrap.style.cssText = 'position:relative; display:inline-block;';
+    wrap.innerHTML = `<img src="${src}" style="height:44px; border-radius:5px; display:block;">
+      <button type="button" data-idx="${idx}" style="position:absolute; top:-6px; right:-6px; width:16px; height:16px; line-height:14px; border-radius:50%; border:none; background:var(--red); color:#fff; font-size:10px; cursor:pointer; padding:0;">✕</button>`;
+    wrap.querySelector('button').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      keywordImgs.splice(Number(e.target.dataset.idx), 1);
+      renderKeywordImgZone();
+      markBridgeDirty();
+      scheduleAutosave();
+      updatePreview();
+    });
+    zone.appendChild(wrap);
+  });
+  document.getElementById('keywordImgHint').style.display = keywordImgs.length ? 'none' : '';
+}
+document.getElementById('keywordImgZone').addEventListener('paste', (e)=>{
+  const items = (e.clipboardData || window.clipboardData).items;
+  const imageItem = Array.from(items||[]).find(item=>item.type.indexOf('image')!==-1);
+  if(!imageItem) return;
+  e.preventDefault();
+  const blob = imageItem.getAsFile();
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    keywordImgs.push(ev.target.result);
+    renderKeywordImgZone();
+    markBridgeDirty();
+    scheduleAutosave();
+    updatePreview();
+  };
+  reader.readAsDataURL(blob);
+});
+
+/* ===== 미리보기 ===== */
+const TYPE_PREVIEW_META = {
+  clue:     { label:'💡 단서카드', front:'var(--blue-100)', frontText:'var(--blue-900)', back:'var(--blue-900)' },
+  memo:     { label:'🧠 암기카드', front:'#f1ebfa', frontText:'#42266b', back:'#3a2461' },
+  template: { label:'📐 템플릿카드', front:'#dff5f5', frontText:'#073f3f', back:'#0a4a4a' },
+  trap:     { label:'⚠️ 함정카드', front:'var(--red-soft)', frontText:'#8a231b', back:'#6b1f18' }
+};
+let previewTimer = null;
+function updatePreview(){
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(()=>{
+    const type = document.getElementById('cardTypeSelect').value;
+    const meta = TYPE_PREVIEW_META[type] || TYPE_PREVIEW_META.clue;
+    const front = document.getElementById('previewFront');
+    const back = document.getElementById('previewBack');
+    front.style.background = meta.front;
+    front.style.color = meta.frontText;
+    back.style.background = meta.back;
+    const kwImgsHtml = keywordImgs.map(src=>`<img src="${src}" style="max-width:100%; border-radius:5px; margin-top:6px; display:block;">`).join('');
+    front.innerHTML = `<div style="font-size:11px; font-weight:800; opacity:0.75; margin-bottom:6px;">${meta.label}</div>${escapeHtml(problemTitle.value || '(키워드를 입력하세요)').replace(/\n/g,'<br>')}${kwImgsHtml}`;
+    back.innerHTML = `<div style="font-size:11px; font-weight:800; opacity:0.75; margin-bottom:6px;">${meta.label} 정답</div>→ ${editArea.innerHTML || '<span style="opacity:0.6;">(내용을 입력하세요)</span>'}`;
+  }, 200);
+}
+document.getElementById('cardTypeSelect').addEventListener('change', updatePreview);
+problemTitle.addEventListener('input', updatePreview);
+editArea.addEventListener('input', updatePreview);
+
 function applyIncomingCard(card){
   if(!card) return;
+  if(bridgeDirty && bridgeCardId && card.id !== bridgeCardId){
+    if(!confirm('현재 카드에 저장하지 않은 변경사항이 있어요. 저장하지 않고 다른 카드를 불러올까요?')) return;
+  }
   bridgeCardId = card.id || null;
+  bridgeDirty = false;
   document.getElementById('cardTypeSelect').value = card.type || 'clue';
   problemTitle.value = card.keyword || '';
+  keywordImgs = Array.isArray(card.keywordImgs) ? card.keywordImgs.slice() : [];
+  renderKeywordImgZone();
   // recallHtml(서식 포함)이 있으면 그대로, 없으면 기존 plain text(recall)를 줄바꿈만 살려 넣는다
   if(card.recallHtml){
     editArea.innerHTML = card.recallHtml;
@@ -1926,6 +2033,7 @@ function applyIncomingCard(card){
     editArea.innerHTML = imgsHtml + editArea.innerHTML;
   }
   doAutosave();
+  updatePreview();
   showToast('📥 카드 내용을 불러왔습니다');
 }
 
@@ -1935,6 +2043,7 @@ function collectCardForSave(){
     id: bridgeCardId,
     type: document.getElementById('cardTypeSelect').value,
     keyword: problemTitle.value.trim(),
+    keywordImgs: keywordImgs.slice(),
     recallHtml: editArea.innerHTML,
     recallText: editArea.innerText || editArea.textContent || ''
   };
@@ -1945,6 +2054,7 @@ function sendCardBackToOpener(){
   const card = collectCardForSave();
   if(!card.keyword){ alert('키워드(카드 앞면)를 입력해주세요.'); return; }
   window.opener.postMessage({ type:'qb2-save-card', cardId: bridgeCardId, card }, '*');
+  bridgeDirty = false;
   showToast('💾 저장했습니다! 창을 닫습니다⋯');
   setTimeout(()=>window.close(), 400);
 }
@@ -1964,6 +2074,20 @@ if(window.opener){
   try{ window.opener.postMessage({ type:'qb2-editor-ready' }, '*'); }catch(e){}
 }
 
+/* 저장하지 않고 창을 닫으려 하면 경고 (브릿지 모드에서만) */
+window.addEventListener('beforeunload', (e)=>{
+  if(bridgeMode && bridgeDirty){
+    e.preventDefault();
+    e.returnValue = '저장하지 않은 변경사항이 있습니다. 정말 닫으시겠어요?';
+    return e.returnValue;
+  }
+});
+
+/* editArea/키워드 편집 시 dirty 표시 (자동저장 스케줄과 별개로 "저장 필요" 상태 추적) */
+editArea.addEventListener('input', markBridgeDirty);
+problemTitle.addEventListener('input', markBridgeDirty);
+document.getElementById('cardTypeSelect').addEventListener('change', markBridgeDirty);
+
 /* editArea에 이미지 붙여넣기 지원 (Ctrl+V로 캡쳐 이미지를 카드 내용 안에 바로 삽입) */
 editArea.addEventListener('paste', (e)=>{
   const items = (e.clipboardData || window.clipboardData).items;
@@ -1975,9 +2099,13 @@ editArea.addEventListener('paste', (e)=>{
   reader.onload = (ev)=>{
     document.execCommand('insertHTML', false, `<img src="${ev.target.result}" style="max-width:100%; border-radius:6px; display:block; margin:6px 0;">`);
     scheduleAutosave();
+    updatePreview();
   };
   reader.readAsDataURL(blob);
 });
+
+updatePreview();
 </script>
 </body>
 </html>
+
