@@ -784,6 +784,7 @@
   .flash-front .card-manage-btn{ background: var(--blue-100); color: var(--blue-700); }
   .flash-back .card-manage-btn{ background: rgba(255,255,255,0.15); color:#fff; }
   .card-manage-btn.del:hover{ background: var(--red-soft); color:var(--red); }
+  .card-manage-btn.richedit:hover{ background:#e3f4ec; color:#2d8a5f; }
   .review-stat{
     font-size:10px;
     font-weight:700;
@@ -1428,9 +1429,13 @@
       <div class="mini-paste" id="clueRcImgZone" tabindex="0" style="margin-top:6px;">
         <span>📎 이미지 붙여넣기 (선택, Ctrl+V)</span>
       </div>
+      <div id="richHtmlWarning" style="display:none; margin-top:6px; font-size:11.5px; color:var(--orange); background:var(--orange-soft,#fdeee0); border-radius:6px; padding:6px 8px;">
+        ⚠️ 이 카드는 📝 리치에디터의 서식(색상/공식 등)이 적용되어 있어요. 여기서 저장하면 서식이 사라지고 일반 텍스트로 바뀝니다. 서식을 유지하려면 취소하고 카드의 📝 리치에디터 버튼을 이용하세요.
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" id="cancelClueBtn">취소</button>
+      <button class="btn confirm" id="richEditFromModalBtn" style="display:none; background:#2d8a5f;">📝 리치에디터로 열기</button>
       <button class="btn confirm" id="confirmClue">저장</button>
     </div>
   </div>
@@ -3614,7 +3619,7 @@ function renderExamCardHtml(c){
       <div class="flash-face flash-back">
         <div>
           <div class="type-pip">${typeLabel} 정답</div>
-          <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+          <div class="recall">→ ${renderRecallHtml(c)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
         </div>
         <div class="flash-foot">
           <div class="review-row">
@@ -3816,13 +3821,14 @@ function renderClueStrip(p){
           </div>
           <div class="card-manage-row">
             <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
             <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
           </div>
         </div>
         <div class="flash-face flash-back">
           <div>
             <div class="type-pip">${typeLabel} 정답</div>
-            <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+            <div class="recall">→ ${renderRecallHtml(c)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
           </div>
           <div class="flash-foot">
             <div class="review-row">
@@ -3832,6 +3838,7 @@ function renderClueStrip(p){
           </div>
           <div class="card-manage-row">
             <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
             <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
           </div>
         </div>
@@ -3853,6 +3860,12 @@ function renderClueStrip(p){
         e.stopPropagation();
         const found = findClueCardById(btn.dataset.id);
         if(found) openClueModal(found.card.type, found.card);
+      });
+    });
+    card.querySelectorAll('.card-manage-btn.richedit').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        openRichCardEditor(btn.dataset.id, ()=>{ renderClueStrip(p); });
       });
     });
     card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
@@ -3886,6 +3899,66 @@ function deleteClueCardById(cardId){
   const cur = getProblem();
   if(cur && cur.id===found.problem.id) renderClueStrip(cur);
   if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+}
+
+/* ---------------- 리치에디터(edit_card.html) 연동 ----------------
+   edit_card.html을 같은 폴더에 두면, "📝 리치에디터" 버튼으로 새 창을 열어
+   서식/공식/계산기 도구로 카드 뒷면(recall)을 편집하고 postMessage로 돌려받는다.
+   카드에는 recallHtml(서식 있는 버전)이 있으면 그것을, 없으면 기존 plain text(recall)를
+   그대로 사용한다. */
+let richEditorWindow = null;
+let richEditorMessageHandler = null;
+
+function openRichCardEditor(cardId, onSaved){
+  const found = findClueCardById(cardId);
+  if(!found){ alert('카드를 찾을 수 없습니다.'); return; }
+  const card = found.card;
+
+  if(richEditorMessageHandler) window.removeEventListener('message', richEditorMessageHandler);
+  richEditorWindow = window.open('edit_card.html', 'qb2CardEditor', 'width=1100,height=900');
+  if(!richEditorWindow){
+    alert('팝업이 차단된 것 같습니다. 브라우저의 팝업 차단을 허용해주세요.\n(edit_card.html 파일이 quizbank2.html과 같은 폴더에 있어야 합니다)');
+    return;
+  }
+
+  richEditorMessageHandler = function(e){
+    if(!e.data || typeof e.data !== 'object') return;
+    if(e.source !== richEditorWindow) return;
+    if(e.data.type === 'qb2-editor-ready'){
+      richEditorWindow.postMessage({
+        type:'qb2-load-card',
+        card:{
+          id: card.id, type: card.type,
+          keyword: card.keyword,
+          recall: card.recall,
+          recallHtml: card.recallHtml || null,
+          recallImgs: card.recallImgs || []
+        }
+      }, '*');
+    } else if(e.data.type === 'qb2-save-card'){
+      const c = e.data.card || {};
+      card.type = c.type || card.type;
+      card.keyword = (c.keyword||'').trim() || card.keyword;
+      card.recallHtml = c.recallHtml || '';
+      card.recall = (c.recallText||'').trim();
+      saveState();
+      renderSideStat();
+      if(typeof onSaved === 'function') onSaved();
+      const cur = getProblem();
+      if(cur && cur.id===found.problem.id) renderClueStrip(cur);
+      if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+      window.removeEventListener('message', richEditorMessageHandler);
+      richEditorMessageHandler = null;
+    }
+  };
+  window.addEventListener('message', richEditorMessageHandler);
+}
+
+/* 카드 뒷면(recall) 표시용 HTML을 만든다: recallHtml(서식 있는 버전)이 있으면
+   그대로(신뢰된 자체 편집기 결과물) 사용하고, 없으면 기존처럼 plain text를 이스케이프+자동 줄바꿈한다 */
+function renderRecallHtml(c){
+  if(c.recallHtml) return c.recallHtml;
+  return formatCardText(c.recall);
 }
 
 function escapeHtml(s){
@@ -4111,8 +4184,18 @@ function openClueModal(type, editCard){
   renderMiniPaste(clueRcImgZone, pendingRcImgs, (v)=>pendingRcImgs=v);
   applyClueModalLabels(type, editCard ? ' 수정' : ' 등록');
   document.getElementById('confirmClue').textContent = editCard ? '수정 저장' : '저장';
+  const hasRichHtml = !!(editCard && editCard.recallHtml);
+  document.getElementById('richHtmlWarning').style.display = hasRichHtml ? 'block' : 'none';
+  const richBtn = document.getElementById('richEditFromModalBtn');
+  richBtn.style.display = editCard ? '' : 'none';
   openModal('overlayClue');
 }
+document.getElementById('richEditFromModalBtn').addEventListener('click', ()=>{
+  if(!pendingEditId) return;
+  const id = pendingEditId;
+  closeModal('overlayClue');
+  openRichCardEditor(id, ()=>{});
+});
 
 function applyClueModalLabels(type, suffix){
   if(type==='memo'){
@@ -4152,6 +4235,7 @@ document.getElementById('confirmClue').addEventListener('click', ()=>{
     if(found){
       found.card.keyword = kw;
       found.card.recall = rc;
+      found.card.recallHtml = ''; // 간단 편집(텍스트)으로 저장하면 리치에디터 서식은 초기화됨
       found.card.keywordImgs = pendingKwImgs;
       found.card.recallImgs = pendingRcImgs;
       found.card.type = pendingClueType;
@@ -4350,13 +4434,14 @@ function renderClueBank(){
           </div>
           <div class="card-manage-row">
             <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
             <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
           </div>
         </div>
         <div class="flash-face flash-back">
           <div>
             <div class="type-pip">${typeLabel} 정답</div>
-            <div class="recall">→ ${formatCardText(c.recall)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
+            <div class="recall">→ ${renderRecallHtml(c)}${(c.recallImgs||[]).map(src=>`<img src="${src}">`).join('')}</div>
           </div>
           <div class="flash-foot">
             <div class="review-row">
@@ -4366,6 +4451,7 @@ function renderClueBank(){
           </div>
           <div class="card-manage-row">
             <button class="card-manage-btn edit" data-id="${c.id}">✏️ 수정</button>
+            <button class="card-manage-btn richedit" data-id="${c.id}">📝 리치에디터</button>
             <button class="card-manage-btn del" data-id="${c.id}">🗑 삭제</button>
           </div>
         </div>
@@ -4387,6 +4473,12 @@ function renderClueBank(){
         e.stopPropagation();
         const found = findClueCardById(btn.dataset.id);
         if(found) openClueModal(found.card.type, found.card);
+      });
+    });
+    card.querySelectorAll('.card-manage-btn.richedit').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        openRichCardEditor(btn.dataset.id, doRender);
       });
     });
     card.querySelectorAll('.card-manage-btn.del').forEach(btn=>{
