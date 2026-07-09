@@ -1255,7 +1255,7 @@
       <div class="topbar">
         <div>
           <h2>🗂 단서카드함 / 암기카드함</h2>
-          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제 단위로 묶여서(회차·문제번호·우선순위 아래에 그 문제의 카드들) 보여지고, 각 문제 안에서는 단서→암기→템플릿→함정 순서입니다 · 데이터가 많아 기본으로 우선순위 1위 문제만 표시됩니다 (우선순위 칸을 비우면 전체가 보여요)</div>
+          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제 단위로 묶여서 우선순위 높은 순(같은 우선순위면 년도·회차 순) → 그 아래 문제번호 순으로 보여지고, 각 문제 안에서는 단서→암기→템플릿→함정 순서입니다 · 데이터가 많아 기본으로 우선순위 1위 문제만 표시됩니다 (우선순위 칸을 비우면 전체가 보여요)</div>
         </div>
       </div>
       <div class="filter-row">
@@ -4507,6 +4507,15 @@ function goToProblem(roundName, problemId){
 }
 
 const CARD_TYPE_ORDER = { clue:0, memo:1, template:2, trap:3 };
+function roundSortKey(name){
+  // "YYYY년 N회" 형식에서 년도+회차를 뽑아 시간순 정렬용 숫자키로 변환 (사이드바 우선순 보기와 동일한 순서를 만들기 위함)
+  const ym = String(name||'').match(/(\d{4})\s*년/);
+  const rm = String(name||'').match(/(\d+)\s*회/);
+  const year = ym ? parseInt(ym[1],10) : 0;
+  const round = rm ? parseInt(rm[1],10) : 0;
+  return year*100 + round;
+}
+
 function allClues(){
   const arr=[];
   Object.entries(state.rounds).forEach(([roundName, r])=>{
@@ -4517,13 +4526,18 @@ function allClues(){
     });
   });
   return arr.sort((a,b)=>{
-    // 1) 회차
-    if(a.round !== b.round) return a.round < b.round ? -1 : 1;
-    // 2) 같은 회차 내 문제번호
+    // 1) 우선순위(기출빈도 랭킹) 오름차순 · 우선순위 없는 문제는 뒤로 (사이드바 "우선순위순 보기"와 동일한 기준)
+    const aNoPri = a.priority==null, bNoPri = b.priority==null;
+    if(aNoPri !== bNoPri) return aNoPri ? 1 : -1;
+    if(!aNoPri && a.priority !== b.priority) return a.priority - b.priority;
+    // 2) 같은 우선순위(또는 둘 다 우선순위 없음) 안에서는 년도+회차 순
+    const ra = roundSortKey(a.round), rb = roundSortKey(b.round);
+    if(ra !== rb) return ra - rb;
+    // 3) 같은 회차 내 문제번호
     const pa = String(a.problemNum).padStart(6,'0');
     const pb = String(b.problemNum).padStart(6,'0');
     if(pa !== pb) return pa < pb ? -1 : 1;
-    // 3) 같은 문제 내 카드종류: 단서 → 암기 → 템플릿 → 함정
+    // 4) 같은 문제 내 카드종류: 단서 → 암기 → 템플릿 → 함정
     const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
     const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
     if(ta !== tb) return ta - tb;
