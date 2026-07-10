@@ -1255,7 +1255,7 @@
       <div class="topbar">
         <div>
           <h2>🗂 단서카드함 / 암기카드함</h2>
-          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제 단위로 묶여서 우선순위 높은 순(같은 우선순위면 년도·회차 순) → 그 아래 문제번호 순으로 보여지고, 각 문제 안에서는 단서→암기→템플릿→함정 순서입니다 · 데이터가 많아 기본으로 우선순위 1위 문제만 표시됩니다 (우선순위 칸을 비우면 전체가 보여요)</div>
+          <div class="meta">카드를 클릭하면 뒤집어서 정답을 확인할 수 있어요 · 위 필터로 단서카드/암기카드/템플릿카드/함정카드, 우선순위(기출빈도 랭킹)를 구분해서 볼 수 있습니다 · 카드는 문제 단위로 묶여서(회차·문제번호·우선순위 아래에 그 문제의 카드들) 보여지고, 각 문제 안에서는 단서→암기→템플릿→함정 순서입니다 · 데이터가 많아 기본으로 우선순위 1위 문제만 표시됩니다 (우선순위 칸을 비우면 전체가 보여요)</div>
         </div>
       </div>
       <div class="filter-row">
@@ -2015,13 +2015,42 @@ async function archiveRoundImages(roundName){
   }
 }
 
+/* 저장돼 있던 archiveFileId로 압축파일을 못 찾을 때(404), 파일 이름(images_회차명.zip)으로
+   드라이브에서 다시 찾아본다. 예전 저장 경합(레이스컨디션) 등으로 JSON에 저장된 파일ID가
+   실제 드라이브 파일ID와 어긋나 있어도, 이름 기반으로 다시 연결해 복구할 수 있게 하기 위함. */
+async function findArchiveFileIdByName(roundName){
+  if(!folderId) return null;
+  const fileName = `images_${roundName}.zip`;
+  const q = encodeURIComponent(`name='${fileName.replace(/'/g,"\\'")}' and '${folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=10`);
+  const data = await res.json();
+  return (data.files && data.files.length) ? data.files[0].id : null;
+}
+
+async function fetchArchiveZipBytes(roundName){
+  const r = state.rounds[roundName];
+  try{
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${r.archiveFileId}?alt=media`);
+    return await res.arrayBuffer();
+  }catch(e){
+    const msg = String(e && e.message || e);
+    if(!(msg.includes('(404)') || msg.includes('File not found'))) throw e;
+    // 저장된 파일ID가 어긋난 것 같으니 파일명으로 다시 찾아서 재연결 시도
+    const foundId = await findArchiveFileIdByName(roundName);
+    if(!foundId) throw e; // 이름으로도 못 찾으면 원래 오류를 그대로 던짐 (진짜로 없는 것)
+    r.archiveFileId = foundId;
+    saveState();
+    const res2 = await driveFetch(`https://www.googleapis.com/drive/v3/files/${foundId}?alt=media`);
+    return await res2.arrayBuffer();
+  }
+}
+
 async function restoreSpecificProblemImages(roundName, nums){
   const r = state.rounds[roundName];
   if(!r || !r.archived || !r.archiveFileId) return;
   if(typeof JSZip==='undefined'){ alert('압축 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'); return; }
 
-  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${r.archiveFileId}?alt=media`);
-  const buf = await res.arrayBuffer();
+  const buf = await fetchArchiveZipBytes(roundName);
   const zip = await JSZip.loadAsync(buf);
   const fileNames = Object.keys(zip.files);
 
@@ -2173,15 +2202,20 @@ async function loadMockExamImages(){
   });
   if(!Object.keys(byRound).length){ renderProblemList(); return; }
   setSyncStatus('busy', `모의고사 이미지 불러오는 중... (회차 ${Object.keys(byRound).length}개)`);
-  try{
-    for(const [roundName, nums] of Object.entries(byRound)){
+  const failedRounds = [];
+  for(const [roundName, nums] of Object.entries(byRound)){
+    try{
       await restoreSpecificProblemImages(roundName, nums);
+    }catch(e){
+      console.error(roundName, e);
+      failedRounds.push({roundName, e});
     }
+  }
+  if(failedRounds.length){
+    setSyncStatus('err', `이미지 불러오기 일부 실패 (${failedRounds.length}개 회차)`);
+    handleArchiveLoadError(failedRounds[0].roundName, failedRounds[0].e);
+  } else {
     setSyncStatus('ok', '모의고사 이미지 불러오기 완료');
-  }catch(e){
-    console.error(e);
-    setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
-    alert('일부 이미지를 불러오지 못했습니다: ' + e.message);
   }
   renderProblemList();
   renderSolveView();
@@ -2259,15 +2293,20 @@ async function loadPriorityBatchImages(){
   });
 
   setSyncStatus('busy', `우선순위 상위 이미지 불러오는 중... (회차 ${Object.keys(byRound).length}개)`);
-  try{
-    for(const [roundName, nums] of Object.entries(byRound)){
+  const failedRounds = [];
+  for(const [roundName, nums] of Object.entries(byRound)){
+    try{
       await restoreSpecificProblemImages(roundName, nums);
+    }catch(e){
+      console.error(roundName, e);
+      failedRounds.push({roundName, e});
     }
+  }
+  if(failedRounds.length){
+    setSyncStatus('err', `이미지 불러오기 일부 실패 (${failedRounds.length}개 회차)`);
+    handleArchiveLoadError(failedRounds[0].roundName, failedRounds[0].e);
+  } else {
     setSyncStatus('ok', '우선순위 이미지 불러오기 완료 (임시 조회 · 메인 데이터는 그대로 가벼움)');
-  }catch(e){
-    console.error(e);
-    setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
-    alert('일부 이미지를 불러오지 못했습니다: ' + e.message);
   }
   renderProblemList();
   renderSolveView();
@@ -2396,8 +2435,7 @@ async function restoreRoundImages(roundName){
 
   setSyncStatus('busy', '보관된 이미지 불러오는 중...');
   try{
-    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${r.archiveFileId}?alt=media`);
-    const buf = await res.arrayBuffer();
+    const buf = await fetchArchiveZipBytes(roundName);
     const zip = await JSZip.loadAsync(buf);
     const fileNames = Object.keys(zip.files);
 
@@ -2424,8 +2462,46 @@ async function restoreRoundImages(roundName){
   }catch(e){
     console.error(e);
     setSyncStatus('err', '이미지 불러오기 실패: ' + e.message);
-    alert('이미지를 불러오지 못했습니다: ' + e.message);
+    handleArchiveLoadError(roundName, e);
   }
+}
+
+/* 압축 이미지 파일을 불러오지 못했을 때(특히 404=파일을 찾을 수 없음) 원인 안내와
+   복구 불가능할 경우를 위한 잠금 해제 방법을 안내한다. 원본 raw JSON 에러를 그대로
+   alert에 띄우던 것보다 사람이 읽기 쉬운 메시지로 바꿨다. */
+function handleArchiveLoadError(roundName, e){
+  const msg = String(e && e.message || e);
+  const is404 = msg.includes('(404)') || msg.includes('File not found');
+  if(is404){
+    const proceed = confirm(
+      `"${roundName}" 회차의 압축 이미지 파일을 구글 드라이브에서 찾을 수 없습니다.\n` +
+      `(파일 이름(images_${roundName}.zip)으로 다시 찾아 자동으로 연결을 시도했지만 그것도 실패했습니다)\n\n` +
+      `아래를 확인해보세요:\n` +
+      `1) drive.google.com에서 "건축설비기사_퀴즈뱅크2_데이터" 폴더 안에 "images_${roundName}.zip" 파일이 정확히 그 폴더 안에 있는지 (다른 폴더로 옮겨졌다면 못 찾습니다)\n` +
+      `2) 휴지통에 들어가 있다면 "복원"을 눌러 되살리기 (되살리면 다시 정상적으로 불러와집니다)\n` +
+      `3) 파일이 여러 개(images_${roundName} (1).zip 등 이름이 조금 다른 것)로 나뉘어 있는 건 아닌지\n` +
+      `4) 폴더에도 휴지통에도 정말 없다면(완전히 삭제됨), 안타깝지만 이 회차의 압축 보관 이미지는 복구할 수 없습니다.\n\n` +
+      `※ 참고: 이미지 압축 보관 파일은 문제/카드 데이터와 별도의 파일이라, 최근 추가된 자동 백업(🗄 백업 관리)의 보호 대상이 아닙니다.\n\n` +
+      `확인을 누르면, "복구 불가 확정 → 이 회차의 압축 보관 상태를 해제"할지 다시 한 번 물어봅니다. (이미지는 못 살리지만, 최소한 이 화면이 계속 오류나는 건 막을 수 있어요)`
+    );
+    if(proceed) offerForceUnarchive(roundName);
+  } else {
+    alert('이미지를 불러오지 못했습니다: ' + msg);
+  }
+}
+
+function offerForceUnarchive(roundName){
+  const r = state.rounds[roundName];
+  if(!r) return;
+  if(!confirm(`정말로 "${roundName}" 압축 보관 상태를 해제할까요?\n\n이 작업은 압축 이미지를 복구하는 게 아니라, 접근 불가능한 연결을 끊어서 이 화면이 계속 오류나는 것만 막습니다.\n(카드 데이터는 그대로 안전하게 남아있고, 문제 이미지만 비어있는 상태가 됩니다)`)) return;
+  delete r.archiveFileId;
+  delete r.archiveFileName;
+  r.archived = false;
+  saveState();
+  renderProblemList();
+  renderSolveView();
+  renderArchiveBox();
+  alert('압축 보관 상태를 해제했습니다. 문제/카드 데이터는 그대로지만, 이 회차의 이미지는 (있었다면) 남아있지 않습니다.');
 }
 
 async function unarchiveRoundPermanently(roundName){
@@ -4507,15 +4583,6 @@ function goToProblem(roundName, problemId){
 }
 
 const CARD_TYPE_ORDER = { clue:0, memo:1, template:2, trap:3 };
-function roundSortKey(name){
-  // "YYYY년 N회" 형식에서 년도+회차를 뽑아 시간순 정렬용 숫자키로 변환 (사이드바 우선순 보기와 동일한 순서를 만들기 위함)
-  const ym = String(name||'').match(/(\d{4})\s*년/);
-  const rm = String(name||'').match(/(\d+)\s*회/);
-  const year = ym ? parseInt(ym[1],10) : 0;
-  const round = rm ? parseInt(rm[1],10) : 0;
-  return year*100 + round;
-}
-
 function allClues(){
   const arr=[];
   Object.entries(state.rounds).forEach(([roundName, r])=>{
@@ -4526,18 +4593,13 @@ function allClues(){
     });
   });
   return arr.sort((a,b)=>{
-    // 1) 우선순위(기출빈도 랭킹) 오름차순 · 우선순위 없는 문제는 뒤로 (사이드바 "우선순위순 보기"와 동일한 기준)
-    const aNoPri = a.priority==null, bNoPri = b.priority==null;
-    if(aNoPri !== bNoPri) return aNoPri ? 1 : -1;
-    if(!aNoPri && a.priority !== b.priority) return a.priority - b.priority;
-    // 2) 같은 우선순위(또는 둘 다 우선순위 없음) 안에서는 년도+회차 순
-    const ra = roundSortKey(a.round), rb = roundSortKey(b.round);
-    if(ra !== rb) return ra - rb;
-    // 3) 같은 회차 내 문제번호
+    // 1) 회차
+    if(a.round !== b.round) return a.round < b.round ? -1 : 1;
+    // 2) 같은 회차 내 문제번호
     const pa = String(a.problemNum).padStart(6,'0');
     const pb = String(b.problemNum).padStart(6,'0');
     if(pa !== pb) return pa < pb ? -1 : 1;
-    // 4) 같은 문제 내 카드종류: 단서 → 암기 → 템플릿 → 함정
+    // 3) 같은 문제 내 카드종류: 단서 → 암기 → 템플릿 → 함정
     const ta = CARD_TYPE_ORDER[a.type||'clue'] ?? 0;
     const tb = CARD_TYPE_ORDER[b.type||'clue'] ?? 0;
     if(ta !== tb) return ta - tb;
