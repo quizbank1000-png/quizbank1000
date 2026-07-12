@@ -1130,36 +1130,6 @@
       ⚠️ 다른 기기에서 저장한 내용이 있는 것 같아요. 방금 그 내용을 백업으로 남기고 지금 이 화면 내용으로 덮어썼습니다.
       <button class="mini-btn secondary" id="viewConflictBackupBtn" style="width:100%; margin-top:5px; padding:4px;">🗄 백업에서 이전 내용 확인하기</button>
     </div>
-    <button class="io-btn" id="btn-backups" style="width:100%; margin-bottom:8px;" title="자동으로 주기적 백업되며, 예전 시점으로 복원할 수 있습니다">🗄 백업 관리</button>
-
-    <div class="nav-group">
-      <button class="nav-btn active" data-view="solve" title="회차 풀이"><span class="nav-icon">📝</span><span class="sidebar-label">회차풀이</span></button>
-      <button class="nav-btn" data-view="clues" title="단서카드함"><span class="nav-icon">🗂</span><span class="sidebar-label">단서카드</span></button>
-      <button class="nav-btn" data-view="traps" title="함정유형별 모아보기"><span class="nav-icon">⚠️</span><span class="sidebar-label">함정유형</span></button>
-      <button class="nav-btn" data-view="stats" title="오답노트/통계"><span class="nav-icon">📊</span><span class="sidebar-label">오답노트</span></button>
-      <button class="nav-btn" id="manageFieldsBtn" title="분야 관리"><span class="nav-icon">⚙️</span><span class="sidebar-label">분야관리</span></button>
-      <button class="nav-btn" id="bulkImportBtn" title="JSON으로 문제/카드 일괄 가져오기"><span class="nav-icon">📥</span><span class="sidebar-label">가져오기</span></button>
-      <input type="file" id="bulkImportFile" accept="application/json" style="display:none;">
-    </div>
-
-    <div class="round-select-box">
-      <label>년도 + 회차</label>
-      <select id="roundSelect"></select>
-      <div class="round-actions">
-        <button class="mini-btn" id="addRoundBtn">+ 회차 추가</button>
-        <button class="mini-btn secondary" id="delRoundBtn">삭제</button>
-      </div>
-      <div id="archiveBox" style="margin-top:8px; padding:8px; border:1px solid #333; border-radius:8px; font-size:12px; display:none;">
-        <div id="archiveStatusText" style="margin-bottom:6px; opacity:0.85;"></div>
-        <button class="mini-btn secondary" id="archiveRoundBtn" style="width:100%; margin-bottom:4px;" title="이 회차의 문제·풀이 이미지를 압축해서 드라이브에 별도 보관하고, 메인 데이터에서는 이미지를 비웁니다.">📦 이 회차 이미지 압축 보관</button>
-        <button class="mini-btn secondary" id="restoreRoundBtn" style="width:100%; margin-bottom:4px; display:none;" title="보관된 압축파일에서 이미지를 불러와 화면에 표시합니다 (임시 조회, 메인 데이터는 그대로 가벼운 상태 유지).">📂 이미지 불러오기</button>
-        <button class="mini-btn secondary" id="unarchiveRoundBtn" style="width:100%; display:none;" title="이미지를 다시 불러와서 메인 데이터에 영구적으로 되돌립니다 (이후 압축파일은 삭제됩니다).">♻️ 보관 해제(영구 복원)</button>
-        <button class="mini-btn secondary" id="relinkArchiveBtn" style="width:100%; display:none; background:#2d5a8a;" title="이 회차에 등록된 이미지는 없지만, 드라이브에 압축 이미지 파일(images_회차명.zip)이 남아있을 수 있는 경우 이름으로 다시 찾아 연결을 시도합니다.">🔗 압축 이미지 파일 다시 연결 시도</button>
-        <button class="mini-btn secondary" id="localZipRestoreBtn" style="width:100%; margin-top:4px; background:#5a3d8a;" title="구글 드라이브 웹사이트에서 이 회차의 images_*.zip 파일을 다운로드한 뒤, 그 파일을 여기서 직접 선택해 이미지를 복원합니다. (앱이 드라이브에서 해당 파일을 못 찾을 때 쓰는 방법)">📁 다운로드한 zip 파일로 복원</button>
-        <input type="file" id="localZipRestoreFile" accept=".zip,application/zip" style="display:none;">
-      </div>
-    </div>
-
     <div class="round-select-box" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <label>문제 목록</label>
       <input type="text" id="problemSearchInput" placeholder="🔍 검색 (분야·번호·단서카드 키워드...)" style="margin-bottom:5px; width:100%; box-sizing:border-box; padding:6px 8px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12px;">
@@ -1198,6 +1168,36 @@
       <div id="priorityImportedAtText" style="font-size:10px; opacity:0.7; margin-top:2px; text-align:center;"></div>
       <input type="file" id="priorityImportFile" accept="application/json" style="display:none;">
       <button class="mini-btn secondary" id="mockExamBtn" style="margin-top:6px; flex:0 0 auto; padding:14px 4px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="전체 문제 중 유형이 겹치지 않게 13문제를 랜덤으로 뽑아 모의고사를 구성합니다.">🎓 모의고사 시작</button>
+    </div>
+
+    <button class="io-btn" id="btn-backups" style="width:100%; margin-bottom:8px;" title="자동으로 주기적 백업되며, 예전 시점으로 복원할 수 있습니다">🗄 백업 관리</button>
+
+    <div class="nav-group">
+      <button class="nav-btn active" data-view="solve" title="회차 풀이"><span class="nav-icon">📝</span><span class="sidebar-label">회차풀이</span></button>
+      <button class="nav-btn" data-view="clues" title="단서카드함"><span class="nav-icon">🗂</span><span class="sidebar-label">단서카드</span></button>
+      <button class="nav-btn" data-view="traps" title="함정유형별 모아보기"><span class="nav-icon">⚠️</span><span class="sidebar-label">함정유형</span></button>
+      <button class="nav-btn" data-view="stats" title="오답노트/통계"><span class="nav-icon">📊</span><span class="sidebar-label">오답노트</span></button>
+      <button class="nav-btn" id="manageFieldsBtn" title="분야 관리"><span class="nav-icon">⚙️</span><span class="sidebar-label">분야관리</span></button>
+      <button class="nav-btn" id="bulkImportBtn" title="JSON으로 문제/카드 일괄 가져오기"><span class="nav-icon">📥</span><span class="sidebar-label">가져오기</span></button>
+      <input type="file" id="bulkImportFile" accept="application/json" style="display:none;">
+    </div>
+
+    <div class="round-select-box">
+      <label>년도 + 회차</label>
+      <select id="roundSelect"></select>
+      <div class="round-actions">
+        <button class="mini-btn" id="addRoundBtn">+ 회차 추가</button>
+        <button class="mini-btn secondary" id="delRoundBtn">삭제</button>
+      </div>
+      <div id="archiveBox" style="margin-top:8px; padding:8px; border:1px solid #333; border-radius:8px; font-size:12px; display:none;">
+        <div id="archiveStatusText" style="margin-bottom:6px; opacity:0.85;"></div>
+        <button class="mini-btn secondary" id="archiveRoundBtn" style="width:100%; margin-bottom:4px;" title="이 회차의 문제·풀이 이미지를 압축해서 드라이브에 별도 보관하고, 메인 데이터에서는 이미지를 비웁니다.">📦 이 회차 이미지 압축 보관</button>
+        <button class="mini-btn secondary" id="restoreRoundBtn" style="width:100%; margin-bottom:4px; display:none;" title="보관된 압축파일에서 이미지를 불러와 화면에 표시합니다 (임시 조회, 메인 데이터는 그대로 가벼운 상태 유지).">📂 이미지 불러오기</button>
+        <button class="mini-btn secondary" id="unarchiveRoundBtn" style="width:100%; display:none;" title="이미지를 다시 불러와서 메인 데이터에 영구적으로 되돌립니다 (이후 압축파일은 삭제됩니다).">♻️ 보관 해제(영구 복원)</button>
+        <button class="mini-btn secondary" id="relinkArchiveBtn" style="width:100%; display:none; background:#2d5a8a;" title="이 회차에 등록된 이미지는 없지만, 드라이브에 압축 이미지 파일(images_회차명.zip)이 남아있을 수 있는 경우 이름으로 다시 찾아 연결을 시도합니다.">🔗 압축 이미지 파일 다시 연결 시도</button>
+        <button class="mini-btn secondary" id="localZipRestoreBtn" style="width:100%; margin-top:4px; background:#5a3d8a;" title="구글 드라이브 웹사이트에서 이 회차의 images_*.zip 파일을 다운로드한 뒤, 그 파일을 여기서 직접 선택해 이미지를 복원합니다. (앱이 드라이브에서 해당 파일을 못 찾을 때 쓰는 방법)">📁 다운로드한 zip 파일로 복원</button>
+        <input type="file" id="localZipRestoreFile" accept=".zip,application/zip" style="display:none;">
+      </div>
     </div>
 
     <div class="stat-foot" id="sideStat">단서카드 0장 · 함정메모 0건</div>
