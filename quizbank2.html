@@ -1136,6 +1136,8 @@
         <button class="mini-btn secondary" id="restoreRoundBtn" style="width:100%; margin-bottom:4px; display:none;" title="보관된 압축파일에서 이미지를 불러와 화면에 표시합니다 (임시 조회, 메인 데이터는 그대로 가벼운 상태 유지).">📂 이미지 불러오기</button>
         <button class="mini-btn secondary" id="unarchiveRoundBtn" style="width:100%; display:none;" title="이미지를 다시 불러와서 메인 데이터에 영구적으로 되돌립니다 (이후 압축파일은 삭제됩니다).">♻️ 보관 해제(영구 복원)</button>
         <button class="mini-btn secondary" id="relinkArchiveBtn" style="width:100%; display:none; background:#2d5a8a;" title="이 회차에 등록된 이미지는 없지만, 드라이브에 압축 이미지 파일(images_회차명.zip)이 남아있을 수 있는 경우 이름으로 다시 찾아 연결을 시도합니다.">🔗 압축 이미지 파일 다시 연결 시도</button>
+        <button class="mini-btn secondary" id="localZipRestoreBtn" style="width:100%; margin-top:4px; background:#5a3d8a;" title="구글 드라이브 웹사이트에서 이 회차의 images_*.zip 파일을 다운로드한 뒤, 그 파일을 여기서 직접 선택해 이미지를 복원합니다. (앱이 드라이브에서 해당 파일을 못 찾을 때 쓰는 방법)">📁 다운로드한 zip 파일로 복원</button>
+        <input type="file" id="localZipRestoreFile" accept=".zip,application/zip" style="display:none;">
       </div>
     </div>
 
@@ -2614,6 +2616,76 @@ document.getElementById('unarchiveRoundBtn').addEventListener('click', ()=>{
 document.getElementById('relinkArchiveBtn').addEventListener('click', ()=>{
   if(state.currentRound) relinkArchiveByName(state.currentRound);
 });
+document.getElementById('localZipRestoreBtn').addEventListener('click', ()=>{
+  document.getElementById('localZipRestoreFile').click();
+});
+document.getElementById('localZipRestoreFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  if(!state.currentRound) return;
+  await restoreRoundImagesFromLocalFile(state.currentRound, file);
+});
+
+/* 드라이브 API로는 그 압축파일에 접근이 안 될 때(예: 예전에 다른 방식/계정으로 올라간 파일이라
+   현재 앱의 접근권한이 없는 경우)를 위한 우회 경로: 사용자가 구글 드라이브 웹사이트에서
+   직접 zip을 다운로드해서 로컬 파일로 선택하면, 드라이브 API를 거치지 않고 브라우저에서
+   그 파일을 바로 읽어서 복원한다. */
+async function restoreRoundImagesFromLocalFile(roundName, file){
+  const r = state.rounds[roundName];
+  if(!r) return;
+  if(typeof JSZip==='undefined'){ alert('압축 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'); return; }
+
+  const totalImgs = r.problems.reduce((sum,p)=> sum + ARCHIVE_IMG_FIELDS.reduce((s,f)=>s+(p[f]||[]).length,0), 0);
+  if(totalImgs > 0 && !confirm(`현재 이 회차에 있는 이미지 ${totalImgs}장을 지우고, 선택한 파일("${file.name}") 내용으로 다시 채웁니다.\n계속할까요?`)) return;
+
+  setSyncStatus('busy', '선택한 zip 파일 읽는 중...');
+  try{
+    const buf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    const fileNames = Object.keys(zip.files);
+    const zipMap = groupZipEntriesByProblem(fileNames);
+    if(!Object.keys(zipMap).length){
+      setSyncStatus('ok','');
+      alert('선택한 파일 안에서 이미지를 찾지 못했습니다. 이 앱에서 만든 zip 파일이 맞는지 확인해주세요.');
+      return;
+    }
+
+    r.problems.forEach(p=>{ ARCHIVE_IMG_FIELDS.forEach(field=>{ p[field] = []; }); });
+    for(const p of r.problems){
+      const byField = zipMap[String(p.num).trim()];
+      if(!byField) continue;
+      for(const field of ARCHIVE_IMG_FIELDS){
+        const entries = byField[field];
+        if(!entries || !entries.length) continue;
+        const arr = [];
+        for(const {name} of entries){
+          const ext = name.split('.').pop();
+          const bytes = await zip.files[name].async('uint8array');
+          arr.push(uint8ArrayToDataURL(bytes, mimeFromExt(ext)));
+        }
+        p[field] = arr;
+      }
+    }
+    // 드라이브 API로 접근 불가능했던 파일이므로, 압축보관 상태로 다시 연결하지 않고
+    // 이미지를 메인 데이터로 직접 복원한 상태로 둔다 (원하면 이후 다시 압축보관 가능)
+    r.archived = false;
+    delete r.archiveFileId;
+    delete r.archiveFileName;
+    await saveState();
+
+    const newTotal = r.problems.reduce((sum,p)=> sum + ARCHIVE_IMG_FIELDS.reduce((s,f)=>s+(p[f]||[]).length,0), 0);
+    setSyncStatus('ok', '로컬 zip에서 이미지 복원 완료');
+    renderProblemList();
+    renderSolveView();
+    renderArchiveBox();
+    alert(`선택한 zip 파일에서 이미지 ${newTotal}장을 복원했습니다.\n필요하면 "📦 이 회차 이미지 압축 보관"으로 다시 압축 보관하셔도 됩니다 (이번엔 이 앱이 직접 새로 올리는 파일이라 이후엔 이런 접근 문제가 생기지 않을 거예요).`);
+  }catch(e){
+    console.error(e);
+    setSyncStatus('err', '복원 실패');
+    alert('zip 파일을 읽는 중 오류가 발생했습니다: ' + e.message + '\n(선택한 파일이 이 앱에서 만든 zip이 맞는지 확인해주세요)');
+  }
+}
 
 /* 이 회차의 이미지를 드라이브의 "images_회차명.zip" 파일 내용으로 (다시) 채운다.
    이미지가 하나도 없을 때는 "연결이 끊긴 경우" 복구용이고, 이미 몇 장 있어도
