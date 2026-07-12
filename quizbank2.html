@@ -996,6 +996,25 @@
   }
   .sync-bar .io-btn:hover{ background: rgba(255,255,255,0.22); }
 
+  .my-answer-text-box{
+    margin-bottom:14px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow: var(--shadow);
+    padding:12px 14px;
+  }
+  .my-answer-text-box .ma-btn{
+    border:none; border-radius:6px; font-size:11px; font-weight:700;
+    padding:4px 9px; cursor:pointer; background:var(--blue-100); color:var(--blue-700);
+  }
+  .my-answer-text-box .ma-btn.del:hover{ background:var(--red-soft); color:var(--red); }
+  .my-answer-text-box .ma-btn.richedit:hover{ background:#e3f4ec; color:#2d8a5f; }
+  .my-answer-text-content{
+    font-size:12.5px; line-height:1.65; word-break:break-word;
+  }
+  .my-answer-text-content img{ max-width:100%; border-radius:6px; display:block; margin:6px 0; }
+
   .history-box{
     margin-top:16px;
     background:#fff;
@@ -1155,6 +1174,12 @@
         <select id="problemRoundFilterSel"><option value="">전체 회차</option></select>
       </div>
       <select id="problemFieldFilter" style="margin-bottom:6px;"><option value="">전체 분야</option></select>
+      <div class="problem-filter-row" id="priorityRangeRow" style="display:none; gap:6px; align-items:center; margin-bottom:6px;" title="우선순위(기출빈도 랭킹) N위~M위만 표시합니다. 한쪽만 입력해도 됩니다.">
+        <span style="font-size:11px; color:var(--ink-soft,#8a93a3); white-space:nowrap;">🎯 우선순위</span>
+        <input type="number" id="problemPriorityMin" min="1" placeholder="이상(예:1)" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12px;">
+        <span style="font-size:11px; color:var(--ink-soft,#8a93a3);">~</span>
+        <input type="number" id="problemPriorityMax" min="1" placeholder="이하(예:3)" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12px;">
+      </div>
       <div style="font-size:10.5px; color:var(--ink-soft, #8a93a3); margin:2px 0 3px 2px; font-weight:700;">표시 옵션</div>
       <label class="checkbox-row small">
         <input type="checkbox" id="showExcludedToggle">
@@ -1237,6 +1262,7 @@
             </div>
           </div>
           <div id="myAnswerPane" style="display:none;">
+            <div class="my-answer-text-box" id="myAnswerTextBox"></div>
             <div class="paste-zone" id="myAnswerPaste" tabindex="0">
               <div class="hint-icon">✍️</div>
               <div>직접 푼 <b>나의 답안</b>을 사진 찍어 Ctrl+V로 붙여넣으세요</div>
@@ -3242,7 +3268,7 @@ function importBulkData(data){
     let p = r.problems.find(x=>String(x.num).trim()===num);
     if(!p){
       p = { id:uid(), num, field: incoming.field || (state.fields[0]||''), excludeReview:false,
-            problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[],
+            problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', clueCards:[], wrongNotes:[],
             solvedCorrect:false, solveSessions:[], runningStartedAt:null };
       r.problems.push(p);
       addedProblems++;
@@ -3689,6 +3715,21 @@ function getFilteredSortedProblemItems(){
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
   if(sortByPriority && !showPriorityDone) items = items.filter(it=>!it.p.priorityDone);
+  if(sortByPriority){
+    const minRaw = document.getElementById('problemPriorityMin').value;
+    const maxRaw = document.getElementById('problemPriorityMax').value;
+    const minV = minRaw!=='' ? Number(minRaw) : null;
+    const maxV = maxRaw!=='' ? Number(maxRaw) : null;
+    if((minV!=null && !isNaN(minV)) || (maxV!=null && !isNaN(maxV))){
+      items = items.filter(it=>{
+        const pv = (it.p.priority!=null && it.p.priority!=='') ? Number(it.p.priority) : null;
+        if(pv==null) return false;
+        if(minV!=null && !isNaN(minV) && pv<minV) return false;
+        if(maxV!=null && !isNaN(maxV) && pv>maxV) return false;
+        return true;
+      });
+    }
+  }
   if(searchVal) items = items.filter(it=>matchesSearch(it, searchVal));
 
   if(sortByPriority){
@@ -3795,11 +3836,19 @@ document.getElementById('problemYearFilter').addEventListener('change', ()=>{
   renderProblemList();
 });
 document.getElementById('viewModeSelect').addEventListener('change', ()=>{
-  const {scopeAll} = getViewModeFlags();
+  const {scopeAll, sortByPriority} = getViewModeFlags();
   document.getElementById('problemGlobalFilters').style.display = scopeAll ? 'flex' : 'none';
+  document.getElementById('priorityRangeRow').style.display = sortByPriority ? 'flex' : 'none';
   if(scopeAll) renderProblemYearRoundFilterOptions();
   priorityBatchOffset = 0;
   renderProblemList();
+});
+let priorityRangeDebounceTimer = null;
+['problemPriorityMin','problemPriorityMax'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    clearTimeout(priorityRangeDebounceTimer);
+    priorityRangeDebounceTimer = setTimeout(()=>{ priorityBatchOffset = 0; renderProblemList(); }, 250);
+  });
 });
 let searchDebounceTimer = null;
 document.getElementById('problemSearchInput').addEventListener('input', ()=>{
@@ -3853,7 +3902,7 @@ document.getElementById('confirmProblem').addEventListener('click', ()=>{
     renderSolveView();
   } else {
     const r = getRound();
-    const p = { id:uid(), num, field, excludeReview, problemImgs:[], solutionImgs:[], myAnswerImgs:[], clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+    const p = { id:uid(), num, field, excludeReview, problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
     r.problems.push(p);
     state.currentProblemId = p.id;
     renderProblemList();
@@ -4036,6 +4085,8 @@ function renderSolveView(){
   bindPasteZone(document.getElementById('problemPaste'), p, 'problemImgs', '문제 이미지', '🖼️');
   bindPasteZone(document.getElementById('solutionPaste'), p, 'solutionImgs', '풀이/정답 이미지', '✅');
   bindPasteZone(document.getElementById('myAnswerPaste'), p, 'myAnswerImgs', '나의 답안 이미지', '✍️');
+  myAnswerTextEditMode = false;
+  renderMyAnswerTextBox(p);
   renderClueStrip(p);
   renderHistoryBox(p);
   updateTimerDisplay();
@@ -4113,6 +4164,96 @@ function renderPasteZone(zoneEl, imgs, onChange, label, icon){
       reader.readAsDataURL(blob);
     });
   };
+}
+
+/* ---------------- 나의 답안 - 텍스트 등록 (이미지와 별도로, 일반텍스트/리치에디터 둘 다 지원) ---------------- */
+let myAnswerTextEditMode = false;
+
+function renderMyAnswerTextBox(p){
+  const box = document.getElementById('myAnswerTextBox');
+  if(!box || !p) return;
+  box.innerHTML = '';
+  const hasText = !!((p.myAnswerText && p.myAnswerText.trim()) || (p.myAnswerTextHtml && p.myAnswerTextHtml.trim()));
+
+  if(myAnswerTextEditMode){
+    const ta = document.createElement('textarea');
+    ta.value = p.myAnswerText || '';
+    ta.placeholder = '직접 푼 답안을 텍스트로 입력하세요...';
+    ta.style.cssText = 'width:100%; min-height:110px; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:#fbfcfe; color:#111; font-size:12.5px; resize:vertical; font-family:inherit;';
+    box.appendChild(ta);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:6px; margin-top:8px;';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'ma-btn';
+    saveBtn.style.cssText = 'flex:1; padding:7px 4px; font-size:12px;';
+    saveBtn.textContent = '💾 저장';
+    saveBtn.addEventListener('click', ()=>{
+      p.myAnswerText = ta.value.trim();
+      p.myAnswerTextHtml = ''; // 일반 텍스트로 저장하면 이전 리치에디터 서식은 초기화됨
+      saveState();
+      myAnswerTextEditMode = false;
+      renderMyAnswerTextBox(p);
+    });
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'ma-btn';
+    cancelBtn.style.cssText = 'flex:0 0 auto; padding:7px 12px; font-size:12px; background:#eee; color:#555;';
+    cancelBtn.textContent = '취소';
+    cancelBtn.addEventListener('click', ()=>{
+      myAnswerTextEditMode = false;
+      renderMyAnswerTextBox(p);
+    });
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+    box.appendChild(row);
+    ta.focus();
+    return;
+  }
+
+  if(!hasText){
+    const btn = document.createElement('button');
+    btn.className = 'ma-btn';
+    btn.style.cssText = 'width:100%; padding:8px 4px; font-size:12px;';
+    btn.textContent = '✏️ + 텍스트 답안 작성 (이미지 외에 직접 타이핑한 답안도 남길 수 있어요)';
+    btn.addEventListener('click', ()=>{ myAnswerTextEditMode = true; renderMyAnswerTextBox(p); });
+    box.appendChild(btn);
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;';
+  const title = document.createElement('b');
+  title.style.cssText = 'font-size:12px; color:var(--blue-900);';
+  title.textContent = '✍️ 나의 답안 (텍스트)';
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex; gap:5px; flex-wrap:wrap;';
+  btnRow.innerHTML = `
+    <button type="button" class="ma-btn edit-btn" title="일반 텍스트로 수정">✏️ 수정</button>
+    <button type="button" class="ma-btn richedit-btn richedit" title="리치에디터(카드에디터)로 수정">📝 리치에디터</button>
+    <button type="button" class="ma-btn del-btn del" title="삭제">🗑 삭제</button>
+  `;
+  header.appendChild(title);
+  header.appendChild(btnRow);
+  box.appendChild(header);
+
+  const content = document.createElement('div');
+  content.className = 'my-answer-text-content';
+  content.innerHTML = p.myAnswerTextHtml ? p.myAnswerTextHtml : formatCardText(p.myAnswerText);
+  box.appendChild(content);
+
+  btnRow.querySelector('.edit-btn').addEventListener('click', ()=>{
+    myAnswerTextEditMode = true;
+    renderMyAnswerTextBox(p);
+  });
+  btnRow.querySelector('.richedit-btn').addEventListener('click', ()=>{
+    openMyAnswerRichEditor(p, ()=>renderMyAnswerTextBox(p));
+  });
+  btnRow.querySelector('.del-btn').addEventListener('click', ()=>{
+    if(!confirm('나의 답안 텍스트를 삭제할까요? (붙여넣은 이미지는 삭제되지 않습니다)')) return;
+    p.myAnswerText = '';
+    p.myAnswerTextHtml = '';
+    saveState();
+    renderMyAnswerTextBox(p);
+  });
 }
 
 function renderClueStrip(p){
@@ -4273,11 +4414,11 @@ function sendCardToRichEditor(card){
   }, '*');
 }
 
-function openRichCardEditor(cardId, onSaved){
-  const found = findClueCardById(cardId);
-  if(!found){ alert('카드를 찾을 수 없습니다.'); return; }
-  const card = found.card;
-
+/* 리치에디터 창을 여는 공통(제네릭) 로직.
+   card: {id, type, keyword, keywordImgs, recall, recallHtml, recallImgs} 형태의 카드류 객체
+   onSave(c): edit_card.html이 'qb2-save-card'로 돌려준 결과(c)를 받아 실제 데이터 모델에 반영하는 콜백
+   onAfterSaved(): 저장 반영 후 화면을 다시 그리기 위한 콜백 (선택) */
+function openRichEditorGeneric(card, onSave, onAfterSaved){
   const reuseExisting = richEditorWindow && !richEditorWindow.closed;
 
   cleanupRichEditorListener();
@@ -4297,18 +4438,8 @@ function openRichCardEditor(cardId, onSaved){
       sendCardToRichEditor(card);
     } else if(e.data.type === 'qb2-save-card'){
       const c = e.data.card || {};
-      card.type = c.type || card.type;
-      card.keyword = (c.keyword||'').trim() || card.keyword;
-      card.keywordImgs = Array.isArray(c.keywordImgs) ? c.keywordImgs : (card.keywordImgs||[]);
-      card.recallHtml = c.recallHtml || '';
-      card.recall = (c.recallText||'').trim();
-      card.recallImgs = []; // 기존 recallImgs는 이제 recallHtml 안에 이미지로 포함되어 있으므로 비워서 중복 표시를 막는다
-      saveState();
-      renderSideStat();
-      if(typeof onSaved === 'function') onSaved();
-      const cur = getProblem();
-      if(cur && cur.id===found.problem.id) renderClueStrip(cur);
-      if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+      onSave(c);
+      if(typeof onAfterSaved === 'function') onAfterSaved();
     }
   };
   window.addEventListener('message', richEditorMessageHandler);
@@ -4328,6 +4459,46 @@ function openRichCardEditor(cardId, onSaved){
     }
     // 아직 이전 카드 로딩 중(ready 전)이라면 위 핸들러가 ready 수신 즉시 이 카드를 보낸다
   }
+}
+
+function openRichCardEditor(cardId, onSaved){
+  const found = findClueCardById(cardId);
+  if(!found){ alert('카드를 찾을 수 없습니다.'); return; }
+  const card = found.card;
+
+  openRichEditorGeneric(
+    { id: card.id, type: card.type, keyword: card.keyword, keywordImgs: card.keywordImgs||[], recall: card.recall, recallHtml: card.recallHtml||null, recallImgs: card.recallImgs||[] },
+    (c)=>{
+      card.type = c.type || card.type;
+      card.keyword = (c.keyword||'').trim() || card.keyword;
+      card.keywordImgs = Array.isArray(c.keywordImgs) ? c.keywordImgs : (card.keywordImgs||[]);
+      card.recallHtml = c.recallHtml || '';
+      card.recall = (c.recallText||'').trim();
+      card.recallImgs = []; // 기존 recallImgs는 이제 recallHtml 안에 이미지로 포함되어 있으므로 비워서 중복 표시를 막는다
+      saveState();
+      renderSideStat();
+      const cur = getProblem();
+      if(cur && cur.id===found.problem.id) renderClueStrip(cur);
+      if(document.getElementById('view-clues').style.display!=='none') renderClueBank();
+    },
+    onSaved
+  );
+}
+
+/* "나의 답안" 텍스트를 리치에디터(edit_card.html)로 편집한다.
+   단서카드처럼 앞/뒷면 구조가 아니라 답안 텍스트 하나뿐이므로,
+   앞면(keyword)에는 고정 라벨("나의 답안")을 넣어 edit_card.html의 저장 검증을 통과시키고,
+   실제로 사용하는 값은 뒷면(recall/recallHtml)뿐이다. */
+function openMyAnswerRichEditor(p, onAfterSaved){
+  openRichEditorGeneric(
+    { id: 'myAnswer-'+p.id, type:'clue', keyword: '나의 답안', keywordImgs: [], recall: p.myAnswerText||'', recallHtml: p.myAnswerTextHtml||null, recallImgs: [] },
+    (c)=>{
+      p.myAnswerTextHtml = c.recallHtml || '';
+      p.myAnswerText = (c.recallText||'').trim();
+      saveState();
+    },
+    onAfterSaved
+  );
 }
 
 /* 카드 뒷면(recall) 표시용 HTML을 만든다: recallHtml(서식 있는 버전)이 있으면
