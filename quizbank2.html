@@ -368,6 +368,11 @@
   .tool-btn.purple:hover{ background: #f1ebfa; }
   .tool-btn.teal{ border-color: #0b8a8a; color: #0b8a8a; }
   .tool-btn.teal:hover{ background: #e0f5f5; }
+  .tool-btn.model-answer{ border-color: #8a5a2d; color: #8a5a2d; }
+  .tool-btn.model-answer:hover{ background: #f5ede3; }
+  .tool-btn.model-answer.on{ background: #8a5a2d; border-color: #8a5a2d; color:#fff; }
+  .tool-btn.model-answer.on:hover{ background: #6e4722; }
+  .tool-btn.model-answer-edit{ padding:0 10px; }
   .tool-btn.exam-toggle{ border-color: var(--ink-soft); color: var(--ink-soft); }
   .tool-btn.exam-toggle:hover{ background: var(--line); }
   .tool-btn.exam-toggle.on{ background: var(--red); border-color: var(--red); color:#fff; }
@@ -1232,6 +1237,8 @@
         <div class="solve-toolbar">
           <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
           <button class="tool-btn exam-toggle" id="cardPackToggleBtn">🗂 카드팩 보기</button>
+          <button class="tool-btn model-answer" id="modelAnswerBtn">📄 모범답안 등록</button>
+          <button class="tool-btn model-answer model-answer-edit" id="modelAnswerEditBtn" title="모범답안 수정/삭제" style="display:none;">✏️</button>
           <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
           <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
           <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
@@ -1486,6 +1493,24 @@
       <button class="btn cancel" id="cancelClueBtn">취소</button>
       <button class="btn confirm" id="richEditFromModalBtn" style="display:none; background:#2d8a5f;">📝 리치에디터로 열기</button>
       <button class="btn confirm" id="confirmClue">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 모범답안 등록/수정 모달 -->
+<div class="overlay" id="overlayModelAnswer">
+  <div class="modal" style="width:760px; max-width:92vw;">
+    <h3 id="modelAnswerModalTitle">📄 모범답안 등록</h3>
+    <div class="desc">이 문제의 모범답안 HTML 문서를 붙여넣거나 직접 입력하세요. 저장하면 "모범답안 보기" 버튼으로 새 창에서 바로 열어볼 수 있어요.</div>
+    <div class="field">
+      <label>HTML 문서 내용</label>
+      <textarea id="modelAnswerHtmlInput" rows="14" placeholder="<html>...</html> 형태의 전체 HTML 코드를 붙여넣으세요" style="font-family:monospace; font-size:12px; white-space:pre;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" data-close="overlayModelAnswer">취소</button>
+      <button class="btn confirm red" id="deleteModelAnswerBtn" style="display:none;">삭제</button>
+      <button class="btn confirm" id="previewModelAnswerBtn" style="display:none; background:var(--green);">새 창 미리보기</button>
+      <button class="btn confirm" id="saveModelAnswerBtn">저장</button>
     </div>
   </div>
 </div>
@@ -3268,7 +3293,7 @@ function importBulkData(data){
     let p = r.problems.find(x=>String(x.num).trim()===num);
     if(!p){
       p = { id:uid(), num, field: incoming.field || (state.fields[0]||''), excludeReview:false,
-            problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', clueCards:[], wrongNotes:[],
+            problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', modelAnswerHtml:'', clueCards:[], wrongNotes:[],
             solvedCorrect:false, solveSessions:[], runningStartedAt:null };
       r.problems.push(p);
       addedProblems++;
@@ -3902,7 +3927,7 @@ document.getElementById('confirmProblem').addEventListener('click', ()=>{
     renderSolveView();
   } else {
     const r = getRound();
-    const p = { id:uid(), num, field, excludeReview, problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
+    const p = { id:uid(), num, field, excludeReview, problemImgs:[], solutionImgs:[], myAnswerImgs:[], myAnswerText:'', myAnswerTextHtml:'', modelAnswerHtml:'', clueCards:[], wrongNotes:[], solvedCorrect:false, solveSessions:[], runningStartedAt:null };
     r.problems.push(p);
     state.currentProblemId = p.id;
     renderProblemList();
@@ -3941,7 +3966,7 @@ function switchTab(which){
 let examMode = false;
 const examModeBtn = document.getElementById('examModeBtn');
 const viewTabsEl = document.querySelector('.view-tabs');
-const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn'].map(id=>document.getElementById(id));
+const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn','modelAnswerBtn'].map(id=>document.getElementById(id));
 
 /* 카드팩 보기 토글: 평소 모드/문제만 보기 모드 공통 버튼 하나 + 상태 하나
    (예전엔 모드별로 버튼이 따로 있어서 헷갈렸음 → 위치·이름·동작을 통일) */
@@ -3972,6 +3997,7 @@ function applyExamModeUI(){
     const p = getProblem();
     if(p) renderHistoryBox(p);
   }
+  updateModelAnswerBtn(getProblem());
 }
 examModeBtn.addEventListener('click', ()=>{
   examMode = !examMode;
@@ -4087,6 +4113,7 @@ function renderSolveView(){
   bindPasteZone(document.getElementById('myAnswerPaste'), p, 'myAnswerImgs', '나의 답안 이미지', '✍️');
   myAnswerTextEditMode = false;
   renderMyAnswerTextBox(p);
+  updateModelAnswerBtn(p);
   renderClueStrip(p);
   renderHistoryBox(p);
   updateTimerDisplay();
@@ -4777,6 +4804,80 @@ document.getElementById('clueBtn').addEventListener('click', ()=>openClueModal('
 document.getElementById('memoBtn').addEventListener('click', ()=>openClueModal('memo'));
 document.getElementById('templateBtn').addEventListener('click', ()=>openClueModal('template'));
 document.getElementById('trapBtn').addEventListener('click', ()=>openClueModal('trap'));
+
+/* ---------------- 모범답안(HTML 문서) 등록/수정/삭제/새창보기 ---------------- */
+function hasModelAnswer(p){ return !!(p && p.modelAnswerHtml && p.modelAnswerHtml.trim()); }
+
+function updateModelAnswerBtn(p){
+  const btn = document.getElementById('modelAnswerBtn');
+  const editBtn = document.getElementById('modelAnswerEditBtn');
+  const has = hasModelAnswer(p);
+  btn.textContent = has ? '📄 모범답안 보기' : '📄 모범답안 등록';
+  btn.title = has ? '새 창에서 모범답안 열기' : '모범답안 HTML 문서 등록';
+  btn.classList.toggle('on', has);
+  editBtn.style.display = (has && !examMode) ? '' : 'none';
+}
+
+function openModelAnswerInNewWindow(html){
+  const w = window.open('', '_blank');
+  if(!w){ alert('팝업이 차단되어 새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제해주세요.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function openModelAnswerModal(p){
+  const has = hasModelAnswer(p);
+  document.getElementById('modelAnswerModalTitle').textContent = has ? '📄 모범답안 수정' : '📄 모범답안 등록';
+  document.getElementById('modelAnswerHtmlInput').value = p.modelAnswerHtml || '';
+  document.getElementById('deleteModelAnswerBtn').style.display = has ? '' : 'none';
+  document.getElementById('previewModelAnswerBtn').style.display = has ? '' : 'none';
+  document.getElementById('saveModelAnswerBtn').textContent = has ? '수정 저장' : '저장';
+  openModal('overlayModelAnswer');
+}
+
+document.getElementById('modelAnswerBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+  if(hasModelAnswer(p)){
+    openModelAnswerInNewWindow(p.modelAnswerHtml);
+  } else {
+    openModelAnswerModal(p);
+  }
+});
+
+document.getElementById('modelAnswerEditBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p) return;
+  openModelAnswerModal(p);
+});
+
+document.getElementById('previewModelAnswerBtn').addEventListener('click', ()=>{
+  const html = document.getElementById('modelAnswerHtmlInput').value;
+  if(!html.trim()){ alert('HTML 내용을 입력해주세요.'); return; }
+  openModelAnswerInNewWindow(html);
+});
+
+document.getElementById('saveModelAnswerBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p) return;
+  const html = document.getElementById('modelAnswerHtmlInput').value;
+  if(!html.trim()){ alert('HTML 내용을 입력해주세요.'); return; }
+  p.modelAnswerHtml = html;
+  updateModelAnswerBtn(p);
+  saveState();
+  closeModal('overlayModelAnswer');
+});
+
+document.getElementById('deleteModelAnswerBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p) return;
+  if(!confirm('등록된 모범답안 HTML 문서를 삭제할까요? 되돌릴 수 없습니다.')) return;
+  p.modelAnswerHtml = '';
+  updateModelAnswerBtn(p);
+  saveState();
+  closeModal('overlayModelAnswer');
+});
 
 document.getElementById('confirmClue').addEventListener('click', ()=>{
   const kw = document.getElementById('clueKeyword').value.trim();
