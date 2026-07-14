@@ -1221,7 +1221,17 @@ function findRunSearch(keepIndex){
   findGoTo(idx);
 }
 
-findQueryInput.addEventListener('input', findRecount);
+/* 한글/일본어 등은 자모를 조합해서 한 글자를 완성하는데(예: ㅊ+ㅏ+ㅈ+ㄱ→찾),
+   조합이 끝나기 전에 매번 검색(DOM 전체 탐색)을 돌리면 조합 타이밍이 깨져서
+   "한 글자만 입력되고 멈추는" 것처럼 보이는 문제가 생긴다. 그래서 조합 중(findComposing)에는
+   건드리지 않고, 조합이 끝났을 때(compositionend)만 검색을 실행한다. */
+let findComposing = false;
+findQueryInput.addEventListener('compositionstart', ()=>{ findComposing = true; });
+findQueryInput.addEventListener('compositionend', ()=>{ findComposing = false; findRecount(); });
+findQueryInput.addEventListener('input', ()=>{
+  if(findComposing) return; // 조합 중에는 아직 처리하지 않는다 (위 compositionend에서 처리)
+  findRecount();
+});
 document.getElementById('findNextBtn').addEventListener('click', ()=>{
   if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
 });
@@ -1229,6 +1239,7 @@ document.getElementById('findPrevBtn').addEventListener('click', ()=>{
   if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
 });
 findQueryInput.addEventListener('keydown', (e)=>{
+  if(e.isComposing || e.keyCode === 229) return; // 한글 조합 확정용 Enter는 무시 (조합만 끝내고 검색은 안 함)
   if(e.key === 'Enter'){
     e.preventDefault();
     if(e.shiftKey){
