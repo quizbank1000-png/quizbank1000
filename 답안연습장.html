@@ -2438,7 +2438,8 @@ function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(safeTitle)}</title>
 <style>
-  body{ margin:0; padding:32px; background:#fff; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:#1c2530; }
+  body{ margin:0; padding:20px; background:#f4f7fb; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:#1c2530; }
+  .page{ max-width:940px; margin:0 auto; background:#fff; border-radius:14px; padding:28px 32px; box-shadow:0 6px 24px rgba(10,20,40,0.08); }
   .as-header{ display:flex; justify-content:space-between; align-items:baseline; border-bottom:2.5px solid #0a2351; padding-bottom:10px; margin-bottom:18px; }
   .as-title{ font-size:18px; font-weight:800; color:#0a2351; }
   .as-date{ font-size:12px; color:#5b6573; }
@@ -2446,12 +2447,15 @@ function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
   .frac{ display:inline-flex; flex-direction:column; justify-content:center; vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px; }
   .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
   .frac .frac-den{ padding:1px 4px 0; text-align:center; }
-  @media(max-width:640px){ body{ padding:16px; } }
+  @media(max-width:640px){ body{ padding:12px; } .page{ padding:16px; border-radius:10px; } }
+  @media print{ body{ background:#fff; padding:0; } .page{ max-width:none; box-shadow:none; border-radius:0; padding:0; } }
 </style>
 </head>
 <body>
+<div class="page">
 <div class="as-header"><div class="as-title">${escapeHtml(safeTitle)}</div><div class="as-date">${dateStr}</div></div>
 <div id="answerContent">${contentHtml}</div>
+</div>
 <script type="application/json" id="answer-meta">${meta}<\/script>
 </body>
 </html>`;
