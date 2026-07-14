@@ -830,7 +830,7 @@
   <div class="bottom-actions">
     <button type="button" class="btn copy" id="copyBtn">📋 HTML 복사 (카드뱅크용)</button>
     <button type="button" class="btn export" id="exportImgBtn">🖼 이미지로 저장</button>
-    <button type="button" class="btn export" id="exportPdfBtn">📄 PDF로 저장 (인쇄)</button>
+    <button type="button" class="btn export" id="exportPdfBtn" title="인쇄 대화상자의 '추가 설정'에서 &quot;머리글 및 바닥글&quot; 체크를 해제하면 상단 날짜/앱이름, 하단 URL/페이지번호 없이 더 깔끔하게 저장돼요">📄 PDF로 저장 (인쇄)</button>
     <button type="button" class="btn clear" id="clearBtn">🗑 새 답안 시작</button>
   </div>
 </div>
@@ -2391,7 +2391,12 @@ document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
     return;
   }
   buildAnswerSheet();
+  // 인쇄 대화상자의 "머리글 및 바닥글"이 켜져 있으면 브라우저가 document.title을 상단에 찍는다.
+  // 앱 이름 대신 이 답안의 제목이 나오도록 인쇄 직전에만 잠깐 바꿔준다.
+  const prevTitle = document.title;
+  document.title = problemTitle.value.trim() || '답안';
   window.print();
+  document.title = prevTitle;
 });
 
 /* ================= 하단 액션 ================= */
@@ -2443,12 +2448,16 @@ function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
   .as-header{ display:flex; justify-content:space-between; align-items:baseline; border-bottom:2.5px solid #0a2351; padding-bottom:10px; margin-bottom:18px; }
   .as-title{ font-size:18px; font-weight:800; color:#0a2351; }
   .as-date{ font-size:12px; color:#5b6573; }
-  #answerContent{ font-size:${fontSize || DEFAULT_FS}; line-height:${lineHeight || DEFAULT_LH}; text-align:${align || DEFAULT_ALIGN}; }
+  #answerContent{
+    font-size:${fontSize || DEFAULT_FS}; line-height:${lineHeight || DEFAULT_LH}; text-align:${align || DEFAULT_ALIGN};
+    border:1.5px solid #5b9bdc; border-radius:9px; padding:16px 18px; min-height:200px;
+    background: repeating-linear-gradient(transparent, transparent 27px, #f0f4fa 27px, #f0f4fa 28px);
+  }
   .frac{ display:inline-flex; flex-direction:column; justify-content:center; vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px; }
   .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
   .frac .frac-den{ padding:1px 4px 0; text-align:center; }
   @media(max-width:640px){ body{ padding:12px; } .page{ padding:16px; border-radius:10px; } }
-  @media print{ body{ background:#fff; padding:0; } .page{ max-width:none; box-shadow:none; border-radius:0; padding:0; } }
+  @media print{ body{ background:#fff; padding:0; } .page{ max-width:none; box-shadow:none; border-radius:0; padding:0; } #answerContent{ border:none; padding:0; background:#fff; } }
 </style>
 </head>
 <body>
