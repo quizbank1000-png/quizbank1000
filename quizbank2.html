@@ -317,6 +317,35 @@
   .problem-nav-group{
     display:flex; align-items:center; gap:8px; flex-shrink:0;
   }
+  .toolbar-collapse-btn{
+    margin-left:6px;
+    font-size:11.5px;
+    font-weight:700;
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:#fff;
+    color: var(--ink-soft);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .toolbar-collapse-btn:hover{ background: var(--line); }
+  .toolbar-collapse-btn.collapsed{ background: var(--blue-100); color: var(--blue-700); border-color: var(--blue-300); }
+
+  /* 도구모음(탭+버튼줄) 슬라이드 접기: grid-template-rows 트릭으로 내용 높이를 몰라도
+     부드럽게 위로 접혔다 펼쳐지게 한다 */
+  .toolbar-collapse-wrap{
+    display:grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows .28s ease;
+  }
+  .toolbar-collapse-wrap.collapsed{
+    grid-template-rows: 0fr;
+  }
+  .toolbar-collapse-inner{
+    overflow:hidden;
+    min-height:0;
+  }
   .problem-nav-btn{
     width:34px; height:34px; border-radius:9px;
     border:1.5px solid var(--blue-500); background:#fff; color:var(--blue-700);
@@ -433,13 +462,17 @@
   }
 
   /* ---------- 3분할 학습 화면 (문제 / 풀이·정답 / 답안연습장 동시 보기) ---------- */
-  .split-container{ display:none; }
+  .split-container{ display:block; } /* 탭 모드: 좌측(문제/풀이/나의답안)만 평범하게 보이고, 우측 답안연습장 패널은 숨김 */
+  .split-container .split-resize-handle,
+  .split-container .split-right{ display:none; }
   .split-container.active{
     display:grid;
     grid-template-columns: minmax(280px, 1fr) 8px minmax(280px, 1fr);
     align-items:stretch;
     gap:0;
   }
+  .split-container.active .split-resize-handle{ display:block; }
+  .split-container.active .split-right{ display:flex; }
   .split-left{ min-width:0; display:flex; flex-direction:column; }
   .split-left .paste-card{ display:flex; flex-direction:column; gap:12px; }
   .split-resize-handle{
@@ -1137,6 +1170,16 @@
   }
   .my-answer-text-content img{ max-width:100%; border-radius:6px; display:block; margin:6px 0; }
 
+  /* 답안연습장(답안연습장.html)/리치에디터(edit_card.html)에서 만든 분수 표기(.frac).
+     원래 그 두 파일 안에서만 정의돼 있던 스타일이라, 여기(나의 답안 상자·카드 뒷면 등
+     quizbank2 화면에 직접 삽입되는 서식 HTML)에도 똑같이 넣어줘야 분수가 깨지지 않는다. */
+  .frac{
+    display:inline-flex; flex-direction:column; justify-content:center;
+    vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px;
+  }
+  .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
+  .frac .frac-den{ padding:1px 4px 0; text-align:center; }
+
   .history-box{
     margin-top:16px;
     background:#fff;
@@ -1341,32 +1384,37 @@
           <button class="problem-nav-btn" id="prevProblemBtn" title="이전 문제">&lt;</button>
           <span class="problem-nav-count" id="problemNavCount"></span>
           <button class="problem-nav-btn" id="nextProblemBtn" title="다음 문제">&gt;</button>
+          <button type="button" class="toolbar-collapse-btn" id="toolbarCollapseBtn" title="위 도구모음을 접거나 펼칩니다">▲ 도구모음 접기</button>
         </div>
       </div>
 
       <div id="solveBody" style="display:none;">
-        <div class="view-tabs">
-          <div class="view-tab active" id="tabProblem">📄 문제</div>
-          <div class="view-tab" id="tabSolution">✅ 풀이/정답</div>
-          <div class="view-tab" id="tabMyAnswer">✍️ 나의 답안</div>
-        </div>
+        <div class="toolbar-collapse-wrap" id="toolbarCollapseWrap">
+          <div class="toolbar-collapse-inner">
+            <div class="view-tabs">
+              <div class="view-tab active" id="tabProblem">📄 문제</div>
+              <div class="view-tab" id="tabSolution">✅ 풀이/정답</div>
+              <div class="view-tab" id="tabMyAnswer">✍️ 나의 답안</div>
+            </div>
 
-        <div class="solve-toolbar">
-          <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
-          <button class="tool-btn exam-toggle" id="cardPackToggleBtn">🗂 카드팩 보기</button>
-          <button class="tool-btn exam-toggle" id="splitModeBtn" title="문제 / 풀이·정답 / 답안연습장을 한 화면에서 동시에 봅니다">🖥 3분할 학습모드</button>
-          <button class="tool-btn model-answer" id="modelAnswerBtn">📄 모범답안 등록</button>
-          <button class="tool-btn model-answer model-answer-edit" id="modelAnswerEditBtn" title="모범답안 수정/삭제" style="display:none;">✏️</button>
-          <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
-          <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
-          <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
-          <button class="tool-btn" id="trapBtn" style="background:var(--red); color:#fff;">⚠️ 함정카드 등록</button>
-          <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
-          <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
-          <div class="timer-group">
-            <span class="timer-display" id="timerDisplay">00:00</span>
-            <button class="tool-btn timer-start" id="startSolveBtn">▶ 풀이시작</button>
-            <button class="tool-btn timer-stop" id="submitSolveBtn" disabled>⏹ 답안제출</button>
+            <div class="solve-toolbar">
+              <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
+              <button class="tool-btn exam-toggle" id="cardPackToggleBtn">🗂 카드팩 보기</button>
+              <button class="tool-btn exam-toggle" id="splitModeBtn" title="문제 / 풀이·정답 / 답안연습장을 한 화면에서 동시에 봅니다">🖥 3분할 학습모드</button>
+              <button class="tool-btn model-answer" id="modelAnswerBtn">📄 모범답안 등록</button>
+              <button class="tool-btn model-answer model-answer-edit" id="modelAnswerEditBtn" title="모범답안 수정/삭제" style="display:none;">✏️</button>
+              <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
+              <button class="tool-btn purple" id="memoBtn">🧠 암기카드 등록</button>
+              <button class="tool-btn teal" id="templateBtn">📐 템플릿카드 등록</button>
+              <button class="tool-btn" id="trapBtn" style="background:var(--red); color:#fff;">⚠️ 함정카드 등록</button>
+              <button class="tool-btn orange" id="wrongBtn">❌ 오답메모</button>
+              <button class="tool-btn green" id="correctBtn">⭕ 맞았음 표시</button>
+              <div class="timer-group">
+                <span class="timer-display" id="timerDisplay">00:00</span>
+                <button class="tool-btn timer-start" id="startSolveBtn">▶ 풀이시작</button>
+                <button class="tool-btn timer-stop" id="submitSolveBtn" disabled>⏹ 답안제출</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -4119,6 +4167,25 @@ function switchTab(which){
   solutionPane.style.display = which==='solution' ? 'block':'none';
   myAnswerPane.style.display = which==='myAnswer' ? 'block':'none';
 }
+
+/* ---------------- 상단 도구모음(탭+버튼줄) 접기/펼치기 ----------------
+   문제 제목/이전·다음 네비게이션(topbar)은 항상 보이게 두고, 그 아래
+   탭·버튼이 몰려있는 줄만 슬라이드로 접어서 화면 위쪽 공간을 절약한다. */
+const toolbarCollapseWrap = document.getElementById('toolbarCollapseWrap');
+const toolbarCollapseBtn = document.getElementById('toolbarCollapseBtn');
+let toolbarCollapsed = false;
+try{ toolbarCollapsed = localStorage.getItem('quizbank2_toolbar_collapsed') === '1'; }catch(e){}
+function applyToolbarCollapse(){
+  toolbarCollapseWrap.classList.toggle('collapsed', toolbarCollapsed);
+  toolbarCollapseBtn.classList.toggle('collapsed', toolbarCollapsed);
+  toolbarCollapseBtn.textContent = toolbarCollapsed ? '▼ 도구모음 펼치기' : '▲ 도구모음 접기';
+}
+toolbarCollapseBtn.addEventListener('click', ()=>{
+  toolbarCollapsed = !toolbarCollapsed;
+  try{ localStorage.setItem('quizbank2_toolbar_collapsed', toolbarCollapsed ? '1' : '0'); }catch(e){}
+  applyToolbarCollapse();
+});
+applyToolbarCollapse();
 
 /* ---------------- 3분할 학습모드 (문제 / 풀이·정답 / 답안연습장 동시 보기) ----------------
    좌측: 문제(항상 펼침) + 풀이·정답 아코디언(기본 접힘, 스포일러 방지) + 나의 답안 아코디언(기본 접힘)
