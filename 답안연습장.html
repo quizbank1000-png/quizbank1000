@@ -511,10 +511,11 @@
     <button type="button" id="timerToggleBtn">⏱ 타이머</button>
   </div>
 
-  <!-- 퀴즈뱅크2 모범답안 연동 배너 (quizbank2.html에서 팝업으로 열었을 때만 표시됨) -->
+  <!-- 퀴즈뱅크2 연동 배너 (quizbank2.html에서 팝업 또는 내장(iframe)으로 열었을 때 표시됨) -->
   <div class="qb2-bridge-banner" id="qb2BridgeBanner">
-    <span>🔗 퀴즈뱅크2의 모범답안 등록창과 연결되었습니다. 작성을 마치면 저장해서 퀴즈뱅크로 보내세요.</span>
-    <button type="button" id="qb2ReturnBtn">💾 저장하고 퀴즈뱅크로 보내기</button>
+    <span>🔗 퀴즈뱅크2와 연결되었습니다. 작성을 마치면 저장 대상을 골라 퀴즈뱅크로 보내세요.</span>
+    <button type="button" id="qb2SaveMyAnswerBtn" title="지금 작성한 내용을 현재 문제의 '나의 답안'으로 저장합니다 (연습 답안)">✍️ 나의 답안으로 저장</button>
+    <button type="button" id="qb2ReturnBtn" title="지금 작성한 내용을 현재 문제의 '모범답안'으로 저장합니다">📄 모범답안으로 저장</button>
   </div>
 
   <!-- 보관함 -->
@@ -2647,6 +2648,14 @@ function qb2LoadAnswerFromHost(html, suggestedTitle){
   }
 }
 
+/* 이 문서를 팝업(window.opener)으로 열었든, quizbank2의 3분할 화면에 iframe(window.parent)으로
+   내장해서 열었든 동일하게 동작하도록 "호스트 창"을 하나로 통일해서 찾는다. */
+function qb2FindHostWindow(){
+  if(window.opener && !window.opener.closed) return window.opener;
+  if(window.parent && window.parent !== window) return window.parent;
+  return null;
+}
+
 window.addEventListener('message', function(e){
   if(!e.data || typeof e.data !== 'object') return;
   if(e.data.type === 'qb2-load-answer'){
@@ -2655,15 +2664,26 @@ window.addEventListener('message', function(e){
   }
 });
 
-// 팝업으로 열렸다면(= window.opener 존재) 부모창에 준비 완료를 알린다.
-// 부모창이 quizbank2가 아니면 이 메시지는 그냥 무시될 뿐, 아무 부작용이 없다.
-if(window.opener){
-  try{ window.opener.postMessage({ type:'qb2-notebook-ready' }, '*'); } catch(err){ /* 무시 */ }
-}
+// 팝업이든 iframe이든, 퀴즈뱅크2에 연결되어 열린 것이라면 부모(호스트)에 준비 완료를 알린다.
+// quizbank2가 아닌 곳에서 단독으로/다른 페이지에 내장되어 열렸다면 이 메시지는 그냥 무시된다.
+(function notifyHostReady(){
+  const host = qb2FindHostWindow();
+  if(host){
+    try{ host.postMessage({ type:'qb2-notebook-ready' }, '*'); } catch(err){ /* 무시 */ }
+    // iframe으로 내장된 경우엔 '불러오기' 없이 바로 작성부터 시작할 수 있으므로
+    // 저장 버튼이 있는 연동 배너를 처음부터 보여준다
+    if(window.parent && window.parent !== window){
+      document.getElementById('qb2BridgeBanner').classList.add('show');
+    }
+  }
+})();
 
-document.getElementById('qb2ReturnBtn').addEventListener('click', ()=>{
-  if(!window.opener || window.opener.closed){
-    alert('연결된 퀴즈뱅크2 창을 찾을 수 없습니다. (창이 닫혔을 수 있어요)\n대신 "⬇ HTML 다운로드"로 저장한 뒤, 모범답안 등록 창에서 파일로 첨부해주세요.');
+/* 저장 대상(target)을 지정해서 퀴즈뱅크2로 보낸다.
+   'myAnswer' → 현재 문제의 나의 답안,  'model' → 현재 문제의 모범답안 */
+function qb2SendToHost(target){
+  const host = qb2FindHostWindow();
+  if(!host){
+    alert('연결된 퀴즈뱅크2 화면을 찾을 수 없습니다. (창이 닫혔거나 독립 실행 중일 수 있어요)\n대신 "⬇ HTML 다운로드"로 저장한 뒤, 모범답안 등록 창에서 파일로 첨부해주세요.');
     return;
   }
   if(!editArea.textContent.trim() && !editArea.querySelector('img')){
@@ -2674,12 +2694,15 @@ document.getElementById('qb2ReturnBtn').addEventListener('click', ()=>{
   const fs = editArea.style.fontSize || DEFAULT_FS;
   const htmlStr = buildStandaloneHtml(problemTitle.value, editArea.innerHTML, lh, al, fs);
   try{
-    window.opener.postMessage({ type:'qb2-save-answer', html: htmlStr }, '*');
-    showToast('💾 퀴즈뱅크2로 저장되어 전달되었습니다!');
+    host.postMessage({ type:'qb2-save-answer', html: htmlStr, target: target }, '*');
+    showToast(target === 'myAnswer' ? '✍️ 나의 답안으로 저장되어 퀴즈뱅크2로 전달되었습니다!' : '📄 모범답안으로 저장되어 퀴즈뱅크2로 전달되었습니다!');
   } catch(err){
-    alert('퀴즈뱅크2 창으로 전달하는 중 오류가 발생했습니다.');
+    alert('퀴즈뱅크2 화면으로 전달하는 중 오류가 발생했습니다.');
   }
-});
+}
+
+document.getElementById('qb2ReturnBtn').addEventListener('click', ()=> qb2SendToHost('model'));
+document.getElementById('qb2SaveMyAnswerBtn').addEventListener('click', ()=> qb2SendToHost('myAnswer'));
 </script>
 </body>
 </html>
