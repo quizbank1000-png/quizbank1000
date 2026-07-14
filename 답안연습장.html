@@ -442,11 +442,31 @@
   .answer-sheet .as-body{ font-size:14px; line-height:1.7; }
 
   @media print{
-    body{ background:#fff; padding:0; }
+    @page{ margin:14mm 12mm; }
+    html, body{ background:#fff; padding:0; }
+    body, .answer-sheet, .answer-sheet *{
+      -webkit-print-color-adjust:exact !important;
+      print-color-adjust:exact !important;
+      color-adjust:exact !important;
+    }
     .page, .toast{ display:none !important; }
     .answer-sheet{
       position:static; left:auto; width:auto; padding:0;
       display:block !important;
+    }
+    /* 표/인용/테두리·배경이 있는 박스(함정체크 등)는 페이지 경계에서 잘리지 않도록 */
+    .answer-sheet table,
+    .answer-sheet blockquote,
+    .answer-sheet [style*="border"],
+    .answer-sheet [style*="background"]{
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    /* 소제목이 페이지 맨 아래 혼자 남지 않도록 */
+    .answer-sheet h1, .answer-sheet h2, .answer-sheet h3,
+    .answer-sheet h4, .answer-sheet h5, .answer-sheet h6{
+      break-after: avoid;
+      page-break-after: avoid;
     }
   }
 
@@ -2457,7 +2477,29 @@ function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
   .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
   .frac .frac-den{ padding:1px 4px 0; text-align:center; }
   @media(max-width:640px){ body{ padding:12px; } .page{ padding:16px; border-radius:10px; } }
-  @media print{ body{ background:#fff; padding:0; } .page{ max-width:none; box-shadow:none; border-radius:0; padding:0; } #answerContent{ border:none; padding:0; background:#fff; } }
+  @media print{
+    @page{ margin:14mm 12mm; }
+    html, body{ background:#fff; padding:0; }
+    body, #answerContent, #answerContent *{
+      -webkit-print-color-adjust:exact !important;
+      print-color-adjust:exact !important;
+      color-adjust:exact !important;
+    }
+    .page{ max-width:none; box-shadow:none; border-radius:0; padding:0; }
+    #answerContent{ border:none; padding:0; background:#fff; }
+    #answerContent table,
+    #answerContent blockquote,
+    #answerContent [style*="border"],
+    #answerContent [style*="background"]{
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #answerContent h1, #answerContent h2, #answerContent h3,
+    #answerContent h4, #answerContent h5, #answerContent h6{
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+  }
 </style>
 </head>
 <body>
