@@ -1503,8 +1503,13 @@
     <h3 id="modelAnswerModalTitle">📄 모범답안 등록</h3>
     <div class="desc">이 문제의 모범답안 HTML 문서를 붙여넣거나 직접 입력하세요. 저장하면 "모범답안 보기" 버튼으로 새 창에서 바로 열어볼 수 있어요.</div>
     <div class="field">
+      <label>HTML 파일 첨부 (선택)</label>
+      <input type="file" id="modelAnswerFileInput" accept=".html,.htm,text/html">
+      <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">미리 만들어둔 .html 파일을 선택하면 아래 칸에 내용이 자동으로 채워져요. 채워진 후에도 직접 수정할 수 있어요.</div>
+    </div>
+    <div class="field">
       <label>HTML 문서 내용</label>
-      <textarea id="modelAnswerHtmlInput" rows="14" placeholder="<html>...</html> 형태의 전체 HTML 코드를 붙여넣으세요" style="font-family:monospace; font-size:12px; white-space:pre;"></textarea>
+      <textarea id="modelAnswerHtmlInput" rows="14" placeholder="<html>...</html> 형태의 전체 HTML 코드를 붙여넣거나, 위에서 파일을 첨부하세요" style="font-family:monospace; font-size:12px; white-space:pre;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayModelAnswer">취소</button>
@@ -4819,22 +4824,42 @@ function updateModelAnswerBtn(p){
 }
 
 function openModelAnswerInNewWindow(html){
-  const w = window.open('', '_blank');
-  if(!w){ alert('팝업이 차단되어 새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제해주세요.'); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  const winW = Math.min(1100, Math.round((screen.width||1400) * 0.85));
+  const winH = Math.min(900, Math.round((screen.height||900) * 0.85));
+  const left = Math.max(0, Math.round((screen.width - winW) / 2));
+  const top = Math.max(0, Math.round((screen.height - winH) / 2));
+  const features = `width=${winW},height=${winH},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`;
+  const win = window.open('', '_blank', features);
+  if(!win){ alert('팝업이 차단되어 새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제해주세요.'); return; }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
 }
 
 function openModelAnswerModal(p){
   const has = hasModelAnswer(p);
   document.getElementById('modelAnswerModalTitle').textContent = has ? '📄 모범답안 수정' : '📄 모범답안 등록';
   document.getElementById('modelAnswerHtmlInput').value = p.modelAnswerHtml || '';
+  document.getElementById('modelAnswerFileInput').value = '';
   document.getElementById('deleteModelAnswerBtn').style.display = has ? '' : 'none';
   document.getElementById('previewModelAnswerBtn').style.display = has ? '' : 'none';
   document.getElementById('saveModelAnswerBtn').textContent = has ? '수정 저장' : '저장';
   openModal('overlayModelAnswer');
 }
+
+document.getElementById('modelAnswerFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    document.getElementById('modelAnswerHtmlInput').value = ev.target.result;
+  };
+  reader.onerror = ()=>{
+    alert('파일을 읽는 중 문제가 발생했습니다. 파일을 다시 선택해주세요.');
+  };
+  reader.readAsText(file, 'UTF-8');
+});
 
 document.getElementById('modelAnswerBtn').addEventListener('click', ()=>{
   const p = getProblem();
