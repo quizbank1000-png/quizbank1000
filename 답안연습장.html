@@ -55,6 +55,9 @@
   .title-row button:hover{ background:var(--blue-100); }
   .title-row button.primary{ background:var(--blue-500); border-color:var(--blue-500); color:#fff; }
   .title-row button.primary:hover{ background:var(--blue-700); }
+  /* 하단에서 옮겨온 PDF저장/새 답안 시작 버튼: title-row 안에서는 자동 오른쪽 정렬을 끄고 크기를 맞춘다 */
+  .title-row .btn{ padding:8px 11px; font-size:12px; border-radius:7px; }
+  .title-row .btn.clear{ margin-left:0; }
 
   /* ---- 퀴즈뱅크2 연동 배너 ---- */
   .qb2-bridge-banner{
@@ -529,6 +532,8 @@
     <input type="file" id="importHtmlInput" accept=".html,.htm,text/html" style="display:none;">
     <button type="button" id="findReplaceToggleBtn" title="편집 중인 답안에서 텍스트를 찾고 바꿉니다 (편집기 안에서 Ctrl+F)">🔍 찾기/바꾸기</button>
     <button type="button" id="timerToggleBtn">⏱ 타이머</button>
+    <button type="button" class="btn export" id="exportPdfBtn" title="인쇄 대화상자의 '추가 설정'에서 &quot;머리글 및 바닥글&quot; 체크를 해제하면 상단 날짜/앱이름, 하단 URL/페이지번호 없이 더 깔끔하게 저장돼요">📄 PDF로 저장 (인쇄)</button>
+    <button type="button" class="btn clear" id="clearBtn">🗑 새 답안 시작</button>
   </div>
 
   <div class="find-replace-panel" id="findReplacePanel">
@@ -887,8 +892,6 @@
   <div class="bottom-actions">
     <button type="button" class="btn copy" id="copyBtn">📋 HTML 복사 (카드뱅크용)</button>
     <button type="button" class="btn export" id="exportImgBtn">🖼 이미지로 저장</button>
-    <button type="button" class="btn export" id="exportPdfBtn" title="인쇄 대화상자의 '추가 설정'에서 &quot;머리글 및 바닥글&quot; 체크를 해제하면 상단 날짜/앱이름, 하단 URL/페이지번호 없이 더 깔끔하게 저장돼요">📄 PDF로 저장 (인쇄)</button>
-    <button type="button" class="btn clear" id="clearBtn">🗑 새 답안 시작</button>
   </div>
 </div>
 
