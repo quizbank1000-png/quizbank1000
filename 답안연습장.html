@@ -1175,10 +1175,22 @@ function findUpdateStatus(){
   if(!findMatches.length){
     findStatus.textContent = '일치 없음';
     findStatus.classList.add('no-match');
+  } else if(findCurrentIndex < 0){
+    findStatus.textContent = `총 ${findMatches.length}건`; // 아직 특정 항목으로 이동하기 전(타이핑 중)
+    findStatus.classList.remove('no-match');
   } else {
     findStatus.textContent = `${findCurrentIndex + 1}/${findMatches.length}`;
     findStatus.classList.remove('no-match');
   }
+}
+
+/* 타이핑 중에는 일치 개수만 세고, 실제 텍스트 선택(scroll/highlight)은 하지 않는다.
+   여기서 selection을 건드리면 검색창이 포커스를 잃어서 두 번째 글자부터 입력이 안 되는
+   문제가 생기기 때문에, 실제 이동은 Enter나 이전/다음 버튼을 눌렀을 때만 한다. */
+function findRecount(){
+  findMatches = findAllMatches(findQueryInput.value);
+  findCurrentIndex = -1;
+  findUpdateStatus();
 }
 
 function findGoTo(index){
@@ -1191,6 +1203,10 @@ function findGoTo(index){
   const container = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
   if(container && container.scrollIntoView) container.scrollIntoView({ block:'center', behavior:'smooth' });
   findUpdateStatus();
+  // 계속 Enter로 다음/이전을 넘기거나 검색어를 고칠 수 있도록 포커스를 검색창으로 되돌린다
+  requestAnimationFrame(()=>{
+    try{ findQueryInput.focus({ preventScroll:true }); }catch(e){ findQueryInput.focus(); }
+  });
 }
 
 function findRunSearch(keepIndex){
@@ -1205,17 +1221,21 @@ function findRunSearch(keepIndex){
   findGoTo(idx);
 }
 
-findQueryInput.addEventListener('input', ()=> findRunSearch(0));
+findQueryInput.addEventListener('input', findRecount);
 document.getElementById('findNextBtn').addEventListener('click', ()=>{
-  if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+  if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
 });
 document.getElementById('findPrevBtn').addEventListener('click', ()=>{
-  if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
+  if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
 });
 findQueryInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter'){
     e.preventDefault();
-    if(e.shiftKey) findGoTo(findCurrentIndex - 1); else if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+    if(e.shiftKey){
+      if(findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
+    } else {
+      if(findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+    }
   } else if(e.key === 'Escape'){
     e.preventDefault();
     findClose();
