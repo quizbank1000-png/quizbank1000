@@ -317,8 +317,23 @@
   .problem-nav-group{
     display:flex; align-items:center; gap:8px; flex-shrink:0;
   }
+  .solve-slim-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .solve-slim-title{
+    font-size:13px;
+    font-weight:700;
+    color: var(--ink-soft);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
   .toolbar-collapse-btn{
-    margin-left:6px;
+    flex-shrink:0;
     font-size:11.5px;
     font-weight:700;
     padding:6px 10px;
@@ -1167,6 +1182,12 @@
   .my-answer-text-box .ma-btn.richedit:hover{ background:#e3f4ec; color:#2d8a5f; }
   .my-answer-text-content{
     font-size:12.5px; line-height:1.65; word-break:break-word;
+    /* 모범답안 보기 화면(#answerContent)과 동일한 구성: 흰 바탕에 옅은 줄노트 배경 + 파란 테두리 */
+    background: repeating-linear-gradient(transparent, transparent 27px, #f0f4fa 27px, #f0f4fa 28px);
+    border:1.5px solid #5b9bdc;
+    border-radius:9px;
+    padding:14px 16px;
+    min-height:120px;
   }
   .my-answer-text-content img{ max-width:100%; border-radius:6px; display:block; margin:6px 0; }
 
@@ -1375,22 +1396,26 @@
 
     <!-- ---------- VIEW: 회차 풀이 ---------- -->
     <div id="view-solve">
-      <div class="topbar">
-        <div>
-          <h2 id="problemTitle">문제를 선택하거나 추가하세요</h2>
-          <div class="meta" id="problemMeta"></div>
-        </div>
-        <div class="problem-nav-group">
-          <button class="problem-nav-btn" id="prevProblemBtn" title="이전 문제">&lt;</button>
-          <span class="problem-nav-count" id="problemNavCount"></span>
-          <button class="problem-nav-btn" id="nextProblemBtn" title="다음 문제">&gt;</button>
-          <button type="button" class="toolbar-collapse-btn" id="toolbarCollapseBtn" title="위 도구모음을 접거나 펼칩니다">▲ 도구모음 접기</button>
-        </div>
+      <div class="solve-slim-bar" id="solveSlimBar">
+        <span class="solve-slim-title" id="solveSlimTitle">문제를 선택하거나 추가하세요</span>
+        <button type="button" class="toolbar-collapse-btn" id="toolbarCollapseBtn" title="위 상단 영역을 접거나 펼칩니다">▲ 상단 접기</button>
       </div>
 
       <div id="solveBody" style="display:none;">
         <div class="toolbar-collapse-wrap" id="toolbarCollapseWrap">
           <div class="toolbar-collapse-inner">
+            <div class="topbar">
+              <div>
+                <h2 id="problemTitle">문제를 선택하거나 추가하세요</h2>
+                <div class="meta" id="problemMeta"></div>
+              </div>
+              <div class="problem-nav-group">
+                <button class="problem-nav-btn" id="prevProblemBtn" title="이전 문제">&lt;</button>
+                <span class="problem-nav-count" id="problemNavCount"></span>
+                <button class="problem-nav-btn" id="nextProblemBtn" title="다음 문제">&gt;</button>
+              </div>
+            </div>
+
             <div class="view-tabs">
               <div class="view-tab active" id="tabProblem">📄 문제</div>
               <div class="view-tab" id="tabSolution">✅ 풀이/정답</div>
@@ -4168,17 +4193,18 @@ function switchTab(which){
   myAnswerPane.style.display = which==='myAnswer' ? 'block':'none';
 }
 
-/* ---------------- 상단 도구모음(탭+버튼줄) 접기/펼치기 ----------------
-   문제 제목/이전·다음 네비게이션(topbar)은 항상 보이게 두고, 그 아래
-   탭·버튼이 몰려있는 줄만 슬라이드로 접어서 화면 위쪽 공간을 절약한다. */
+/* ---------------- 상단 영역(제목/네비게이션 + 탭 + 버튼줄) 접기/펼치기 ----------------
+   접었을 때도 방향을 잃지 않도록, 항상 보이는 슬림바(solveSlimBar)에 현재 문제 제목을
+   함께 표시해준다. */
 const toolbarCollapseWrap = document.getElementById('toolbarCollapseWrap');
 const toolbarCollapseBtn = document.getElementById('toolbarCollapseBtn');
+const solveSlimTitle = document.getElementById('solveSlimTitle');
 let toolbarCollapsed = false;
 try{ toolbarCollapsed = localStorage.getItem('quizbank2_toolbar_collapsed') === '1'; }catch(e){}
 function applyToolbarCollapse(){
   toolbarCollapseWrap.classList.toggle('collapsed', toolbarCollapsed);
   toolbarCollapseBtn.classList.toggle('collapsed', toolbarCollapsed);
-  toolbarCollapseBtn.textContent = toolbarCollapsed ? '▼ 도구모음 펼치기' : '▲ 도구모음 접기';
+  toolbarCollapseBtn.textContent = toolbarCollapsed ? '▼ 상단 펼치기' : '▲ 상단 접기';
 }
 toolbarCollapseBtn.addEventListener('click', ()=>{
   toolbarCollapsed = !toolbarCollapsed;
@@ -4414,6 +4440,7 @@ function renderSolveView(){
     solveEmpty.style.display='block';
     problemTitle.textContent = '문제를 선택하거나 추가하세요';
     problemMeta.textContent = '';
+    solveSlimTitle.textContent = '문제를 선택하거나 추가하세요';
     updateProblemNavButtons();
     stopTicking();
     updateTimerDisplay();
@@ -4423,6 +4450,7 @@ function renderSolveView(){
   solveEmpty.style.display='none';
   problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
+  solveSlimTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   updateProblemNavButtons();
   switchTab('problem');
   if(splitMode) resetSplitPanesForNewProblem();
