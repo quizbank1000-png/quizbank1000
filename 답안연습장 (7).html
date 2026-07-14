@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 답안 연습장 — 건축설비기사</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --blue-900:#0a2351;
+    --blue-700:#13407a;
+    --blue-500:#1f5fb8;
+    --blue-300:#5b9bdc;
+    --blue-100:#eaf2fc;
+    --bg:#f4f7fb;
+    --ink:#1c2530;
+    --ink-soft:#5b6573;
+    --line:#dfe6f0;
+    --green:#2d8a5f;
+    --green-soft:#e3f4ec;
+    --red:#d4453a;
+    --red-soft:#fbe7e5;
+    --orange:#e07a2c;
+    --orange-soft:#fdeee0;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; padding:20px;
+    background:var(--bg);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    color:var(--ink);
+  }
+  .page{
+    max-width:940px; margin:0 auto;
+    background:#fff; border-radius:14px;
+    padding:22px; box-shadow:0 6px 24px rgba(10,20,40,0.08);
+  }
+  h1{ margin:0 0 4px 0; font-size:19px; color:var(--blue-900); }
+  .autosave-badge{ font-size:11px; color:var(--ink-soft); margin-left:8px; font-weight:400; }
+  .autosave-badge.saved{ color:var(--green); }
+
+  /* ---- 문제 제목 + 상단 액션 ---- */
+  .title-row{ display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .title-row .tb-label{ font-size:12px; color:var(--ink-soft); flex:none; }
+  #problemTitle{
+    flex:1; min-width:200px; font-size:14px; font-weight:700; color:var(--blue-900);
+    border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit;
+  }
+  #problemTitle:focus{ border-color:var(--blue-500); outline:none; }
+  .title-row button{
+    font-family:inherit; font-size:12px; font-weight:700;
+    border:1px solid var(--blue-300); background:#fff; color:var(--blue-700);
+    border-radius:7px; padding:8px 11px; cursor:pointer; flex:none;
+  }
+  .title-row button:hover{ background:var(--blue-100); }
+  .title-row button.primary{ background:var(--blue-500); border-color:var(--blue-500); color:#fff; }
+  .title-row button.primary:hover{ background:var(--blue-700); }
+
+  /* ---- 퀴즈뱅크2 연동 배너 ---- */
+  .qb2-bridge-banner{
+    display:none;
+    align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--green-soft); border:1.5px solid var(--green); border-radius:9px;
+    padding:9px 12px; margin-bottom:12px;
+  }
+  .qb2-bridge-banner.show{ display:flex; }
+  .qb2-bridge-banner span{ font-size:12.5px; color:var(--blue-900); font-weight:600; }
+  .qb2-bridge-banner button{
+    font-family:inherit; font-size:12.5px; font-weight:800;
+    border:none; background:var(--green); color:#fff;
+    border-radius:7px; padding:8px 14px; cursor:pointer; flex:none;
+  }
+  .qb2-bridge-banner button:hover{ background:#226e4a; }
+
+  /* ---- 보관함 패널 ---- */
+  .archive-panel{
+    display:none;
+    background:#fbfdff; border:1.5px solid var(--blue-300); border-radius:10px;
+    padding:12px; margin-bottom:12px;
+  }
+  .archive-panel.show{ display:block; }
+  .archive-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+  .archive-head b{ font-size:13px; color:var(--blue-900); }
+  .archive-head span{ font-size:11px; color:var(--ink-soft); }
+  .archive-head-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .archive-head-desc{ font-size:11px; color:var(--ink-soft); }
+  .archive-head-actions button{
+    font-family:inherit; font-size:11.5px; font-weight:700;
+    border:1px solid var(--blue-300); background:#fff; color:var(--blue-700);
+    border-radius:6px; padding:5px 10px; cursor:pointer;
+  }
+  .archive-head-actions button:hover{ background:var(--blue-100); }
+  .archive-empty{ font-size:12.5px; color:var(--ink-soft); padding:8px 4px; }
+
+  /* ---- Google Drive 동기화 패널 ---- */
+  .gdrive-panel{
+    display:none;
+    background:#fbfdff; border:1.5px dashed var(--blue-300); border-radius:9px;
+    padding:10px 12px; margin-bottom:10px;
+  }
+  .gdrive-panel.show{ display:block; }
+  .gdrive-status{ font-size:12px; font-weight:700; color:var(--blue-900); margin-bottom:8px; }
+  .gdrive-setup{ display:none; margin-bottom:8px; }
+  .gdrive-setup.show{ display:block; }
+  .gdrive-setup-desc{ font-size:11.5px; color:var(--ink-soft); line-height:1.6; margin-bottom:6px; }
+  .gdrive-setup-desc b{ color:var(--blue-700); }
+  .gdrive-setup-row{ display:flex; gap:8px; }
+  .gdrive-setup-row input{
+    flex:1; font-size:12.5px; font-family:'SFMono-Regular',Consolas,monospace;
+    border:1px solid var(--line); border-radius:6px; padding:7px 9px;
+  }
+  .gdrive-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .gdrive-panel button{
+    font-family:inherit; font-size:11.5px; font-weight:700;
+    border:1px solid var(--blue-300); background:#fff; color:var(--blue-700);
+    border-radius:6px; padding:6px 10px; cursor:pointer;
+  }
+  .gdrive-panel button:hover{ background:var(--blue-100); }
+  .archive-item{
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    border:1px solid var(--line); border-radius:8px; background:#fff;
+    padding:8px 10px; margin-bottom:6px;
+  }
+  .archive-item .ai-title{ font-size:13px; font-weight:700; color:var(--blue-900); flex:1; min-width:160px; }
+  .archive-item .ai-meta{ font-size:11px; color:var(--ink-soft); flex:none; }
+  .archive-item .ai-badge{
+    font-size:10.5px; font-weight:700; border-radius:10px; padding:2px 8px; flex:none;
+  }
+  .archive-item .ai-badge.review{ background:var(--orange-soft); color:var(--orange); }
+  .archive-item .ai-badge.fresh{ background:var(--green-soft); color:var(--green); }
+  .archive-item .ai-badge.never{ background:var(--red-soft); color:var(--red); }
+  .archive-item button{
+    font-family:inherit; font-size:11.5px; font-weight:700;
+    border:1px solid var(--line); background:#fff; color:var(--ink);
+    border-radius:6px; padding:5px 9px; cursor:pointer; flex:none;
+  }
+  .archive-item button:hover{ background:var(--blue-100); }
+  .archive-item button.test-btn{ color:var(--blue-700); border-color:var(--blue-300); }
+  .archive-item button.del-btn{ color:var(--red); }
+
+  /* ---- 셀프 테스트 배너 ---- */
+  .test-banner{
+    display:none;
+    background:linear-gradient(90deg, #103a72, #1f5fb8);
+    color:#fff; border-radius:10px;
+    padding:11px 14px; margin-bottom:10px;
+    align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .test-banner.show{ display:flex; }
+  .test-banner .tb-title{ font-size:13.5px; font-weight:800; flex:1; min-width:160px; }
+  .test-banner .tb-timer{
+    font-family:'SFMono-Regular',Consolas,monospace; font-size:17px; font-weight:800;
+    background:rgba(255,255,255,0.15); border-radius:8px; padding:4px 12px;
+  }
+  .test-banner .tb-timer.over{ background:var(--red); }
+  .test-banner button{
+    font-family:inherit; font-size:12px; font-weight:700;
+    border:none; border-radius:7px; padding:8px 13px; cursor:pointer;
+  }
+  .test-banner .check-btn{ background:#fff; color:var(--blue-700); }
+  .test-banner .quit-btn{ background:rgba(255,255,255,0.2); color:#fff; }
+
+  /* ---- 비교(정답 확인) 패널 ---- */
+  .compare-panel{
+    display:none;
+    border:1.5px solid var(--blue-300); border-radius:10px;
+    padding:12px; margin-top:12px; background:#fbfdff;
+  }
+  .compare-panel.show{ display:block; }
+  .compare-cols{ display:flex; gap:10px; }
+  .compare-col{ flex:1; min-width:0; }
+  .compare-col h4{
+    margin:0 0 6px 0; font-size:12.5px; color:var(--blue-900);
+    border-bottom:2px solid var(--blue-300); padding-bottom:4px;
+  }
+  .compare-body{
+    background:#fff; border:1px solid var(--line); border-radius:8px;
+    padding:12px; font-size:13px; line-height:1.6; min-height:120px;
+    overflow-x:auto;
+  }
+  .compare-grade{
+    display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;
+  }
+  .compare-grade span{ font-size:12.5px; font-weight:700; color:var(--ink-soft); }
+  .compare-grade button{
+    font-family:inherit; font-size:13px; font-weight:800;
+    border:none; border-radius:8px; padding:9px 18px; cursor:pointer;
+  }
+  .compare-grade .grade-o{ background:var(--green-soft); color:var(--green); }
+  .compare-grade .grade-o:hover{ background:#cdeddd; }
+  .compare-grade .grade-x{ background:var(--red-soft); color:var(--red); }
+  .compare-grade .grade-x:hover{ background:#f6d3cf; }
+  .compare-grade .grade-done{ font-size:12.5px; color:var(--green); font-weight:700; }
+  .compare-grade .end-btn{ background:#eef1f5; color:#555; margin-left:auto; }
+
+  /* ---- 타이머 위젯(일반 연습용) ---- */
+  .timer-widget{
+    display:none;
+    align-items:center; gap:8px; flex-wrap:wrap;
+    background:var(--blue-100); border:1px solid var(--blue-300); border-radius:9px;
+    padding:8px 10px; margin-bottom:10px;
+  }
+  .timer-widget.show{ display:flex; }
+  .timer-widget .tw-display{
+    font-family:'SFMono-Regular',Consolas,monospace; font-size:18px; font-weight:800; color:var(--blue-900);
+    min-width:76px;
+  }
+  .timer-widget .tw-display.over{ color:var(--red); }
+  .timer-widget input{ width:52px; font-size:13px; text-align:center; border:1px solid var(--line); border-radius:6px; padding:5px; }
+  .timer-widget button{
+    font-family:inherit; font-size:12px; font-weight:700;
+    border:1px solid var(--blue-300); background:#fff; color:var(--blue-700);
+    border-radius:6px; padding:6px 11px; cursor:pointer;
+  }
+  .timer-widget button:hover{ background:#fff8; }
+
+  /* ---- 툴바 공통 ---- */
+  .edit-toolbar, .formula-toolbar{
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    background:var(--bg); border:1px solid var(--line); border-radius:9px;
+    padding:8px; margin-bottom:10px;
+  }
+  .edit-toolbar button, .edit-toolbar select,
+  .formula-toolbar button, .formula-toolbar select{
+    font-family:inherit; font-size:12px; border:1px solid var(--line); background:#fff;
+    color:var(--ink); border-radius:6px; padding:6px 9px; cursor:pointer;
+  }
+  .edit-toolbar button:hover, .formula-toolbar button:hover{ background:var(--blue-100); }
+  .edit-toolbar button:disabled, .formula-toolbar button:disabled{ opacity:.4; cursor:not-allowed; }
+  .edit-toolbar button:disabled:hover, .formula-toolbar button:disabled:hover{ background:#fff; }
+  .tb-sep{ width:1px; height:22px; background:var(--line); margin:0 2px; flex:none; }
+  .tb-label{ font-size:10.5px; color:var(--ink-soft); flex:none; }
+  #toggleCalcBtnTop{ margin-left:auto; font-weight:700; color:#fff; background:var(--blue-500); border-color:var(--blue-500); }
+  #toggleCalcBtnTop:hover{ background:var(--blue-700); }
+
+  /* ---- 상단 고정(스티키) 편집도구 프레임 ---- */
+  .sticky-toolbar-frame{
+    position:sticky; top:0; z-index:30;
+    background:#fff; padding-top:10px; margin-top:-10px;
+    box-shadow:0 4px 10px -6px rgba(10,20,40,0.18);
+  }
+  .sticky-toolbar-frame .edit-toolbar:first-child{ margin-top:0; }
+
+  /* ---- 마우스 오른쪽 클릭 커스텀 메뉴 (블럭 편집) ---- */
+  .custom-ctx-menu{
+    position:fixed; z-index:999; display:none;
+    background:#fff; border:1px solid var(--line); border-radius:9px;
+    box-shadow:0 10px 28px rgba(10,20,40,0.22); padding:5px; min-width:200px;
+  }
+  .custom-ctx-menu.show{ display:block; }
+  .custom-ctx-menu button{
+    display:block; width:100%; text-align:left; font-family:inherit; font-size:12.5px;
+    border:none; background:none; color:var(--ink); border-radius:6px;
+    padding:9px 10px; cursor:pointer;
+  }
+  .custom-ctx-menu button:hover{ background:var(--blue-100); }
+
+  /* ---- 맨 위로 이동 버튼 ---- */
+  .scroll-top-btn{
+    position:fixed; right:20px; bottom:24px; z-index:500;
+    width:46px; height:46px; border-radius:50%;
+    background:var(--blue-500); color:#fff; border:none;
+    font-size:18px; font-weight:800; cursor:pointer;
+    box-shadow:0 6px 18px rgba(10,20,40,0.28);
+    display:none; align-items:center; justify-content:center;
+    transition:background .15s ease, transform .15s ease;
+  }
+  .scroll-top-btn.show{ display:flex; }
+  .scroll-top-btn:hover{ background:var(--blue-700); transform:translateY(-2px); }
+  @media print{ .scroll-top-btn{ display:none !important; } }
+  @media (max-width:640px){
+    .scroll-top-btn{ width:42px; height:42px; right:12px; bottom:14px; font-size:16px; }
+  }
+
+  .color-swatch-row{ display:flex; gap:4px; align-items:center; }
+  .color-swatch{
+    width:20px; height:20px; border-radius:5px; border:1.5px solid rgba(0,0,0,0.12);
+    cursor:pointer; padding:0; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.4);
+  }
+  .color-swatch:hover{ transform:scale(1.12); }
+  .color-swatch.none-swatch{
+    background:
+      linear-gradient(to top left, transparent calc(50% - 1px), #e03131 50%, transparent calc(50% + 1px)),
+      #fff;
+  }
+
+  .formula-toolbar button.calc-toggle-btn{
+    font-weight:700; color:#fff; background:var(--blue-500); border-color:var(--blue-500);
+  }
+  .formula-toolbar button.calc-toggle-btn:hover{ background:var(--blue-700); }
+  .formula-toolbar button.mgmt-btn{ font-weight:700; }
+  .formula-toolbar button.mgmt-btn.danger{ color:#c0392b; border-color:#f2b8b0; }
+  .formula-toolbar button.skeleton-btn{ font-weight:700; color:var(--blue-700); border-color:var(--blue-300); }
+  #formulaSelect{ min-width:240px; max-width:380px; font-size:12.5px; }
+
+  /* ---- 단축입력 도움말 ---- */
+  .shortcut-help{
+    display:none;
+    background:#fbfdff; border:1.5px dashed var(--blue-300); border-radius:9px;
+    padding:10px 12px; margin-bottom:10px; font-size:12px; line-height:1.9;
+  }
+  .shortcut-help.show{ display:block; }
+  .shortcut-help b{ color:var(--blue-700); font-size:12.5px; }
+  .shortcut-help code{
+    font-family:'SFMono-Regular',Consolas,monospace; background:var(--blue-100);
+    border-radius:4px; padding:1px 5px; margin-right:2px; font-size:11.5px;
+  }
+  .shortcut-help .sc-item{ display:inline-block; margin-right:12px; white-space:nowrap; }
+
+  /* ---- 공식 추가/수정 폼 ---- */
+  .formula-form{
+    display:none;
+    background:#fbfdff; border:1.5px dashed var(--blue-300); border-radius:9px;
+    padding:10px; margin-bottom:10px; gap:8px; flex-direction:column;
+  }
+  .formula-form.show{ display:flex; }
+  .formula-form-title{ font-size:12.5px; font-weight:700; color:var(--blue-700); }
+  .formula-form-row{ display:flex; gap:8px; align-items:center; }
+  .formula-form-row label{ font-size:11.5px; color:var(--ink-soft); width:56px; flex:none; }
+  .formula-form-row input, .formula-form-row select{
+    flex:1; font-size:13px; border:1px solid var(--line); border-radius:6px; padding:7px 9px;
+    font-family:inherit;
+  }
+  .formula-form-row input.mono{ font-family:'SFMono-Regular',Consolas,monospace; }
+  .formula-form-row #formulaFormCatNew{ display:none; }
+  .formula-form-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .formula-form-actions button{
+    font-size:12.5px; font-weight:700; border-radius:7px; padding:7px 14px; cursor:pointer; border:none;
+  }
+  .formula-form-actions .save-btn{ background:var(--blue-500); color:#fff; }
+  .formula-form-actions .save-btn:hover{ background:var(--blue-700); }
+  .formula-form-actions .cancel-btn{ background:#eef1f5; color:#666; }
+
+  /* ---- 계산기 ---- */
+  .calc-panel{
+    display:none;
+    background:#f4f7fb; border:1.5px solid var(--blue-300); border-radius:10px;
+    padding:10px; margin-bottom:10px;
+  }
+  .calc-panel.show{ display:block; }
+  .calc-mode-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:11px; color:var(--ink-soft); }
+  .calc-mode-row b{ color:var(--blue-700); }
+  .calc-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  #calcExpr{
+    flex:1; min-width:0;
+    font-family:'SFMono-Regular',Consolas,monospace; font-size:14px;
+    border:1.5px solid var(--blue-300); border-radius:7px; padding:8px 10px;
+  }
+  .calc-result{ font-family:'SFMono-Regular',Consolas,monospace; font-size:14px; font-weight:700; color:var(--blue-700); min-width:70px; }
+  .calc-sci-keys{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-bottom:5px; }
+  .calc-keys{ display:grid; grid-template-columns:repeat(4, 1fr); gap:5px; margin-bottom:8px; }
+  .calc-sci-keys button, .calc-keys button{
+    font-family:'SFMono-Regular',Consolas,monospace; font-size:13px; padding:9px 0;
+    border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer;
+  }
+  .calc-sci-keys button:hover, .calc-keys button:hover{ background:var(--blue-100); }
+  .calc-sci-keys button.calc-mem{ color:var(--blue-700); font-weight:700; }
+  .calc-sci-keys button.calc-mode-btn{ background:var(--blue-100); font-weight:700; }
+  .calc-keys button.calc-clear{ color:#c0392b; }
+  .calc-keys button.calc-eq{ background:var(--blue-500); color:#fff; border-color:var(--blue-500); font-weight:700; grid-column:span 4; }
+  .calc-keys button.calc-eq:hover{ background:var(--blue-700); }
+  .calc-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .calc-actions button{
+    font-size:12.5px; font-weight:700; border:1px solid var(--blue-300); background:#fff;
+    color:var(--blue-700); border-radius:7px; padding:7px 12px; cursor:pointer;
+  }
+  .calc-actions button:hover{ background:var(--blue-100); }
+  #calcUnit{ width:90px; font-size:12.5px; border:1px solid var(--line); border-radius:7px; padding:6px 8px; }
+
+  .frac-builder{
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+    padding-top:9px; border-top:1px dashed var(--blue-300);
+  }
+  .frac-builder input[type=text]{
+    width:74px; font-family:'SFMono-Regular',Consolas,monospace; font-size:13px; text-align:center;
+    border:1px solid var(--line); border-radius:6px; padding:6px 5px;
+  }
+  .frac-builder button{
+    font-size:12px; font-weight:700; border:1px solid var(--blue-300); background:#fff;
+    color:var(--blue-700); border-radius:6px; padding:6px 9px; cursor:pointer;
+  }
+  .frac-builder button:hover{ background:var(--blue-100); }
+  .frac-opt{ display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--ink-soft); cursor:pointer; user-select:none; }
+  .frac-opt input{ cursor:pointer; }
+
+  .frac{
+    display:inline-flex; flex-direction:column; justify-content:center;
+    vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px;
+  }
+  .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
+  .frac .frac-den{ padding:1px 4px 0; text-align:center; }
+
+  /* ---- 답안 작성 영역 ---- */
+  .edit-area{
+    min-height:300px;
+    border:1.5px solid var(--blue-300);
+    border-radius:9px;
+    padding:16px 18px;
+    font-size:13px;
+    line-height:1.55;
+    outline:none;
+    background:
+      repeating-linear-gradient(transparent, transparent 27px, #f0f4fa 27px, #f0f4fa 28px);
+  }
+  .edit-area:focus{ border-color:var(--blue-500); }
+  .edit-area:empty:before{
+    content: attr(data-placeholder);
+    color:#aab3c2;
+  }
+
+  /* ---- 하단 액션 ---- */
+  .bottom-actions{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .btn{ border:none; border-radius:8px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+  .btn.copy{ background:var(--blue-500); color:#fff; }
+  .btn.copy:hover{ background:var(--blue-700); }
+  .btn.export{ background:#fff; color:var(--blue-700); border:1.5px solid var(--blue-300); }
+  .btn.export:hover{ background:var(--blue-100); }
+  .btn.clear{ background:#eef1f5; color:#666; margin-left:auto; }
+  .btn.clear:hover{ background:#e2e6ec; }
+
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translate(-50%,12px);
+    background:var(--blue-900); color:#fff; font-size:13px; font-weight:700;
+    padding:10px 18px; border-radius:20px; opacity:0; pointer-events:none;
+    transition:all .25s ease; box-shadow:0 8px 24px rgba(0,0,0,0.25); z-index:999;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  /* ---- 답안지(내보내기용) ---- */
+  .answer-sheet{
+    position:fixed; left:-9999px; top:0;
+    width:800px; background:#fff; padding:36px 40px;
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    color:#1c2530;
+  }
+  .answer-sheet .as-header{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:2.5px solid var(--blue-900); padding-bottom:10px; margin-bottom:18px;
+  }
+  .answer-sheet .as-title{ font-size:18px; font-weight:800; color:var(--blue-900); }
+  .answer-sheet .as-date{ font-size:12px; color:var(--ink-soft); }
+  .answer-sheet .as-body{ font-size:14px; line-height:1.7; }
+
+  @media print{
+    body{ background:#fff; padding:0; }
+    .page, .toast{ display:none !important; }
+    .answer-sheet{
+      position:static; left:auto; width:auto; padding:0;
+      display:block !important;
+    }
+  }
+
+  /* ---- 모바일 대응 ---- */
+  @media (max-width:640px){
+    body{ padding:8px; }
+    .page{ padding:12px; border-radius:10px; }
+    h1{ font-size:16px; }
+    .edit-toolbar button, .edit-toolbar select,
+    .formula-toolbar button, .formula-toolbar select{
+      font-size:13px; padding:8px 10px;
+    }
+    .color-swatch{ width:26px; height:26px; }
+    #formulaSelect{ min-width:0; width:100%; max-width:none; }
+    .calc-sci-keys button, .calc-keys button{ font-size:14px; padding:11px 0; }
+    #calcUnit{ width:100%; }
+    .frac-builder input[type=text]{ width:64px; }
+    .bottom-actions{ flex-direction:column; }
+    .btn{ width:100%; }
+    .btn.clear{ margin-left:0; }
+    #toggleCalcBtnTop{ margin-left:0; width:100%; }
+    .title-row{ flex-direction:column; align-items:stretch; }
+    .title-row button{ width:100%; }
+    .compare-cols{ flex-direction:column; }
+    .gdrive-setup-row{ flex-direction:column; align-items:stretch; }
+    .gdrive-actions{ flex-direction:column; align-items:stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>📝 답안 연습장 <span class="autosave-badge" id="autosaveBadge"></span></h1>
+
+  <div class="title-row">
+    <span class="tb-label">📌 문제</span>
+    <input type="text" id="problemTitle" placeholder="문제 제목/번호 (예: 2018-1회-03 냉온수배관 지점별 압력)">
+    <button type="button" class="primary" id="archiveSaveBtn">💾 보관함에 저장</button>
+    <button type="button" id="archiveToggleBtn">📚 보관함 <span id="archiveCount"></span></button>
+    <button type="button" id="exportHtmlBtn" title="지금 작성 중인 답안을 html 파일로 내려받습니다">⬇ HTML 다운로드</button>
+    <button type="button" id="importHtmlBtn" title="html 파일을 불러와 편집기에서 이어서 편집합니다">⬆ HTML 불러오기</button>
+    <input type="file" id="importHtmlInput" accept=".html,.htm,text/html" style="display:none;">
+    <button type="button" id="timerToggleBtn">⏱ 타이머</button>
+  </div>
+
+  <!-- 퀴즈뱅크2 모범답안 연동 배너 (quizbank2.html에서 팝업으로 열었을 때만 표시됨) -->
+  <div class="qb2-bridge-banner" id="qb2BridgeBanner">
+    <span>🔗 퀴즈뱅크2의 모범답안 등록창과 연결되었습니다. 작성을 마치면 저장해서 퀴즈뱅크로 보내세요.</span>
+    <button type="button" id="qb2ReturnBtn">💾 저장하고 퀴즈뱅크로 보내기</button>
+  </div>
+
+  <!-- 보관함 -->
+  <div class="archive-panel" id="archivePanel">
+    <div class="archive-head">
+      <b>📚 답안 보관함</b>
+      <span class="archive-head-actions">
+        <span class="archive-head-desc">복습이 오래된 순으로 정렬됩니다 · 🧪 테스트로 안 보고 다시 풀어보세요</span>
+        <button type="button" id="gdriveBtn">☁ Drive 동기화</button>
+        <button type="button" id="backupBtn">⬇ 백업</button>
+        <button type="button" id="restoreBtn">⬆ 복원</button>
+        <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;">
+      </span>
+    </div>
+
+    <!-- Google Drive 동기화 패널 -->
+    <div class="gdrive-panel" id="gdrivePanel">
+      <div class="gdrive-status" id="gdriveStatus">☁ Drive 연동이 아직 설정되지 않았습니다</div>
+      <div class="gdrive-setup" id="gdriveSetup">
+        <div class="gdrive-setup-desc">
+          Google Cloud Console에서 발급받은 <b>OAuth 클라이언트 ID</b>를 한 번만 입력하면, 이후엔 로그인만으로 여러 기기의 보관함·공식 목록이 자동으로 동기화됩니다.
+        </div>
+        <div class="gdrive-setup-row">
+          <input type="text" id="gdriveClientIdInput" placeholder="xxxxxxxxxx-xxxx.apps.googleusercontent.com">
+          <button type="button" id="gdriveClientIdSaveBtn">저장</button>
+        </div>
+      </div>
+      <div class="gdrive-actions" id="gdriveActions">
+        <button type="button" id="gdriveSignInBtn">🔑 Google 로그인</button>
+        <button type="button" id="gdriveSyncNowBtn">🔄 지금 동기화</button>
+        <button type="button" id="gdriveSignOutBtn">로그아웃</button>
+        <button type="button" id="gdriveSettingsBtn">⚙ 설정</button>
+      </div>
+    </div>
+
+    <div id="archiveList"></div>
+  </div>
+
+  <!-- 일반 연습용 타이머 -->
+  <div class="timer-widget" id="timerWidget">
+    <span class="tb-label">제한시간</span>
+    <input type="number" id="timerMinutes" value="7" min="1" max="60"> <span class="tb-label">분</span>
+    <span class="tw-display" id="timerDisplay">07:00</span>
+    <button type="button" id="timerStartBtn">▶ 시작</button>
+    <button type="button" id="timerResetBtn">↺ 리셋</button>
+  </div>
+
+  <!-- 셀프 테스트 배너 -->
+  <div class="test-banner" id="testBanner">
+    <span class="tb-title" id="testBannerTitle">🧪 셀프 테스트</span>
+    <span class="tb-timer" id="testTimer">00:00</span>
+    <button type="button" class="check-btn" id="testCheckBtn">✅ 정답 확인</button>
+    <button type="button" class="quit-btn" id="testQuitBtn">종료</button>
+  </div>
+
+  <div class="sticky-toolbar-frame" id="stickyToolbarFrame">
+  <div class="edit-toolbar">
+    <button type="button" id="undoBtn" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
+    <button type="button" id="redoBtn" title="다시 실행 (Ctrl+Y)">↷ 다시실행</button>
+    <span class="tb-sep"></span>
+    <button type="button" data-cmd="bold"><b>B</b></button>
+    <button type="button" data-cmd="italic"><i>I</i></button>
+    <button type="button" data-cmd="underline"><u>U</u></button>
+    <span class="tb-label">글자색</span>
+    <span class="color-swatch-row" id="foreColorPalette"></span>
+    <span class="tb-sep"></span>
+    <span class="tb-label">형광펜</span>
+    <span class="color-swatch-row" id="hiliteColorPalette"></span>
+    <button type="button" data-cmd="removeFormat">서식지우기</button>
+    <span class="tb-sep"></span>
+    <button type="button" id="removeParensBtn" title="블럭 지정 후 클릭하면 선택 영역의 ( 와 ) 를 모두 삭제합니다">( ) 삭제</button>
+    <button type="button" id="removeCommaBtn" title="블럭 지정 후 클릭하면 선택 영역의 천단위 콤마(,)를 모두 삭제합니다 (예: 2,203 → 2203)">, 삭제</button>
+    <button type="button" id="toFractionBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다 (예: 500/3600, 500÷3600, kJ/h 같은 단위 속 / 는 무시됩니다)'>➗ 분수로 바꾸기</button>
+    <span class="tb-sep"></span>
+    <select id="lineHeightSelect" title="줄간격">
+      <option value="1.3">줄간격: 좁게</option>
+      <option value="1.55" selected>줄간격: 보통</option>
+      <option value="1.9">줄간격: 넓게</option>
+      <option value="2.3">줄간격: 아주 넓게</option>
+    </select>
+    <select id="alignSelect" title="정렬">
+      <option value="left">왼쪽정렬</option>
+      <option value="center">가운데정렬</option>
+      <option value="right">오른쪽정렬</option>
+    </select>
+    <select id="fontSizeSelect" title="글자크기">
+      <option value="11px">글자: 작게</option>
+      <option value="12.5px" selected>글자: 보통</option>
+      <option value="14.5px">글자: 크게</option>
+      <option value="17px">글자: 아주 크게</option>
+    </select>
+    <button type="button" id="toggleCalcBtnTop" title="계산기 열기/닫기">🧮 계산기</button>
+  </div>
+
+  <div class="formula-toolbar" id="formulaToolbar">
+    <button type="button" class="skeleton-btn" id="skeletonBtn" title="공식→대입→계산→답 뼈대 삽입">🧾 답안 뼈대</button>
+    <button type="button" id="stepNumBtn" title="다음 단계번호(①②③⋯) 삽입">①⁺ 단계</button>
+    <button type="button" id="answerMarkBtn" title="∴ 답: 삽입">∴ 답</button>
+    <span class="tb-sep"></span>
+    <span class="tb-label">자주 쓰는 공식</span>
+    <select id="formulaSelect"><option value="">공식을 선택하세요⋯</option></select>
+    <button type="button" class="mgmt-btn" id="formulaAddBtn">➕</button>
+    <button type="button" class="mgmt-btn" id="formulaEditBtn">✏️</button>
+    <button type="button" class="mgmt-btn danger" id="formulaDelBtn">🗑</button>
+  </div>
+
+  <div class="formula-form" id="formulaForm">
+    <div class="formula-form-title" id="formulaFormTitle">➕ 새 공식 추가</div>
+    <div class="formula-form-row">
+      <label>분류</label>
+      <select id="formulaFormCat"></select>
+      <input type="text" id="formulaFormCatNew" placeholder="새 분류 이름 입력">
+    </div>
+    <div class="formula-form-row">
+      <label>이름</label>
+      <input type="text" id="formulaFormName" placeholder="예: 현열부하">
+    </div>
+    <div class="formula-form-row">
+      <label>공식</label>
+      <input type="text" id="formulaFormExpr" class="mono" placeholder="예: q = ρQCΔT">
+    </div>
+    <div class="formula-form-row">
+      <label>변수설명</label>
+      <input type="text" id="formulaFormDesc" placeholder="예: q: 열량[kW], ρ: 밀도[kg/m³], Q: 유량[m³/s], C: 비열[kJ/kg·K], ΔT: 온도차[℃]">
+    </div>
+    <div class="formula-form-actions">
+      <button type="button" class="cancel-btn" id="formulaFormCancel">취소</button>
+      <button type="button" class="save-btn" id="formulaFormSave">저장</button>
+    </div>
+  </div>
+
+  <div class="formula-toolbar" id="symbolToolbar">
+    <span class="tb-label">기호</span>
+    <button type="button" data-insert="=">=</button>
+    <button type="button" data-insert="×">×</button>
+    <button type="button" data-insert="÷">÷</button>
+    <button type="button" data-insert="±">±</button>
+    <button type="button" data-insert="√">√</button>
+    <button type="button" data-insert="Σ">Σ</button>
+    <button type="button" data-insert="→">→</button>
+    <button type="button" data-insert="←">←</button>
+    <button type="button" data-insert="↔">↔</button>
+    <button type="button" data-insert="≒">≒</button>
+    <button type="button" data-insert="≤">≤</button>
+    <button type="button" data-insert="≥">≥</button>
+    <button type="button" data-insert="★">★</button>
+    <button type="button" data-insert="☆">☆</button>
+    <button type="button" data-insert="※">※</button>
+    <button type="button" data-insert="▲">▲</button>
+    <button type="button" data-insert="■">■</button>
+    <span class="tb-sep"></span>
+    <span class="tb-label">그리스문자</span>
+    <button type="button" data-insert="Δ" title="델타 (//d)">Δ</button>
+    <button type="button" data-insert="ρ" title="로우(밀도) (//r)">ρ</button>
+    <button type="button" data-insert="η" title="에타(효율) (//e)">η</button>
+    <button type="button" data-insert="γ" title="감마(비중량) (//g)">γ</button>
+    <button type="button" data-insert="π" title="파이 (//pi)">π</button>
+    <button type="button" data-insert="φ" title="휘·파이(상대습도) (//f)">φ</button>
+    <button type="button" data-insert="ξ" title="크사이(저항계수) (//x)">ξ</button>
+    <button type="button" data-insert="λ" title="람다(열전도율) (//l)">λ</button>
+    <button type="button" data-insert="θ" title="세타(온도) (//th)">θ</button>
+    <button type="button" data-insert="α" title="알파(열전달률) (//a)">α</button>
+    <button type="button" data-insert="β" title="베타 (//b)">β</button>
+    <button type="button" data-insert="μ" title="뮤 (//u)">μ</button>
+    <button type="button" data-insert="ω" title="오메가 (//w)">ω</button>
+    <span class="tb-sep"></span>
+    <span class="tb-label">위·아래첨자</span>
+    <button type="button" data-insert="²">x²</button>
+    <button type="button" data-insert="³">x³</button>
+    <button type="button" data-cmd="superscript" title="선택한 글자를 위첨자로">A<sup>x</sup></button>
+    <button type="button" data-cmd="subscript" title="선택한 글자를 아래첨자로">A<sub>x</sub></button>
+    <span class="tb-sep"></span>
+    <span class="tb-label">단위</span>
+    <button type="button" data-insert="℃">℃</button>
+    <button type="button" data-insert="㎡">㎡</button>
+    <button type="button" data-insert="㎥">㎥</button>
+    <select id="unitSelect" title="자주 쓰는 단위 삽입">
+      <option value="">단위 선택⋯</option>
+      <option value="m³/h">m³/h</option>
+      <option value="m³/min">m³/min</option>
+      <option value="L/min">L/min</option>
+      <option value="L/s">L/s</option>
+      <option value="kg/h">kg/h</option>
+      <option value="kg/m³">kg/m³</option>
+      <option value="kJ/kg">kJ/kg</option>
+      <option value="kJ/kg·K">kJ/kg·K</option>
+      <option value="kJ/h">kJ/h</option>
+      <option value="kJ/s">kJ/s</option>
+      <option value="kW">kW</option>
+      <option value="kcal/h">kcal/h</option>
+      <option value="m/s">m/s</option>
+      <option value="mmAq">mmAq</option>
+      <option value="mmAq/m">mmAq/m</option>
+      <option value="kPa">kPa</option>
+      <option value="MPa">MPa</option>
+      <option value="rpm">rpm</option>
+      <option value="W/㎡·K">W/㎡·K</option>
+      <option value="㎡·K/W">㎡·K/W</option>
+      <option value="atm">atm</option>
+      <option value="%">%</option>
+    </select>
+    <span class="tb-sep"></span>
+    <button type="button" id="shortcutHelpBtn" title="키보드 단축입력 목록">⌨ 단축입력</button>
+    <button type="button" class="calc-toggle-btn" id="toggleCalcBtn">🧮 계산기</button>
+  </div>
+  </div><!-- /stickyToolbarFrame -->
+
+  <div class="shortcut-help" id="shortcutHelp">
+    <b>⌨ 키보드 단축입력</b> — 아래 코드를 입력하고 <b>스페이스</b>를 누르면 자동으로 바뀝니다. (마우스 없이 타이핑 흐름 유지)<br>
+    <span class="sc-item"><code>//d</code>Δ</span>
+    <span class="sc-item"><code>//r</code>ρ</span>
+    <span class="sc-item"><code>//e</code>η</span>
+    <span class="sc-item"><code>//g</code>γ</span>
+    <span class="sc-item"><code>//pi</code>π</span>
+    <span class="sc-item"><code>//f</code>φ</span>
+    <span class="sc-item"><code>//x</code>ξ</span>
+    <span class="sc-item"><code>//l</code>λ</span>
+    <span class="sc-item"><code>//th</code>θ</span>
+    <span class="sc-item"><code>//a</code>α</span>
+    <span class="sc-item"><code>//b</code>β</span>
+    <span class="sc-item"><code>//u</code>μ</span>
+    <span class="sc-item"><code>//w</code>ω</span>
+    <span class="sc-item"><code>//s</code>Σ</span>
+    <span class="sc-item"><code>//rt</code>√</span>
+    <span class="sc-item"><code>//+-</code>±</span>
+    <span class="sc-item"><code>//-&gt;</code>→</span>
+    <span class="sc-item"><code>//~</code>≒</span>
+    <span class="sc-item"><code>//&lt;=</code>≤</span>
+    <span class="sc-item"><code>//&gt;=</code>≥</span>
+    <span class="sc-item"><code>//2</code>²</span>
+    <span class="sc-item"><code>//3</code>³</span>
+    <span class="sc-item"><code>//c</code>℃</span>
+    <span class="sc-item"><code>//m2</code>㎡</span>
+    <span class="sc-item"><code>//m3</code>㎥</span>
+    <span class="sc-item"><code>//m3h</code>m³/h</span>
+    <span class="sc-item"><code>//lmin</code>L/min</span>
+    <span class="sc-item"><code>//kgh</code>kg/h</span>
+    <span class="sc-item"><code>//kgm3</code>kg/m³</span>
+    <span class="sc-item"><code>//kjkg</code>kJ/kg</span>
+    <span class="sc-item"><code>//kw</code>kW</span>
+    <span class="sc-item"><code>//ms</code>m/s</span>
+    <span class="sc-item"><code>//mmaq</code>mmAq</span>
+    <span class="sc-item"><code>//kpa</code>kPa</span>
+    <span class="sc-item"><code>//atm</code>atm</span>
+    <span class="sc-item"><code>//ans</code>∴ 답 :</span>
+  </div>
+
+  <div class="calc-panel" id="calcPanel">
+    <div class="calc-mode-row">
+      <span>모드: <b id="calcAngleLabel">DEG</b> · Ans = <b id="calcAnsDisplay">0</b></span>
+    </div>
+    <div class="calc-row">
+      <input type="text" id="calcExpr" placeholder="예: sin(30)+1.2×500×20 (버튼 또는 키보드로 입력)">
+      <span class="calc-result" id="calcResult">= </span>
+    </div>
+    <div class="calc-sci-keys">
+      <button type="button" data-tok="sin(" data-pair="1">sin</button>
+      <button type="button" data-tok="cos(" data-pair="1">cos</button>
+      <button type="button" data-tok="tan(" data-pair="1">tan</button>
+      <button type="button" data-tok="log(" data-pair="1">log</button>
+      <button type="button" data-tok="ln(" data-pair="1">ln</button>
+      <button type="button" data-tok="√(" data-pair="1">√</button>
+
+      <button type="button" data-tok="²">x²</button>
+      <button type="button" data-tok="³">x³</button>
+      <button type="button" data-tok="^">xʸ</button>
+      <button type="button" data-act="recip">1/x</button>
+      <button type="button" data-tok="!">n!</button>
+      <button type="button" data-tok="×10^">EXP</button>
+
+      <button type="button" data-tok="(">(</button>
+      <button type="button" data-tok=")">)</button>
+      <button type="button" data-tok="π">π</button>
+      <button type="button" data-tok="E">e</button>
+      <button type="button" data-tok="%">%</button>
+      <button type="button" data-act="negate">±</button>
+
+      <button type="button" class="calc-mem" data-act="mc">MC</button>
+      <button type="button" class="calc-mem" data-act="mr">MR</button>
+      <button type="button" class="calc-mem" data-act="mplus">M+</button>
+      <button type="button" data-tok="Ans">Ans</button>
+      <button type="button" class="calc-mode-btn" data-act="degrad">DEG</button>
+      <button type="button" class="calc-clear" data-act="clear">C</button>
+    </div>
+    <div class="calc-keys">
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="÷">÷</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="×">×</button>
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="−">−</button>
+      <button type="button" data-k="0">0</button><button type="button" data-k=".">.</button><button type="button" class="calc-clear" data-act="back">⌫</button><button type="button" data-k="+">+</button>
+      <button type="button" class="calc-eq" data-act="eq">=</button>
+    </div>
+    <div class="calc-actions">
+      <button type="button" id="calcInsertBoth">📥 수식+결과 삽입</button>
+      <button type="button" id="calcInsertResult">📥 결과만 삽입</button>
+      <input type="text" id="calcUnit" placeholder="단위(예: kW)">
+    </div>
+    <div class="frac-builder">
+      <span class="tb-label">분수로 삽입</span>
+      <input type="text" id="fracNum" placeholder="분자">
+      <span>/</span>
+      <input type="text" id="fracDen" placeholder="분모">
+      <button type="button" id="fracFromExprBtn">↙ 식에서 가져오기</button>
+      <span class="calc-result" id="fracResult">= </span>
+      <label class="frac-opt"><input type="checkbox" id="fracAppendResult" checked> = 결과 붙이기</label>
+      <label class="frac-opt"><input type="checkbox" id="fracAppendUnit" checked> [단위] 붙이기</label>
+      <button type="button" id="fracInsertBtn">📥 분수로 삽입</button>
+    </div>
+  </div>
+
+  <div id="editArea" class="edit-area" contenteditable="true" data-placeholder="여기에 문제 풀이를 필기하듯 작성하세요. 🧾 답안 뼈대 버튼으로 시작하면 편합니다. (자동 저장됨)"></div>
+
+  <!-- 셀프테스트 정답 비교 -->
+  <div class="compare-panel" id="comparePanel">
+    <div class="compare-cols">
+      <div class="compare-col">
+        <h4>✍️ 방금 내가 쓴 답안 <span id="compareTime" style="font-weight:400;color:var(--ink-soft);"></span></h4>
+        <div class="compare-body" id="compareMine"></div>
+      </div>
+      <div class="compare-col">
+        <h4>📖 모범답안 (보관함)</h4>
+        <div class="compare-body" id="compareModel"></div>
+      </div>
+    </div>
+    <div class="compare-grade" id="compareGrade">
+      <span>스스로 채점:</span>
+      <button type="button" class="grade-o" id="gradeOBtn">⭕ 맞춤</button>
+      <button type="button" class="grade-x" id="gradeXBtn">❌ 틀림 / 부족</button>
+      <span class="grade-done" id="gradeDone" style="display:none;"></span>
+      <button type="button" class="end-btn" id="compareEndBtn">테스트 종료</button>
+    </div>
+  </div>
+
+  <div class="bottom-actions">
+    <button type="button" class="btn copy" id="copyBtn">📋 HTML 복사 (카드뱅크용)</button>
+    <button type="button" class="btn export" id="exportImgBtn">🖼 이미지로 저장</button>
+    <button type="button" class="btn export" id="exportPdfBtn">📄 PDF로 저장 (인쇄)</button>
+    <button type="button" class="btn clear" id="clearBtn">🗑 새 답안 시작</button>
+  </div>
+</div>
+
+<!-- 내보내기용 답안지 -->
+<div class="answer-sheet" id="answerSheet" aria-hidden="true">
+  <div class="as-header">
+    <div class="as-title" id="asTitle">답안</div>
+    <div class="as-date" id="asDate"></div>
+  </div>
+  <div class="as-body" id="asBody"></div>
+</div>
+
+<div class="toast" id="toast">저장되었습니다!</div>
+
+<button type="button" class="scroll-top-btn" id="scrollTopBtn" title="맨 위로 이동">▲</button>
+
+<!-- 블럭 지정 후 마우스 오른쪽 클릭 시 나타나는 커스텀 메뉴 -->
+<div class="custom-ctx-menu" id="customCtxMenu">
+  <button type="button" id="ctxRemoveParens">( ) 괄호 모두 삭제</button>
+  <button type="button" id="ctxRemoveComma">천단위 콤마(,) 모두 삭제</button>
+  <button type="button" id="ctxToFraction">➗ 분수로 바꾸기 (A/B, A÷B)</button>
+</div>
+
+<script>
+const editArea = document.getElementById('editArea');
+const toggleCalcBtnTop = document.getElementById('toggleCalcBtnTop');
+const lineHeightSelect = document.getElementById('lineHeightSelect');
+const alignSelect = document.getElementById('alignSelect');
+const fontSizeSelect = document.getElementById('fontSizeSelect');
+const foreColorPalette = document.getElementById('foreColorPalette');
+const hiliteColorPalette = document.getElementById('hiliteColorPalette');
+const problemTitle = document.getElementById('problemTitle');
+const autosaveBadge = document.getElementById('autosaveBadge');
+const toast = document.getElementById('toast');
+const DEFAULT_LH = '1.55', DEFAULT_ALIGN = 'left', DEFAULT_FS = '12.5px';
+
+/* Google Drive 동기화 상태값 — loadFormulaBank() 등 초기화 로직이 saveFormulaBank()를
+   동기적으로 호출할 수 있어서, scheduleGdriveSync()가 참조하는 값들은 다른 무엇보다도
+   먼저 선언해둔다 (선언 전에 참조되면 오류가 나므로). */
+const GDRIVE_CLIENT_ID_KEY = 'answer_practice_gdrive_client_id';
+const GDRIVE_FILE_ID_KEY = 'answer_practice_gdrive_file_id';
+const GDRIVE_SYNCED_AT_KEY = 'answer_practice_gdrive_synced_at';
+const GDRIVE_FILE_NAME = '답안연습장_data.json';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_SYNC_DEBOUNCE = 4000;
+let gdriveClientId = localStorage.getItem(GDRIVE_CLIENT_ID_KEY) || '';
+let gdriveFileId = localStorage.getItem(GDRIVE_FILE_ID_KEY) || '';
+let gdriveAccessToken = null;
+let gdriveTokenClient = null;
+let gdriveSyncTimer = null;
+let gdriveSyncing = false;
+function scheduleGdriveSync(){
+  if(!gdriveAccessToken) return;
+  clearTimeout(gdriveSyncTimer);
+  gdriveSyncTimer = setTimeout(()=> gdriveSync(false), GDRIVE_SYNC_DEBOUNCE);
+}
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>toast.classList.remove('show'), 1800);
+}
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ================= 맨 위로 이동 버튼 ================= */
+const scrollTopBtn = document.getElementById('scrollTopBtn');
+function updateScrollTopBtn(){
+  scrollTopBtn.classList.toggle('show', window.scrollY > 200);
+}
+window.addEventListener('scroll', updateScrollTopBtn, { passive:true });
+scrollTopBtn.addEventListener('click', ()=>{
+  window.scrollTo(0, 0); /* 스크롤 애니메이션 없이 즉시 최상단으로 이동 */
+});
+updateScrollTopBtn();
+
+function fmtSeconds(sec){
+  const m = Math.floor(sec/60), s = sec % 60;
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+function buildWrappedHtml(){
+  const lh = editArea.style.lineHeight || DEFAULT_LH;
+  const al = editArea.style.textAlign || DEFAULT_ALIGN;
+  const fs = editArea.style.fontSize || DEFAULT_FS;
+  return `<div style="line-height:${lh};text-align:${al};font-size:${fs}">${editArea.innerHTML}</div>`;
+}
+
+document.querySelectorAll('.edit-toolbar button[data-cmd], #symbolToolbar button[data-cmd]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    editArea.focus();
+    document.execCommand(btn.dataset.cmd, false, null);
+    scheduleAutosave();
+  });
+});
+
+lineHeightSelect.addEventListener('change', ()=>{ editArea.style.lineHeight = lineHeightSelect.value; scheduleAutosave(); });
+alignSelect.addEventListener('change', ()=>{ editArea.style.textAlign = alignSelect.value; scheduleAutosave(); });
+fontSizeSelect.addEventListener('change', ()=>{ editArea.style.fontSize = fontSizeSelect.value; scheduleAutosave(); });
+
+/* ---- 대표색상 팔레트 ---- */
+const FORE_COLORS = [
+  ['#1c2530','검정'], ['#5c6773','회색'], ['#e03131','빨강'], ['#e8590c','주황'],
+  ['#c9a300','금색'], ['#2f9e44','초록'], ['#0c8599','청록'], ['#1971c2','파랑'],
+  ['#7048e8','보라'], ['#a05a2c','갈색']
+];
+const HILITE_COLORS = [
+  ['#fff2a8','노랑'], ['#ffd8a8','주황'], ['#ffb3c1','분홍'], ['#ffc9c9','빨강'],
+  ['#b2f2bb','초록'], ['#c3fae8','민트'], ['#a5d8ff','하늘'], ['#d0bfff','보라'],
+  ['#e9ecef','회색'], ['transparent','지우기']
+];
+function renderColorPalette(container, colors, mode){
+  container.innerHTML = '';
+  colors.forEach(([hex,label])=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'color-swatch' + (hex==='transparent' ? ' none-swatch' : '');
+    if(hex!=='transparent') b.style.background = hex;
+    b.title = label;
+    b.addEventListener('click', ()=>{
+      editArea.focus();
+      if(mode==='fore'){
+        document.execCommand('foreColor', false, hex);
+      } else {
+        try{ document.execCommand('hiliteColor', false, hex); }
+        catch(e){ document.execCommand('backColor', false, hex); }
+      }
+      scheduleAutosave();
+    });
+    container.appendChild(b);
+  });
+}
+renderColorPalette(foreColorPalette, FORE_COLORS, 'fore');
+renderColorPalette(hiliteColorPalette, HILITE_COLORS, 'hilite');
+
+/* ---- 기호/단위 삽입 ---- */
+document.querySelectorAll('#symbolToolbar button[data-insert]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    editArea.focus();
+    document.execCommand('insertText', false, btn.dataset.insert);
+    scheduleAutosave();
+  });
+});
+const unitSelect = document.getElementById('unitSelect');
+unitSelect.addEventListener('change', ()=>{
+  if(!unitSelect.value) return;
+  editArea.focus();
+  document.execCommand('insertText', false, unitSelect.value);
+  unitSelect.value = '';
+  scheduleAutosave();
+});
+
+/* ================= 답안 뼈대 / 단계번호 / 답 표시 ================= */
+document.getElementById('skeletonBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  const html =
+    '<div><b>① 공식</b> : </div>' +
+    '<div><b>② 대입</b> : </div>' +
+    '<div><b>③ 계산</b> : </div>' +
+    '<div><b>∴ 답</b> : </div>';
+  document.execCommand('insertHTML', false, html);
+  scheduleAutosave();
+});
+
+const CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+document.getElementById('stepNumBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  const text = editArea.textContent || '';
+  let maxIdx = -1;
+  CIRCLED.forEach((c, i)=>{ if(text.includes(c)) maxIdx = Math.max(maxIdx, i); });
+  const next = CIRCLED[Math.min(maxIdx + 1, CIRCLED.length - 1)];
+  document.execCommand('insertText', false, next + ' ');
+  scheduleAutosave();
+});
+
+document.getElementById('answerMarkBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  document.execCommand('insertHTML', false, '<b>∴ 답</b> : ');
+  scheduleAutosave();
+});
+
+/* ================= 키보드 단축입력 (//코드 + 스페이스) ================= */
+const SHORTCUTS = {
+  'd':'Δ', 'r':'ρ', 'e':'η', 'g':'γ', 'pi':'π', 'p':'π', 'f':'φ', 'x':'ξ',
+  'l':'λ', 'th':'θ', 'a':'α', 'b':'β', 'u':'μ', 'w':'ω', 's':'Σ',
+  'rt':'√', '+-':'±', '->':'→', '~':'≒', '<=':'≤', '>=':'≥',
+  '2':'²', '3':'³', 'c':'℃', 'm2':'㎡', 'm3':'㎥',
+  'm3h':'m³/h', 'lmin':'L/min', 'kgh':'kg/h', 'kgm3':'kg/m³',
+  'kjkg':'kJ/kg', 'kw':'kW', 'ms':'m/s', 'mmaq':'mmAq', 'kpa':'kPa', 'atm':'atm',
+  'ans':'∴ 답 :'
+};
+
+editArea.addEventListener('keydown', (e)=>{
+  if(e.key !== ' ') return;
+  const sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if(!range.collapsed) return;
+  const node = range.startContainer;
+  if(node.nodeType !== Node.TEXT_NODE) return;
+  const offset = range.startOffset;
+  const before = node.textContent.slice(0, offset);
+  const m = before.match(/\/\/([A-Za-z0-9+\-<>=~]+)$/);
+  if(!m) return;
+  const code = m[1].toLowerCase();
+  if(!(code in SHORTCUTS)) return;
+  e.preventDefault();
+  const repl = SHORTCUTS[code];
+  const start = offset - m[0].length;
+  const newRange = document.createRange();
+  newRange.setStart(node, start);
+  newRange.setEnd(node, offset);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  document.execCommand('insertText', false, repl + ' ');
+  scheduleAutosave();
+});
+
+const shortcutHelp = document.getElementById('shortcutHelp');
+document.getElementById('shortcutHelpBtn').addEventListener('click', ()=>{
+  shortcutHelp.classList.toggle('show');
+});
+
+/* ================= 자주 쓰는 공식 (분류 그룹핑) ================= */
+const FORMULA_KEY = 'formula_bank_v2';
+const OLD_FORMULA_KEY = 'formula_bank_v1';
+const DEFAULT_FORMULAS = [
+  { cat:'열·공조부하', name:'현열부하', formula:'q = ρQCΔT', desc:'q: 열량[kW], ρ: 밀도[kg/m³], Q: 유량[m³/s], C: 비열[kJ/kg·K], ΔT: 온도차[℃]' },
+  { cat:'열·공조부하', name:'잠열부하', formula:'qL = γ × ρQ × Δx', desc:'qL: 잠열량[kW], γ: 증발잠열[2501kJ/kg], ρ: 밀도[kg/m³], Q: 풍량[m³/s], Δx: 절대습도차[kg/kg\']' },
+  { cat:'열·공조부하', name:'벽체 열관류율', formula:'K = 1 / (1/αi + Σd/λ + 1/αo)', desc:'K: 열관류율[W/㎡·K], αi: 실내표면열전달률, d: 재료두께[m], λ: 열전도율[W/m·K], αo: 실외표면열전달률' },
+  { cat:'열·공조부하', name:'관류손실열량', formula:'q = K × A × ΔT', desc:'q: 손실열량[W], K: 열관류율[W/㎡·K], A: 면적[㎡], ΔT: 실내외온도차[℃]' },
+  { cat:'열·공조부하', name:'습공기 엔탈피', formula:'h = 1.01t + x(2501 + 1.85t)', desc:'h: 습공기엔탈피[kJ/kg], t: 건구온도[℃], x: 절대습도[kg/kg\']' },
+  { cat:'열·공조부하', name:'현열비(SHF)', formula:'SHF = qs / (qs + qL)', desc:'SHF: 현열비, qs: 현열부하, qL: 잠열부하' },
+  { cat:'열·공조부하', name:'혼합공기온도(가중평균)', formula:'tm = (G1t1 + G2t2) / (G1 + G2)', desc:'tm: 혼합온도[℃], G1·G2: 각 풍량, t1·t2: 각 온도[℃]' },
+  { cat:'열·공조부하', name:'바이패스팩터(BF)', formula:'BF = (t2 − tADP) / (t1 − tADP)', desc:'BF: 바이패스팩터, t1: 코일입구온도, t2: 코일출구온도, tADP: 장치노점온도' },
+  { cat:'열·공조부하', name:'대수평균온도차(LMTD)', formula:'LMTD = (ΔT1 − ΔT2) / ln(ΔT1/ΔT2)', desc:'ΔT1, ΔT2: 양단 온도차[℃] (대향류: 공기입구-물출구, 공기출구-물입구 매칭)' },
+  { cat:'열·공조부하', name:'상당방열면적(EDR)', formula:'EDR = q / q0', desc:'EDR: 상당방열면적[㎡], q: 방열기부하[W], q0: 표준방열량(온수523, 증기756)[W/㎡]' },
+  { cat:'열·공조부하', name:'환기횟수', formula:'N = Q / V', desc:'N: 환기횟수[회/h], Q: 환기량[m³/h], V: 실체적[m³]' },
+  { cat:'열·공조부하', name:'CO₂ 필요환기량', formula:'Q = M / ((Pi − Po) × 10⁻⁶)', desc:'Q: 환기량[m³/h], M: CO₂발생량[m³/h], Pi: 실내허용농도[ppm], Po: 외기농도[ppm]' },
+  { cat:'유체·배관·펌프', name:'연속의 법칙(유량)', formula:'Q = AV', desc:'Q: 유량[m³/s], A: 단면적[m²], V: 유속[m/s]' },
+  { cat:'유체·배관·펌프', name:'유속(관경 기준)', formula:'V = 4Q / (πD²)', desc:'V: 유속[m/s], Q: 유량[m³/s], D: 관경[m]' },
+  { cat:'유체·배관·펌프', name:'마찰손실수두(Darcy-Weisbach)', formula:'h = f × (l/d) × (v²/2g)', desc:'h: 마찰손실수두[m], f: 관마찰계수, l: 배관길이[m], d: 관경[m], v: 유속[m/s], g: 9.8m/s²' },
+  { cat:'유체·배관·펌프', name:'펌프축동력', formula:'P = 1000 × H × Q / (102 × 60 × η)', desc:'P: 축동력[kW], H: 전양정[m], Q: 유량[L/min], η: 펌프효율' },
+  { cat:'유체·배관·펌프', name:'유효흡입양정(NPSH)', formula:'Hsv = Ha ± Hs − Hf − Hvp', desc:'Ha: 대기압수두[10.332m], Hs: 흡입양정(수면보다 높으면 −), Hf: 흡입관마찰손실[m], Hvp: 포화증기압수두[m]' },
+  { cat:'유체·배관·펌프', name:'레이놀즈수', formula:'Re = ρvd / μ', desc:'Re: 레이놀즈수, ρ: 밀도[kg/m³], v: 유속[m/s], d: 관경[m], μ: 점성계수[Pa·s]' },
+  { cat:'유체·배관·펌프', name:'단위환산(압력)', formula:'1atm = 10.332mAq = 101.325kPa', desc:'표준대기압 단위환산 고정값' },
+  { cat:'덕트·송풍기', name:'동압', formula:'Pv = v²/2g × γ', desc:'Pv: 동압[mmAq], v: 유속[m/s], g: 9.8m/s², γ: 비중량[kgf/m³] (Pa단위: Pv = ρv²/2)' },
+  { cat:'덕트·송풍기', name:'전압', formula:'PT = Ps + Pv', desc:'PT: 전압, Ps: 정압, Pv: 동압' },
+  { cat:'덕트·송풍기', name:'국부저항손실', formula:'Pa = ξ × v²/2 × ρ', desc:'Pa: 국부저항[Pa], ξ: 국부저항계수, v: 유속[m/s], ρ: 공기밀도[kg/m³]' },
+  { cat:'덕트·송풍기', name:'송풍기 축동력', formula:'P = PT × Q / (102 × 60 × η)', desc:'P: 축동력[kW], PT: 전압[mmAq], Q: 풍량[m³/min], η: 효율' },
+  { cat:'덕트·송풍기', name:'상사법칙(풍량)', formula:'Q2 = Q1 × (N2/N1)', desc:'풍량은 회전수에 비례' },
+  { cat:'덕트·송풍기', name:'상사법칙(정압)', formula:'P2 = P1 × (N2/N1)²', desc:'정압은 회전수의 제곱에 비례' },
+  { cat:'덕트·송풍기', name:'상사법칙(동력)', formula:'L2 = L1 × (N2/N1)³', desc:'동력은 회전수의 세제곱에 비례' },
+  { cat:'덕트·송풍기', name:'원형↔장방형 덕트 환산', formula:'de = 1.3 × [(ab)⁵/(a+b)²]^(1/8)', desc:'de: 원형덕트 상당직경, a: 장변, b: 단변' },
+  { cat:'위생설비', name:'급탕(가열)부하', formula:'q = G × Cp × ΔT', desc:'q: 열량[kJ/h], G: 급탕량[kg/h], Cp: 물비열[4.19kJ/kg·K], ΔT: 급탕-급수온도차[℃]' },
+  { cat:'위생설비', name:'필요증기량', formula:'L = q / γ', desc:'L: 증기량[kg/h], q: 가열부하[kJ/h], γ: 증발잠열[kJ/kg]' },
+  { cat:'위생설비', name:'전열면적(열교환기)', formula:'A = q / (K × ΔTm)', desc:'A: 전열면적[㎡], q: 부하[W], K: 열관류율[W/㎡·K], ΔTm: 대수평균온도차[℃]' },
+  { cat:'위생설비', name:'개방형 팽창탱크 용량', formula:'VE = 1000V(1/r2 − 1/r1)', desc:'VE: 팽창량[L], V: 장치내 온수량[m³], r1: 급수밀도, r2: 온수밀도' },
+  { cat:'위생설비', name:'수도본관 최저필요압력', formula:'P ≥ P1 + P2 + P3', desc:'P1: 실양정, P2: 마찰손실, P3: 기구최소필요압력 (단위 통일 후 합산)' }
+];
+let formulaBank = [];
+
+function loadFormulaBank(){
+  try{
+    const raw = localStorage.getItem(FORMULA_KEY);
+    if(raw){
+      formulaBank = JSON.parse(raw);
+      if(!Array.isArray(formulaBank) || !formulaBank.length) formulaBank = DEFAULT_FORMULAS.slice();
+      return;
+    }
+    const oldRaw = localStorage.getItem(OLD_FORMULA_KEY);
+    if(oldRaw){
+      const old = JSON.parse(oldRaw);
+      if(Array.isArray(old) && old.length){
+        const migrated = old
+          .filter(o => !DEFAULT_FORMULAS.some(d => d.formula === o.formula))
+          .map(o => ({ cat:'미분류', name:o.name, formula:o.formula, desc:o.desc || '' }));
+        formulaBank = DEFAULT_FORMULAS.concat(migrated);
+        saveFormulaBank();
+        return;
+      }
+    }
+    formulaBank = DEFAULT_FORMULAS.slice();
+  } catch(e){
+    formulaBank = DEFAULT_FORMULAS.slice();
+  }
+}
+function saveFormulaBank(){
+  try{
+    localStorage.setItem(FORMULA_KEY, JSON.stringify(formulaBank));
+  } catch(e){
+    alert('⚠️ 공식 목록 저장에 실패했습니다. 기기의 저장 공간이 부족할 수 있습니다.');
+  }
+  scheduleGdriveSync();
+}
+function getCategories(){
+  const cats = [];
+  formulaBank.forEach(f=>{ if(!cats.includes(f.cat)) cats.push(f.cat); });
+  return cats;
+}
+
+const formulaSelect = document.getElementById('formulaSelect');
+function renderFormulaSelect(selectIndex){
+  formulaSelect.innerHTML = '<option value="">공식을 선택하세요⋯</option>';
+  getCategories().forEach(cat=>{
+    const group = document.createElement('optgroup');
+    group.label = '📂 ' + cat;
+    formulaBank.forEach((f, i)=>{
+      if(f.cat !== cat) return;
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `${f.name} : ${f.formula}`;
+      group.appendChild(opt);
+    });
+    formulaSelect.appendChild(group);
+  });
+  if(selectIndex !== undefined && selectIndex !== null){
+    formulaSelect.value = String(selectIndex);
+  }
+}
+
+formulaSelect.addEventListener('change', ()=>{
+  const idx = formulaSelect.value;
+  if(idx === '') return;
+  const f = formulaBank[Number(idx)];
+  if(!f) return;
+  editArea.focus();
+  const descHtml = f.desc
+    ? `<div style="color:#5c6773;font-size:0.92em;">(여기서, ${escapeHtml(f.desc)})</div>`
+    : '';
+  const html = `<div>${escapeHtml(f.formula)}</div>` + descHtml;
+  document.execCommand('insertHTML', false, html);
+  scheduleAutosave();
+});
+
+const formulaForm = document.getElementById('formulaForm');
+const formulaFormTitle = document.getElementById('formulaFormTitle');
+const formulaFormCat = document.getElementById('formulaFormCat');
+const formulaFormCatNew = document.getElementById('formulaFormCatNew');
+const formulaFormName = document.getElementById('formulaFormName');
+const formulaFormExpr = document.getElementById('formulaFormExpr');
+const formulaFormDesc = document.getElementById('formulaFormDesc');
+let formulaEditIndex = null;
+
+function renderCatOptions(selected){
+  formulaFormCat.innerHTML = '';
+  getCategories().forEach(cat=>{
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    formulaFormCat.appendChild(opt);
+  });
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '➕ 새 분류 만들기⋯';
+  formulaFormCat.appendChild(newOpt);
+  if(selected) formulaFormCat.value = selected;
+  formulaFormCatNew.style.display = formulaFormCat.value === '__new__' ? 'block' : 'none';
+}
+formulaFormCat.addEventListener('change', ()=>{
+  formulaFormCatNew.style.display = formulaFormCat.value === '__new__' ? 'block' : 'none';
+  if(formulaFormCat.value === '__new__') formulaFormCatNew.focus();
+});
+
+function openFormulaForm(mode, index){
+  formulaEditIndex = (mode === 'edit') ? index : null;
+  if(mode === 'edit'){
+    const f = formulaBank[index];
+    formulaFormTitle.textContent = '✏️ 공식 수정';
+    renderCatOptions(f.cat);
+    formulaFormName.value = f.name;
+    formulaFormExpr.value = f.formula;
+    formulaFormDesc.value = f.desc || '';
+  } else {
+    formulaFormTitle.textContent = '➕ 새 공식 추가';
+    renderCatOptions();
+    formulaFormName.value = '';
+    formulaFormExpr.value = '';
+    formulaFormDesc.value = '';
+  }
+  formulaFormCatNew.value = '';
+  formulaForm.classList.add('show');
+  formulaFormName.focus();
+}
+function closeFormulaForm(){
+  formulaForm.classList.remove('show');
+  formulaEditIndex = null;
+}
+
+document.getElementById('formulaAddBtn').addEventListener('click', ()=> openFormulaForm('add'));
+document.getElementById('formulaEditBtn').addEventListener('click', ()=>{
+  const idx = formulaSelect.value;
+  if(idx === ''){ alert('수정할 공식을 먼저 선택하세요.'); return; }
+  openFormulaForm('edit', Number(idx));
+});
+document.getElementById('formulaDelBtn').addEventListener('click', ()=>{
+  const idx = formulaSelect.value;
+  if(idx === ''){ alert('삭제할 공식을 먼저 선택하세요.'); return; }
+  const f = formulaBank[Number(idx)];
+  if(!confirm(`"${f.name} : ${f.formula}" 공식을 삭제할까요?`)) return;
+  formulaBank.splice(Number(idx), 1);
+  saveFormulaBank();
+  renderFormulaSelect();
+});
+document.getElementById('formulaFormCancel').addEventListener('click', closeFormulaForm);
+document.getElementById('formulaFormSave').addEventListener('click', ()=>{
+  let cat = formulaFormCat.value;
+  if(cat === '__new__'){
+    cat = formulaFormCatNew.value.trim();
+    if(!cat){ alert('새 분류 이름을 입력하세요.'); return; }
+  }
+  const name = formulaFormName.value.trim();
+  const formula = formulaFormExpr.value.trim();
+  const desc = formulaFormDesc.value.trim();
+  if(!name || !formula){ alert('이름과 공식은 반드시 입력해야 합니다.'); return; }
+  const entry = { cat, name, formula, desc };
+  if(formulaEditIndex === null){
+    formulaBank.push(entry);
+    saveFormulaBank();
+    renderFormulaSelect(formulaBank.length - 1);
+  } else {
+    formulaBank[formulaEditIndex] = entry;
+    saveFormulaBank();
+    renderFormulaSelect(formulaEditIndex);
+  }
+  closeFormulaForm();
+});
+
+loadFormulaBank();
+renderFormulaSelect();
+
+/* ================= 계산기 (공학용) ================= */
+const toggleCalcBtn = document.getElementById('toggleCalcBtn');
+const calcPanel = document.getElementById('calcPanel');
+const calcExpr = document.getElementById('calcExpr');
+const calcResult = document.getElementById('calcResult');
+const calcAngleLabel = document.getElementById('calcAngleLabel');
+const calcAnsDisplay = document.getElementById('calcAnsDisplay');
+const calcUnit = document.getElementById('calcUnit');
+const fracNum = document.getElementById('fracNum');
+const fracDen = document.getElementById('fracDen');
+const fracResult = document.getElementById('fracResult');
+const fracAppendResult = document.getElementById('fracAppendResult');
+const fracAppendUnit = document.getElementById('fracAppendUnit');
+let calcLastValue = null;
+let calcAngleMode = 'deg';
+let calcAns = 0;
+let calcMemory = 0;
+let fracLastValue = null;
+
+toggleCalcBtn.addEventListener('click', ()=>{
+  calcPanel.classList.toggle('show');
+  if(calcPanel.classList.contains('show')) calcExpr.focus();
+});
+toggleCalcBtnTop.addEventListener('click', ()=>{
+  calcPanel.classList.toggle('show');
+  if(calcPanel.classList.contains('show')){
+    calcExpr.focus();
+    calcPanel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+});
+
+function calcInsertAtCursor(input, text){
+  const start = input.selectionStart, end = input.selectionEnd;
+  const v = input.value;
+  input.value = v.slice(0, start) + text + v.slice(end);
+  const pos = start + text.length;
+  input.focus();
+  input.setSelectionRange(pos, pos);
+}
+
+function formatCalcNumber(v){
+  if(Object.is(v,-0)) v = 0;
+  if(Number.isInteger(v)) return v.toLocaleString('ko-KR');
+  let s = v.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  const neg = s.startsWith('-');
+  if(neg) s = s.slice(1);
+  const [intPart, decPart] = s.split('.');
+  let intFormatted = Number(intPart).toLocaleString('ko-KR');
+  if(neg) intFormatted = '-' + intFormatted;
+  return decPart ? intFormatted + '.' + decPart : intFormatted;
+}
+
+function evaluateCalcExpr(raw){
+  let expr = raw
+    .replace(/,/g, '')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/²/g, '**2')
+    .replace(/³/g, '**3')
+    .replace(/\^/g, '**')
+    .replace(/π/g, 'PI')
+    .replace(/√\(/g, 'sqrt(')
+    .replace(/√(\d+(\.\d+)?)/g, 'sqrt($1)')
+    .replace(/(\([^()]*\))!/g, 'fact($1)')
+    .replace(/(\d+(\.\d+)?)!/g, 'fact($1)')
+    .replace(/(\d+(\.\d+)?)%/g, '($1/100)');
+
+  const words = expr.match(/[A-Za-z_]+/g) || [];
+  const allowedWords = new Set(['sin','cos','tan','log','ln','sqrt','fact','PI','E','Ans']);
+  for(const w of words){ if(!allowedWords.has(w)) throw new Error('invalid token'); }
+  const stripped = expr.replace(/[A-Za-z_]+/g, '');
+  if(!/^[0-9+\-*/().\s]*$/.test(stripped)) throw new Error('invalid chars');
+
+  const deg = calcAngleMode === 'deg';
+  const toRad = x => x * Math.PI / 180;
+  const sin = x => Math.sin(deg ? toRad(x) : x);
+  const cos = x => Math.cos(deg ? toRad(x) : x);
+  const tan = x => Math.tan(deg ? toRad(x) : x);
+  const log = x => Math.log10(x);
+  const ln = x => Math.log(x);
+  const sqrt = x => Math.sqrt(x);
+  const fact = n => { n = Math.round(n); if(n < 0) return NaN; let r = 1; for(let i=2;i<=n;i++) r *= i; return r; };
+  const PI = Math.PI, E = Math.E, Ans = calcAns;
+
+  // eslint-disable-next-line no-new-func
+  const fn = new Function('sin','cos','tan','log','ln','sqrt','fact','PI','E','Ans',
+    '"use strict"; return (' + expr + ');');
+  const val = fn(sin,cos,tan,log,ln,sqrt,fact,PI,E,Ans);
+  if(typeof val !== 'number' || !isFinite(val)) throw new Error('invalid result');
+  return Math.round(val * 1e8) / 1e8;
+}
+
+function runCalc(){
+  try{
+    const val = evaluateCalcExpr(calcExpr.value.trim());
+    calcLastValue = val;
+    calcAns = val;
+    calcAnsDisplay.textContent = formatCalcNumber(val);
+    calcResult.textContent = '= ' + formatCalcNumber(val);
+  } catch(e){
+    calcLastValue = null;
+    calcResult.textContent = '= 오류';
+  }
+}
+
+document.querySelectorAll('.calc-sci-keys button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const act = btn.dataset.act;
+    if(act === 'recip'){
+      calcExpr.value = calcExpr.value.trim() ? `1/(${calcExpr.value.trim()})` : '1/(';
+      calcExpr.focus();
+      return;
+    }
+    if(act === 'negate'){
+      calcExpr.value = calcExpr.value.startsWith('-') ? calcExpr.value.slice(1) : '-' + calcExpr.value;
+      calcExpr.focus();
+      return;
+    }
+    if(act === 'mc'){ calcMemory = 0; showToast('메모리 삭제(MC)'); return; }
+    if(act === 'mr'){ calcInsertAtCursor(calcExpr, String(calcMemory)); return; }
+    if(act === 'mplus'){
+      runCalc();
+      if(calcLastValue !== null){ calcMemory += calcLastValue; showToast('M+ 저장: ' + formatCalcNumber(calcMemory)); }
+      return;
+    }
+    if(act === 'degrad'){
+      calcAngleMode = calcAngleMode === 'deg' ? 'rad' : 'deg';
+      const label = calcAngleMode === 'deg' ? 'DEG' : 'RAD';
+      btn.textContent = label;
+      calcAngleLabel.textContent = label;
+      return;
+    }
+    if(act === 'clear'){
+      calcExpr.value=''; calcResult.textContent='= '; calcLastValue=null; calcExpr.focus();
+      return;
+    }
+    const tok = btn.dataset.tok;
+    if(tok === undefined) return;
+    if(btn.dataset.pair === '1'){
+      calcInsertAtCursor(calcExpr, tok + ')');
+      const pos = calcExpr.selectionStart;
+      calcExpr.setSelectionRange(pos-1, pos-1);
+    } else {
+      calcInsertAtCursor(calcExpr, tok);
+    }
+  });
+});
+
+document.querySelectorAll('.calc-keys button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const act = btn.dataset.act;
+    if(act === 'eq'){ runCalc(); return; }
+    if(act === 'back'){
+      const pos = calcExpr.selectionStart;
+      if(pos>0){
+        calcExpr.value = calcExpr.value.slice(0,pos-1) + calcExpr.value.slice(pos);
+        calcExpr.focus();
+        calcExpr.setSelectionRange(pos-1,pos-1);
+      }
+      return;
+    }
+    const k = btn.dataset.k;
+    if(k !== undefined) calcInsertAtCursor(calcExpr, k);
+  });
+});
+calcExpr.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); runCalc(); } });
+
+function unitSuffix(){
+  const u = calcUnit.value.trim();
+  return u ? ` [${u}]` : '';
+}
+
+document.getElementById('calcInsertBoth').addEventListener('click', ()=>{
+  if(calcLastValue===null) runCalc();
+  if(calcLastValue===null || !calcExpr.value.trim()) return;
+  editArea.focus();
+  document.execCommand('insertText', false, `${calcExpr.value.trim()} = ${formatCalcNumber(calcLastValue)}${unitSuffix()}`);
+  scheduleAutosave();
+});
+document.getElementById('calcInsertResult').addEventListener('click', ()=>{
+  if(calcLastValue===null) runCalc();
+  if(calcLastValue===null) return;
+  editArea.focus();
+  document.execCommand('insertText', false, `${formatCalcNumber(calcLastValue)}${unitSuffix()}`);
+  scheduleAutosave();
+});
+
+function runFracCalc(){
+  try{
+    const n = evaluateCalcExpr((fracNum.value.trim() || '0'));
+    const d = evaluateCalcExpr((fracDen.value.trim() || '0'));
+    if(d === 0) throw new Error('div by zero');
+    const val = Math.round((n/d) * 1e8) / 1e8;
+    fracLastValue = val;
+    fracResult.textContent = '= ' + formatCalcNumber(val);
+  } catch(e){
+    fracLastValue = null;
+    fracResult.textContent = fracNum.value.trim() || fracDen.value.trim() ? '= 오류' : '= ';
+  }
+}
+fracNum.addEventListener('input', runFracCalc);
+fracDen.addEventListener('input', runFracCalc);
+
+document.getElementById('fracFromExprBtn').addEventListener('click', ()=>{
+  const raw = calcExpr.value;
+  let depth = 0, idx = -1;
+  for(let i=0;i<raw.length;i++){
+    const c = raw[i];
+    if(c === '(') depth++;
+    else if(c === ')') depth--;
+    else if(c === '÷' && depth === 0) idx = i;
+  }
+  if(idx === -1){ alert('식 입력창에 최상위 나눗셈(÷)이 없습니다. 예: (10-2)÷(20-2)'); return; }
+  const stripOuter = s => (s.startsWith('(') && s.endsWith(')')) ? s.slice(1,-1) : s;
+  fracNum.value = stripOuter(raw.slice(0, idx).trim());
+  fracDen.value = stripOuter(raw.slice(idx+1).trim());
+  runFracCalc();
+});
+
+document.getElementById('fracInsertBtn').addEventListener('click', ()=>{
+  const num = fracNum.value.trim(), den = fracDen.value.trim();
+  if(!num || !den) return;
+  runFracCalc();
+  let tail = '';
+  if(fracAppendResult.checked && fracLastValue !== null) tail += ` = ${formatCalcNumber(fracLastValue)}`;
+  if(fracAppendUnit.checked) tail += unitSuffix();
+  const html = `<span class="frac" contenteditable="false"><span class="frac-num">${escapeHtml(num)}</span><span class="frac-den">${escapeHtml(den)}</span></span>${escapeHtml(tail)}`;
+  editArea.focus();
+  document.execCommand('insertHTML', false, html);
+  scheduleAutosave();
+});
+
+/* ================= 자동 저장 ================= */
+const AUTOSAVE_KEY = 'scratch_editor_autosave_v1';
+let autosaveTimer = null;
+
+function scheduleAutosave(){
+  autosaveBadge.textContent = '💾 저장 중⋯';
+  autosaveBadge.classList.remove('saved');
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(doAutosave, 500);
+}
+function doAutosave(){
+  try{
+    const data = {
+      title: problemTitle.value,
+      html: editArea.innerHTML,
+    };
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    autosaveBadge.textContent = '✅ 자동 저장됨';
+    autosaveBadge.classList.add('saved');
+  } catch(e){
+    autosaveBadge.textContent = '⚠️ 저장 실패';
+  }
+}
+function restoreAutosave(){
+  try{
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    problemTitle.value = data.title || '';
+    editArea.innerHTML = data.html || '';
+    editArea.style.lineHeight = data.lineHeight || DEFAULT_LH;
+    editArea.style.textAlign = data.align || DEFAULT_ALIGN;
+    editArea.style.fontSize = data.fontSize || DEFAULT_FS;
+    lineHeightSelect.value = data.lineHeight || DEFAULT_LH;
+    alignSelect.value = data.align || DEFAULT_ALIGN;
+    fontSizeSelect.value = data.fontSize || DEFAULT_FS;
+    if(data.html || data.title){
+      autosaveBadge.textContent = '✅ 이전 작업 복원됨';
+      autosaveBadge.classList.add('saved');
+    }
+  } catch(e){ /* 무시 */ }
+}
+editArea.addEventListener('input', scheduleAutosave);
+problemTitle.addEventListener('input', scheduleAutosave);
+window.addEventListener('beforeunload', ()=>{ clearTimeout(autosaveTimer); doAutosave(); });
+
+editArea.style.lineHeight = DEFAULT_LH;
+editArea.style.textAlign = DEFAULT_ALIGN;
+editArea.style.fontSize = DEFAULT_FS;
+restoreAutosave();
+
+/* ================= 되돌리기 / 다시실행 ================= */
+const UNDO_MAX = 80;
+const UNDO_DEBOUNCE = 700;
+let undoStack = [];
+let redoStack = [];
+let preBurstSnapshot = editArea.innerHTML;
+let undoDebounceTimer = null;
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+
+function updateUndoRedoButtons(){
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+function pushUndoCheckpoint(html){
+  if(undoStack.length && undoStack[undoStack.length - 1] === html) return;
+  undoStack.push(html);
+  if(undoStack.length > UNDO_MAX) undoStack.shift();
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+function scheduleUndoCheckpoint(){
+  clearTimeout(undoDebounceTimer);
+  undoDebounceTimer = setTimeout(()=>{
+    pushUndoCheckpoint(preBurstSnapshot);
+    preBurstSnapshot = editArea.innerHTML;
+  }, UNDO_DEBOUNCE);
+}
+/* 실행취소 스택에 바로 반영해야 하는(=execCommand를 거치지 않는) 편집 동작을 감쌀 때 사용 */
+function commitDiscreteAction(mutateFn){
+  clearTimeout(undoDebounceTimer);
+  pushUndoCheckpoint(editArea.innerHTML);
+  mutateFn();
+  preBurstSnapshot = editArea.innerHTML;
+  scheduleAutosave();
+}
+function resetUndoHistory(){
+  clearTimeout(undoDebounceTimer);
+  undoStack = [];
+  redoStack = [];
+  preBurstSnapshot = editArea.innerHTML;
+  updateUndoRedoButtons();
+}
+function performUndo(){
+  clearTimeout(undoDebounceTimer);
+  if(!undoStack.length){ showToast('더 되돌릴 내용이 없습니다'); return; }
+  redoStack.push(editArea.innerHTML);
+  const prev = undoStack.pop();
+  editArea.innerHTML = prev;
+  preBurstSnapshot = prev;
+  updateUndoRedoButtons();
+  scheduleAutosave();
+}
+function performRedo(){
+  clearTimeout(undoDebounceTimer);
+  if(!redoStack.length){ showToast('다시 실행할 내용이 없습니다'); return; }
+  undoStack.push(editArea.innerHTML);
+  if(undoStack.length > UNDO_MAX) undoStack.shift();
+  const next = redoStack.pop();
+  editArea.innerHTML = next;
+  preBurstSnapshot = next;
+  updateUndoRedoButtons();
+  scheduleAutosave();
+}
+undoBtn.addEventListener('click', performUndo);
+redoBtn.addEventListener('click', performRedo);
+editArea.addEventListener('input', scheduleUndoCheckpoint);
+editArea.addEventListener('keydown', (e)=>{
+  const ctrlKey = e.ctrlKey || e.metaKey;
+  if(!ctrlKey) return;
+  const key = e.key.toLowerCase();
+  if(key === 'z' && !e.shiftKey){ e.preventDefault(); performUndo(); }
+  else if(key === 'y' || (key === 'z' && e.shiftKey)){ e.preventDefault(); performRedo(); }
+});
+resetUndoHistory();
+
+/* ================= 블럭 편집: 괄호/콤마 삭제, 분수로 바꾸기 ================= */
+function getEditAreaSelection(){
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  if(!editArea.contains(range.commonAncestorContainer)) return null;
+  return { sel, range };
+}
+
+/* 선택 영역 안에서 주어진 정규식(g)에 매칭되는 문자를 모두 삭제 (텍스트 노드 단위, 서식 유지) */
+function removeCharsInSelection(regex, label){
+  const found = getEditAreaSelection();
+  if(!found){ showToast(`먼저 ${label}을(를) 지울 부분을 블럭 지정하세요`); return; }
+  const { sel, range } = found;
+  const frag = range.cloneContents();
+  const walker = document.createTreeWalker(frag, NodeFilter.SHOW_TEXT);
+  let node, changed = false;
+  while(node = walker.nextNode()){
+    const replaced = node.textContent.replace(regex, '');
+    if(replaced !== node.textContent){ node.textContent = replaced; changed = true; }
+  }
+  if(!changed){ showToast(`선택 영역에 ${label}이(가) 없습니다`); return; }
+  commitDiscreteAction(()=>{
+    range.deleteContents();
+    range.insertNode(frag);
+    sel.removeAllRanges();
+  });
+  showToast(`${label}을(를) 삭제했습니다`);
+}
+function removeParensInSelection(){ removeCharsInSelection(/[()]/g, '( ) 괄호'); }
+function removeCommasInSelection(){ removeCharsInSelection(/,/g, '천단위 콤마(,)'); }
+
+/* "kJ/h", "kg/m³" 같이 글자 사이에 낀 단위용 "/"는 무시하고,
+   숫자·공백·괄호·연산기호 옆에 붙은 "/"만 실제 나눗셈 구분기호로 인식한다.
+   "÷"는 단위 표기에 쓰이지 않으므로 항상 실제 구분기호로 인식한다. */
+function findFractionDivider(text){
+  const isBoundary = (c) => c === undefined || /[0-9,.\s()×÷+\-−]/.test(c);
+  let index = -1, count = 0;
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(ch === '÷'){ count++; index = i; continue; }
+    if(ch === '/'){
+      const prev = text[i - 1];
+      const next = text[i + 1];
+      if(isBoundary(prev) || isBoundary(next)){ count++; index = i; }
+      /* 앞뒤가 모두 글자/기호(예: kJ/h)면 단위 표기로 보고 건너뜀 */
+    }
+  }
+  return { index, count };
+}
+
+function convertSelectionToFraction(){
+  const found = getEditAreaSelection();
+  if(!found){ showToast('먼저 "분자/분모" 또는 "분자÷분모" 텍스트를 블럭 지정하세요'); return; }
+  const { sel, range } = found;
+  const text = sel.toString();
+  const { index, count } = findFractionDivider(text);
+  if(count !== 1){
+    alert('선택 영역에서 나눗셈 구분기호(/ 또는 ÷)를 정확히 1개 찾지 못했습니다.\n예: 1,638,000kJ/h ÷ 2,203kJ/kg  (kJ/h처럼 단위 속 "/"는 무시됩니다)');
+    return;
+  }
+  const num = text.slice(0, index).trim();
+  const den = text.slice(index + 1).trim();
+  if(!num || !den){ alert('분자 또는 분모가 비어 있습니다.'); return; }
+  commitDiscreteAction(()=>{
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<span class="frac" contenteditable="false"><span class="frac-num">${escapeHtml(num)}</span><span class="frac-den">${escapeHtml(den)}</span></span>`;
+    const fracNode = wrap.firstChild;
+    range.deleteContents();
+    range.insertNode(fracNode);
+    const newRange = document.createRange();
+    newRange.setStartAfter(fracNode);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  });
+  showToast('➗ 분수로 변환했습니다');
+}
+
+document.getElementById('removeParensBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  removeParensInSelection();
+});
+document.getElementById('removeCommaBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  removeCommasInSelection();
+});
+document.getElementById('toFractionBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  convertSelectionToFraction();
+});
+
+/* 마우스 오른쪽 클릭(=길게 누르기) 시 블럭 편집 커스텀 메뉴 */
+const customCtxMenu = document.getElementById('customCtxMenu');
+function hideCtxMenu(){ customCtxMenu.classList.remove('show'); }
+function showCtxMenu(x, y){
+  customCtxMenu.style.left = x + 'px';
+  customCtxMenu.style.top = y + 'px';
+  customCtxMenu.classList.add('show');
+  requestAnimationFrame(()=>{
+    const rect = customCtxMenu.getBoundingClientRect();
+    if(rect.right > window.innerWidth) customCtxMenu.style.left = Math.max(4, window.innerWidth - rect.width - 8) + 'px';
+    if(rect.bottom > window.innerHeight) customCtxMenu.style.top = Math.max(4, window.innerHeight - rect.height - 8) + 'px';
+  });
+}
+editArea.addEventListener('contextmenu', (e)=>{
+  const sel = window.getSelection();
+  if(sel && !sel.isCollapsed && sel.rangeCount && editArea.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    e.preventDefault();
+    showCtxMenu(e.clientX, e.clientY);
+  } else {
+    hideCtxMenu();
+  }
+});
+document.addEventListener('click', (e)=>{ if(!customCtxMenu.contains(e.target)) hideCtxMenu(); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideCtxMenu(); });
+document.getElementById('ctxRemoveParens').addEventListener('click', ()=>{ removeParensInSelection(); hideCtxMenu(); });
+document.getElementById('ctxRemoveComma').addEventListener('click', ()=>{ removeCommasInSelection(); hideCtxMenu(); });
+document.getElementById('ctxToFraction').addEventListener('click', ()=>{ convertSelectionToFraction(); hideCtxMenu(); });
+
+/* ================= 답안 보관함 ================= */
+const ARCHIVE_KEY = 'answer_archive_v1';
+let archive = [];
+
+function loadArchive(){
+  try{
+    const raw = localStorage.getItem(ARCHIVE_KEY);
+    archive = raw ? JSON.parse(raw) : [];
+    if(!Array.isArray(archive)) archive = [];
+  } catch(e){ archive = []; }
+}
+function saveArchive(){
+  try{
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+  } catch(e){
+    alert('⚠️ 보관함 저장에 실패했습니다. 기기의 저장 공간이 부족할 수 있습니다.\n⬇ 백업으로 안전하게 내려받은 뒤, 오래되었거나 필요 없는 답안을 정리해보세요.');
+  }
+  updateArchiveCount();
+  scheduleGdriveSync();
+}
+function updateArchiveCount(){
+  document.getElementById('archiveCount').textContent = archive.length ? `(${archive.length})` : '';
+}
+
+const archivePanel = document.getElementById('archivePanel');
+const archiveList = document.getElementById('archiveList');
+
+document.getElementById('archiveToggleBtn').addEventListener('click', ()=>{
+  archivePanel.classList.toggle('show');
+  if(archivePanel.classList.contains('show')) renderArchive();
+});
+
+document.getElementById('archiveSaveBtn').addEventListener('click', ()=>{
+  const title = problemTitle.value.trim();
+  if(!title){ alert('먼저 문제 제목을 입력하세요.'); problemTitle.focus(); return; }
+  if(!editArea.textContent.trim()){ alert('저장할 답안 내용이 없습니다.'); return; }
+  const existing = archive.find(a => a.title === title);
+  const payload = {
+    html: editArea.innerHTML,
+    lineHeight: editArea.style.lineHeight || DEFAULT_LH,
+    align: editArea.style.textAlign || DEFAULT_ALIGN,
+    fontSize: editArea.style.fontSize || DEFAULT_FS,
+    updatedAt: Date.now()
+  };
+  if(existing){
+    if(!confirm(`"${title}" 답안이 이미 있습니다. 새 내용으로 덮어쓸까요?\n(회독 기록은 유지됩니다)`)) return;
+    Object.assign(existing, payload);
+  } else {
+    archive.push(Object.assign({
+      id: 'a' + Date.now(),
+      title,
+      createdAt: Date.now(),
+      attempts: [],
+      lastReviewedAt: null
+    }, payload));
+  }
+  saveArchive();
+  renderArchive();
+  showToast('💾 보관함에 저장되었습니다!');
+});
+
+function reviewInfo(item){
+  if(!item.attempts || !item.attempts.length){
+    return { badge:'never', label:'미복습', days:Infinity };
+  }
+  const days = Math.floor((Date.now() - item.lastReviewedAt) / 86400000);
+  if(days >= 3) return { badge:'review', label:`복습 ${days}일 경과`, days };
+  return { badge:'fresh', label: days === 0 ? '오늘 복습함' : `${days}일 전 복습`, days };
+}
+
+function renderArchive(){
+  updateArchiveCount();
+  archiveList.innerHTML = '';
+  if(!archive.length){
+    archiveList.innerHTML = '<div class="archive-empty">아직 저장된 답안이 없습니다. 답안을 작성한 뒤 "💾 보관함에 저장"을 눌러보세요.</div>';
+    return;
+  }
+  /* 복습이 오래된 순 (미복습 최우선) */
+  const sorted = archive.slice().sort((a,b)=>{
+    const ra = reviewInfo(a).days, rb = reviewInfo(b).days;
+    return rb - ra;
+  });
+  sorted.forEach(item=>{
+    const info = reviewInfo(item);
+    const oCount = (item.attempts||[]).filter(t=>t.result==='o').length;
+    const xCount = (item.attempts||[]).filter(t=>t.result==='x').length;
+    const row = document.createElement('div');
+    row.className = 'archive-item';
+    row.innerHTML =
+      `<span class="ai-badge ${info.badge}">${info.label}</span>` +
+      `<span class="ai-title">${escapeHtml(item.title)}</span>` +
+      `<span class="ai-meta">⭕${oCount} ❌${xCount}</span>`;
+    const testBtn = document.createElement('button');
+    testBtn.className = 'test-btn';
+    testBtn.textContent = '🧪 테스트';
+    testBtn.addEventListener('click', ()=> startSelfTest(item.id));
+    const loadBtn = document.createElement('button');
+    loadBtn.textContent = '📂 불러오기';
+    loadBtn.addEventListener('click', ()=>{
+      if(editArea.textContent.trim() && !confirm('현재 편집창 내용을 이 답안으로 교체할까요?')) return;
+      loadArchiveItem(item);
+      archivePanel.classList.remove('show');
+      showToast('📂 불러왔습니다');
+    });
+    const htmlDlBtn = document.createElement('button');
+    htmlDlBtn.textContent = '⬇HTML';
+    htmlDlBtn.title = 'HTML 파일로 다운로드';
+    htmlDlBtn.addEventListener('click', ()=>{
+      const htmlStr = buildStandaloneHtml(item.title, item.html, item.lineHeight || DEFAULT_LH, item.align || DEFAULT_ALIGN, item.fontSize || DEFAULT_FS);
+      downloadHtmlFile(exportFileName('html', item.title), htmlStr);
+      showToast('⬇ HTML 파일로 저장되었습니다!');
+    });
+    const delBtn = document.createElement('button');
+    delBtn.className = 'del-btn';
+    delBtn.textContent = '🗑';
+    delBtn.addEventListener('click', ()=>{
+      if(!confirm(`"${item.title}" 답안과 회독 기록을 삭제할까요?`)) return;
+      archive = archive.filter(a => a.id !== item.id);
+      saveArchive();
+      renderArchive();
+    });
+    row.appendChild(testBtn);
+    row.appendChild(loadBtn);
+    row.appendChild(htmlDlBtn);
+    row.appendChild(delBtn);
+    archiveList.appendChild(row);
+  });
+}
+
+function loadArchiveItem(item){
+  problemTitle.value = item.title;
+  editArea.innerHTML = item.html;
+  editArea.style.lineHeight = item.lineHeight || DEFAULT_LH;
+  editArea.style.textAlign = item.align || DEFAULT_ALIGN;
+  editArea.style.fontSize = item.fontSize || DEFAULT_FS;
+  lineHeightSelect.value = item.lineHeight || DEFAULT_LH;
+  alignSelect.value = item.align || DEFAULT_ALIGN;
+  fontSizeSelect.value = item.fontSize || DEFAULT_FS;
+  resetUndoHistory();
+  scheduleAutosave();
+}
+
+loadArchive();
+updateArchiveCount();
+
+/* ================= 백업 / 복원 ================= */
+function doBackup(){
+  const data = {
+    app: 'answer-practice-book',
+    version: 1,
+    exportedAt: Date.now(),
+    archive: archive,
+    formulaBank: formulaBank
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `답안연습장_백업_${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('⬇ 백업 파일이 저장되었습니다!');
+}
+document.getElementById('backupBtn').addEventListener('click', doBackup);
+
+/* 답안 병합: id 우선, 없으면 제목으로 매칭. 회독 기록(attempts)은 합치고,
+   본문은 더 최근에 수정된 쪽을 채택. 완전히 새 항목은 그대로 추가 */
+function mergeArchive(imported){
+  let added = 0, updated = 0, kept = 0;
+  imported.forEach(im=>{
+    if(!im || !im.title || !im.html) return;
+    let existing = archive.find(a => a.id === im.id) || archive.find(a => a.title === im.title);
+    if(!existing){
+      if(!im.id) im.id = 'a' + Date.now() + Math.random().toString(36).slice(2,7);
+      if(!im.attempts) im.attempts = [];
+      archive.push(im);
+      added++;
+      return;
+    }
+    const attemptsMap = new Map();
+    (existing.attempts||[]).forEach(t=>attemptsMap.set(t.at, t));
+    (im.attempts||[]).forEach(t=>attemptsMap.set(t.at, t));
+    existing.attempts = Array.from(attemptsMap.values()).sort((a,b)=>a.at-b.at);
+    existing.lastReviewedAt = Math.max(existing.lastReviewedAt||0, im.lastReviewedAt||0) || existing.lastReviewedAt || null;
+    existing.createdAt = Math.min(existing.createdAt||Date.now(), im.createdAt||Date.now());
+    if((im.updatedAt||0) > (existing.updatedAt||0)){
+      existing.html = im.html;
+      existing.lineHeight = im.lineHeight;
+      existing.align = im.align;
+      existing.fontSize = im.fontSize;
+      existing.updatedAt = im.updatedAt;
+      updated++;
+    } else {
+      kept++;
+    }
+  });
+  return { added, updated, kept };
+}
+
+/* 공식 병합: 공식 문자열이 같으면 중복으로 보고 건너뜀 */
+function mergeFormulaBank(imported){
+  let added = 0;
+  imported.forEach(im=>{
+    if(!im || !im.formula || !im.name) return;
+    const exists = formulaBank.some(f => f.formula === im.formula);
+    if(!exists){
+      formulaBank.push({ cat: im.cat || '미분류', name: im.name, formula: im.formula, desc: im.desc || '' });
+      added++;
+    }
+  });
+  return added;
+}
+
+document.getElementById('restoreBtn').addEventListener('click', ()=>{
+  document.getElementById('restoreFileInput').click();
+});
+document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.archive)) throw new Error('형식이 올바르지 않습니다.');
+      const archiveResult = mergeArchive(data.archive);
+      const formulaAdded = Array.isArray(data.formulaBank) ? mergeFormulaBank(data.formulaBank) : 0;
+      saveArchive();
+      saveFormulaBank();
+      renderArchive();
+      renderFormulaSelect();
+      alert(
+        `✅ 복원 완료!\n\n[답안 보관함] 새로 추가 ${archiveResult.added}개 · 최신 내용으로 갱신 ${archiveResult.updated}개 · 기존 유지 ${archiveResult.kept}개\n[공식 목록] 새로 추가 ${formulaAdded}개`
+      );
+      showToast('⬆ 복원이 완료되었습니다!');
+    } catch(err){
+      alert('⚠️ 올바른 백업 파일이 아닙니다. (이 편집기에서 "⬇ 백업"으로 저장한 .json 파일인지 확인해주세요)');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+/* ================= Google Drive 동기화 =================
+   - 로그인 시: Drive의 답안연습장_data.json을 받아와 기존 mergeArchive/mergeFormulaBank로 병합 → 다시 업로드
+   - 보관함/공식 저장이 일어날 때마다(saveArchive/saveFormulaBank) 몇 초 후 자동으로 업로드
+   - drive.file 스코프만 사용: 이 앱이 만든 파일에만 접근 가능 (Drive 전체 접근 아님)
+   (상태값 선언은 스크립트 맨 앞쪽으로 옮겨져 있음 — 초기화 중 saveFormulaBank()가
+   동기적으로 scheduleGdriveSync()를 호출할 수 있어서, 참조 전에 미리 선언해두어야 함) */
+const gdrivePanel = document.getElementById('gdrivePanel');
+const gdriveStatusEl = document.getElementById('gdriveStatus');
+const gdriveSetup = document.getElementById('gdriveSetup');
+const gdriveClientIdInput = document.getElementById('gdriveClientIdInput');
+const gdriveActions = document.getElementById('gdriveActions');
+const gdriveSignInBtn = document.getElementById('gdriveSignInBtn');
+const gdriveSyncNowBtn = document.getElementById('gdriveSyncNowBtn');
+const gdriveSignOutBtn = document.getElementById('gdriveSignOutBtn');
+
+function gdriveLastSyncedAt(){
+  const raw = localStorage.getItem(GDRIVE_SYNCED_AT_KEY);
+  return raw ? Number(raw) : null;
+}
+function gdriveSetSyncedAt(ts){
+  try{ localStorage.setItem(GDRIVE_SYNCED_AT_KEY, String(ts)); } catch(e){ /* 무시 */ }
+}
+function fmtClock(ts){
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function updateGdriveStatus(state){
+  if(!gdriveClientId){
+    gdriveStatusEl.textContent = '☁ Drive 연동이 아직 설정되지 않았습니다';
+    gdriveSetup.classList.add('show');
+    gdriveActions.style.display = 'none';
+    return;
+  }
+  gdriveActions.style.display = 'flex';
+  if(state === 'syncing'){
+    gdriveStatusEl.textContent = '☁ 동기화 중⋯';
+  } else if(state === 'error'){
+    gdriveStatusEl.textContent = '⚠️ 동기화에 실패했습니다 — 로그인/인터넷 상태를 확인해주세요';
+  } else {
+    const last = gdriveLastSyncedAt();
+    const lastText = last ? `마지막 동기화 ${fmtClock(last)}` : '아직 동기화 전';
+    gdriveStatusEl.textContent = gdriveAccessToken ? `☁ 로그인됨 · ${lastText}` : `☁ 로그인이 필요합니다 · ${lastText}`;
+  }
+  gdriveSignInBtn.style.display = gdriveAccessToken ? 'none' : '';
+  gdriveSyncNowBtn.style.display = gdriveAccessToken ? '' : 'none';
+  gdriveSignOutBtn.style.display = gdriveAccessToken ? '' : 'none';
+}
+
+document.getElementById('gdriveBtn').addEventListener('click', ()=>{
+  gdrivePanel.classList.toggle('show');
+});
+document.getElementById('gdriveSettingsBtn').addEventListener('click', ()=>{
+  gdriveClientIdInput.value = gdriveClientId;
+  gdriveSetup.classList.toggle('show');
+});
+document.getElementById('gdriveClientIdSaveBtn').addEventListener('click', ()=>{
+  const v = gdriveClientIdInput.value.trim();
+  if(!v){ alert('Google Cloud Console에서 발급받은 클라이언트 ID를 입력하세요.'); return; }
+  gdriveClientId = v;
+  try{ localStorage.setItem(GDRIVE_CLIENT_ID_KEY, v); } catch(e){ /* 무시 */ }
+  gdriveTokenClient = null; /* 새 클라이언트 ID로 다시 초기화되도록 */
+  gdriveSetup.classList.remove('show');
+  updateGdriveStatus();
+  showToast('☁ 클라이언트 ID가 저장되었습니다. 이제 로그인해주세요.');
+});
+
+function initGdriveTokenClient(){
+  if(!window.google || !google.accounts || !gdriveClientId) return false;
+  gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: gdriveClientId,
+    scope: GDRIVE_SCOPE,
+    callback: (resp)=>{
+      if(resp && resp.access_token){
+        gdriveAccessToken = resp.access_token;
+        updateGdriveStatus();
+        gdriveSync(true);
+      } else {
+        updateGdriveStatus('error');
+      }
+    }
+  });
+  return true;
+}
+gdriveSignInBtn.addEventListener('click', ()=>{
+  if(!gdriveClientId){ alert('먼저 ⚙ 설정에서 클라이언트 ID를 입력하세요.'); return; }
+  if(!window.google || !google.accounts){
+    alert('Google 로그인 스크립트를 아직 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해주세요.');
+    return;
+  }
+  if(!gdriveTokenClient && !initGdriveTokenClient()) return;
+  gdriveTokenClient.requestAccessToken({ prompt: gdriveAccessToken ? '' : 'consent' });
+});
+gdriveSyncNowBtn.addEventListener('click', ()=> gdriveSync(true));
+gdriveSignOutBtn.addEventListener('click', ()=>{
+  if(gdriveAccessToken && window.google && google.accounts){
+    google.accounts.oauth2.revoke(gdriveAccessToken, ()=>{});
+  }
+  gdriveAccessToken = null;
+  updateGdriveStatus();
+  showToast('☁ 로그아웃되었습니다');
+});
+
+async function gdriveApiFetch(url, options){
+  const res = await fetch(url, options);
+  if(res.status === 401){
+    gdriveAccessToken = null;
+    updateGdriveStatus('error');
+    throw new Error('gdrive-unauthorized');
+  }
+  return res;
+}
+async function gdriveFindOrCreateFile(){
+  if(gdriveFileId) return gdriveFileId;
+  const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
+  const res = await gdriveApiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+  });
+  const data = await res.json();
+  if(data.files && data.files.length){
+    gdriveFileId = data.files[0].id;
+  } else {
+    const createRes = await gdriveApiFetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${gdriveAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: GDRIVE_FILE_NAME })
+    });
+    const created = await createRes.json();
+    gdriveFileId = created.id;
+  }
+  try{ localStorage.setItem(GDRIVE_FILE_ID_KEY, gdriveFileId); } catch(e){ /* 무시 */ }
+  return gdriveFileId;
+}
+async function gdriveDownload(){
+  const id = await gdriveFindOrCreateFile();
+  const res = await gdriveApiFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+    headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+  });
+  if(!res.ok) return null;
+  const text = await res.text();
+  if(!text || !text.trim()) return null;
+  try{ return JSON.parse(text); } catch(e){ return null; }
+}
+async function gdriveUpload(payload){
+  const id = await gdriveFindOrCreateFile();
+  await gdriveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${gdriveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+async function gdriveSync(showToasts){
+  if(!gdriveAccessToken || gdriveSyncing) return;
+  gdriveSyncing = true;
+  updateGdriveStatus('syncing');
+  try{
+    const remote = await gdriveDownload();
+    if(remote && Array.isArray(remote.archive)){
+      mergeArchive(remote.archive);
+      if(Array.isArray(remote.formulaBank)) mergeFormulaBank(remote.formulaBank);
+      try{ localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch(e){ /* 무시 */ }
+      try{ localStorage.setItem(FORMULA_KEY, JSON.stringify(formulaBank)); } catch(e){ /* 무시 */ }
+      updateArchiveCount();
+      renderArchive();
+      renderFormulaSelect();
+    }
+    const payload = { app:'answer-practice-book', version:1, exportedAt: Date.now(), archive, formulaBank };
+    await gdriveUpload(payload);
+    gdriveSetSyncedAt(Date.now());
+    updateGdriveStatus();
+    if(showToasts) showToast('☁ 동기화 완료!');
+  } catch(e){
+    updateGdriveStatus('error');
+    if(showToasts) alert('⚠️ Drive 동기화에 실패했습니다. 로그인 상태와 인터넷 연결을 확인한 뒤 다시 시도해주세요.');
+  } finally {
+    gdriveSyncing = false;
+  }
+}
+
+updateGdriveStatus();
+
+/* ================= 셀프 테스트 ================= */
+const testBanner = document.getElementById('testBanner');
+const testBannerTitle = document.getElementById('testBannerTitle');
+const testTimerEl = document.getElementById('testTimer');
+const comparePanel = document.getElementById('comparePanel');
+const compareMine = document.getElementById('compareMine');
+const compareModel = document.getElementById('compareModel');
+const compareTime = document.getElementById('compareTime');
+const gradeDone = document.getElementById('gradeDone');
+let testState = null; // { id, startAt, interval, stash, elapsedSec, graded }
+
+function startSelfTest(id){
+  const item = archive.find(a => a.id === id);
+  if(!item) return;
+  if(testState){ alert('이미 테스트 중입니다. 먼저 종료하세요.'); return; }
+  /* 현재 작업 스태시 */
+  const stash = {
+    title: problemTitle.value,
+    html: editArea.innerHTML,
+    lineHeight: editArea.style.lineHeight || DEFAULT_LH,
+    align: editArea.style.textAlign || DEFAULT_ALIGN,
+    fontSize: editArea.style.fontSize || DEFAULT_FS
+  };
+  editArea.innerHTML = '';
+  resetUndoHistory();
+  problemTitle.value = item.title;
+  archivePanel.classList.remove('show');
+  comparePanel.classList.remove('show');
+  gradeDone.style.display = 'none';
+  document.getElementById('gradeOBtn').style.display = '';
+  document.getElementById('gradeXBtn').style.display = '';
+  testBannerTitle.textContent = '🧪 셀프 테스트 — ' + item.title;
+  testBanner.classList.add('show');
+  testTimerEl.classList.remove('over');
+  const startAt = Date.now();
+  const interval = setInterval(()=>{
+    const sec = Math.floor((Date.now() - startAt)/1000);
+    testTimerEl.textContent = fmtSeconds(sec);
+    if(sec >= 420) testTimerEl.classList.add('over'); /* 7분 초과 시 빨간 표시 */
+  }, 500);
+  testState = { id, startAt, interval, stash, elapsedSec: 0, graded: false };
+  editArea.focus();
+  showToast('🧪 안 보고 답안을 다시 작성해보세요!');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('testCheckBtn').addEventListener('click', ()=>{
+  if(!testState) return;
+  const item = archive.find(a => a.id === testState.id);
+  if(!item) return;
+  clearInterval(testState.interval);
+  testState.elapsedSec = Math.floor((Date.now() - testState.startAt)/1000);
+  compareMine.innerHTML = editArea.innerHTML || '<span style="color:#aab3c2;">(작성한 내용 없음)</span>';
+  compareModel.innerHTML = item.html;
+  compareModel.style.lineHeight = item.lineHeight || DEFAULT_LH;
+  compareTime.textContent = `· 소요 ${fmtSeconds(testState.elapsedSec)}`;
+  comparePanel.classList.add('show');
+  comparePanel.scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+function gradeTest(result){
+  if(!testState || testState.graded) return;
+  const item = archive.find(a => a.id === testState.id);
+  if(!item) return;
+  if(!item.attempts) item.attempts = [];
+  item.attempts.push({ at: Date.now(), result, seconds: testState.elapsedSec });
+  item.lastReviewedAt = Date.now();
+  saveArchive();
+  testState.graded = true;
+  document.getElementById('gradeOBtn').style.display = 'none';
+  document.getElementById('gradeXBtn').style.display = 'none';
+  gradeDone.style.display = '';
+  gradeDone.textContent = result === 'o'
+    ? `⭕ 기록 완료! (소요 ${fmtSeconds(testState.elapsedSec)})`
+    : `❌ 기록 완료 — 틀린 부분을 형광펜으로 표시해두면 좋아요 (소요 ${fmtSeconds(testState.elapsedSec)})`;
+  showToast(result === 'o' ? '⭕ 잘 하셨어요!' : '❌ 다음엔 맞출 수 있어요!');
+}
+document.getElementById('gradeOBtn').addEventListener('click', ()=> gradeTest('o'));
+document.getElementById('gradeXBtn').addEventListener('click', ()=> gradeTest('x'));
+
+function endSelfTest(){
+  if(!testState) return;
+  clearInterval(testState.interval);
+  const stash = testState.stash;
+  testState = null;
+  testBanner.classList.remove('show');
+  comparePanel.classList.remove('show');
+  /* 테스트 전 작업 복원 */
+  problemTitle.value = stash.title;
+  editArea.innerHTML = stash.html;
+  editArea.style.lineHeight = stash.lineHeight;
+  editArea.style.textAlign = stash.align;
+  editArea.style.fontSize = stash.fontSize;
+  lineHeightSelect.value = stash.lineHeight;
+  alignSelect.value = stash.align;
+  fontSizeSelect.value = stash.fontSize;
+  resetUndoHistory();
+  scheduleAutosave();
+  renderArchive();
+}
+document.getElementById('testQuitBtn').addEventListener('click', ()=>{
+  if(testState && !testState.graded && !confirm('채점하지 않고 테스트를 종료할까요?')) return;
+  endSelfTest();
+});
+document.getElementById('compareEndBtn').addEventListener('click', ()=>{
+  if(testState && !testState.graded && !confirm('채점하지 않고 테스트를 종료할까요?')) return;
+  endSelfTest();
+});
+
+/* ================= 일반 연습 타이머 ================= */
+const timerWidget = document.getElementById('timerWidget');
+const timerDisplay = document.getElementById('timerDisplay');
+const timerMinutes = document.getElementById('timerMinutes');
+const timerStartBtn = document.getElementById('timerStartBtn');
+let genTimer = null; // { remainSec, interval, running }
+
+document.getElementById('timerToggleBtn').addEventListener('click', ()=>{
+  timerWidget.classList.toggle('show');
+});
+function updateTimerDisplay(){
+  const s = Math.abs(genTimer.remainSec);
+  timerDisplay.textContent = (genTimer.remainSec < 0 ? '+' : '') + fmtSeconds(s);
+  timerDisplay.classList.toggle('over', genTimer.remainSec < 0);
+}
+function resetGenTimer(){
+  if(genTimer && genTimer.interval) clearInterval(genTimer.interval);
+  const mins = Math.max(1, Math.min(60, Number(timerMinutes.value) || 7));
+  genTimer = { remainSec: mins * 60, interval: null, running: false };
+  timerStartBtn.textContent = '▶ 시작';
+  updateTimerDisplay();
+}
+timerStartBtn.addEventListener('click', ()=>{
+  if(!genTimer) resetGenTimer();
+  if(genTimer.running){
+    clearInterval(genTimer.interval);
+    genTimer.running = false;
+    timerStartBtn.textContent = '▶ 계속';
+    return;
+  }
+  genTimer.running = true;
+  timerStartBtn.textContent = '⏸ 일시정지';
+  genTimer.interval = setInterval(()=>{
+    genTimer.remainSec--;
+    if(genTimer.remainSec === 0) showToast('⏱ 제한시간 종료! (계속 진행하면 초과시간이 표시됩니다)');
+    updateTimerDisplay();
+  }, 1000);
+});
+document.getElementById('timerResetBtn').addEventListener('click', resetGenTimer);
+timerMinutes.addEventListener('change', resetGenTimer);
+resetGenTimer();
+
+/* ================= 답안지 구성 (이미지/PDF 공용) ================= */
+const answerSheet = document.getElementById('answerSheet');
+const asTitle = document.getElementById('asTitle');
+const asDate = document.getElementById('asDate');
+const asBody = document.getElementById('asBody');
+
+function buildAnswerSheet(){
+  asTitle.textContent = problemTitle.value.trim() || '답안';
+  const now = new Date();
+  asDate.textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  asBody.innerHTML = editArea.innerHTML;
+  asBody.style.lineHeight = editArea.style.lineHeight || DEFAULT_LH;
+  asBody.style.textAlign = editArea.style.textAlign || DEFAULT_ALIGN;
+}
+function exportFileName(ext, titleOverride){
+  const raw = titleOverride !== undefined ? titleOverride : problemTitle.value;
+  const t = raw.trim().replace(/[\\/:*?"<>|]/g, '_');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  return (t || '답안') + '_' + stamp + '.' + ext;
+}
+
+let html2canvasLoading = null;
+function loadHtml2Canvas(){
+  if(window.html2canvas) return Promise.resolve();
+  if(html2canvasLoading) return html2canvasLoading;
+  html2canvasLoading = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload = resolve;
+    s.onerror = ()=> reject(new Error('html2canvas 로드 실패'));
+    document.head.appendChild(s);
+  });
+  return html2canvasLoading;
+}
+
+document.getElementById('exportImgBtn').addEventListener('click', async ()=>{
+  if(!editArea.textContent.trim() && !editArea.querySelector('img')){
+    alert('저장할 내용이 없습니다.');
+    return;
+  }
+  showToast('🖼 이미지 생성 중⋯');
+  try{
+    await loadHtml2Canvas();
+    buildAnswerSheet();
+    answerSheet.style.left = '0';
+    answerSheet.style.top = '-20000px';
+    const canvas = await window.html2canvas(answerSheet, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false
+    });
+    answerSheet.style.left = '-9999px';
+    answerSheet.style.top = '0';
+    const a = document.createElement('a');
+    a.download = exportFileName('png');
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('🖼 이미지가 저장되었습니다!');
+  } catch(e){
+    alert('이미지 저장에 실패했습니다. 인터넷 연결을 확인해주세요.\n(오프라인이라면 "PDF로 저장"을 이용해보세요 — 인쇄 대화상자에서 PDF 저장 가능)');
+  }
+});
+
+document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
+  if(!editArea.textContent.trim() && !editArea.querySelector('img')){
+    alert('저장할 내용이 없습니다.');
+    return;
+  }
+  buildAnswerSheet();
+  window.print();
+});
+
+/* ================= 하단 액션 ================= */
+document.getElementById('copyBtn').addEventListener('click', async ()=>{
+  const html = buildWrappedHtml();
+  try{
+    await navigator.clipboard.writeText(html);
+    showToast('📋 HTML이 복사되었습니다!');
+  } catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = html;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('📋 HTML이 복사되었습니다!');
+  }
+});
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(testState){ alert('셀프 테스트 중에는 사용할 수 없습니다. 먼저 테스트를 종료하세요.'); return; }
+  if(!confirm('새 답안을 시작할까요? 현재 내용과 문제 제목이 지워집니다.\n(필요하면 먼저 💾 보관함에 저장하세요)')) return;
+  editArea.innerHTML = '';
+  problemTitle.value = '';
+  resetUndoHistory();
+  doAutosave();
+  editArea.focus();
+});
+
+/* ================= HTML 파일로 다운로드 / 불러오기 ================= */
+function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
+  const safeTitle = title && title.trim() ? title.trim() : '답안';
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const meta = JSON.stringify({
+    title: safeTitle,
+    lineHeight: lineHeight || DEFAULT_LH,
+    align: align || DEFAULT_ALIGN,
+    fontSize: fontSize || DEFAULT_FS
+  }).replace(/</g, '\\u003c');
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(safeTitle)}</title>
+<style>
+  body{ margin:0; padding:32px; background:#fff; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:#1c2530; }
+  .as-header{ display:flex; justify-content:space-between; align-items:baseline; border-bottom:2.5px solid #0a2351; padding-bottom:10px; margin-bottom:18px; }
+  .as-title{ font-size:18px; font-weight:800; color:#0a2351; }
+  .as-date{ font-size:12px; color:#5b6573; }
+  #answerContent{ font-size:${fontSize || DEFAULT_FS}; line-height:${lineHeight || DEFAULT_LH}; text-align:${align || DEFAULT_ALIGN}; }
+  .frac{ display:inline-flex; flex-direction:column; justify-content:center; vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px; }
+  .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
+  .frac .frac-den{ padding:1px 4px 0; text-align:center; }
+  @media(max-width:640px){ body{ padding:16px; } }
+</style>
+</head>
+<body>
+<div class="as-header"><div class="as-title">${escapeHtml(safeTitle)}</div><div class="as-date">${dateStr}</div></div>
+<div id="answerContent">${contentHtml}</div>
+<script type="application/json" id="answer-meta">${meta}<\/script>
+</body>
+</html>`;
+}
+function downloadHtmlFile(filename, htmlStr){
+  const blob = new Blob([htmlStr], { type:'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportHtmlBtn').addEventListener('click', ()=>{
+  if(!editArea.textContent.trim() && !editArea.querySelector('img')){ alert('저장할 내용이 없습니다.'); return; }
+  const lh = editArea.style.lineHeight || DEFAULT_LH;
+  const al = editArea.style.textAlign || DEFAULT_ALIGN;
+  const fs = editArea.style.fontSize || DEFAULT_FS;
+  const htmlStr = buildStandaloneHtml(problemTitle.value, editArea.innerHTML, lh, al, fs);
+  downloadHtmlFile(exportFileName('html'), htmlStr);
+  showToast('⬇ HTML 파일로 저장되었습니다!');
+});
+
+document.getElementById('importHtmlBtn').addEventListener('click', ()=>{
+  if(testState){ alert('셀프 테스트 중에는 사용할 수 없습니다. 먼저 테스트를 종료하세요.'); return; }
+  document.getElementById('importHtmlInput').click();
+});
+document.getElementById('importHtmlInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(editArea.textContent.trim() && !confirm('현재 편집창 내용을 불러온 HTML 파일 내용으로 교체할까요?\n(필요하면 먼저 💾 보관함에 저장하거나 ⬇ HTML로 다운로드해두세요)')){
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const text = String(reader.result);
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      let title = '', contentHtml = '', lineHeight = DEFAULT_LH, align = DEFAULT_ALIGN, fontSize = DEFAULT_FS;
+      const metaScript = doc.getElementById('answer-meta');
+      const contentEl = doc.getElementById('answerContent');
+      if(metaScript && contentEl){
+        try{
+          const meta = JSON.parse(metaScript.textContent);
+          title = meta.title || '';
+          lineHeight = meta.lineHeight || DEFAULT_LH;
+          align = meta.align || DEFAULT_ALIGN;
+          fontSize = meta.fontSize || DEFAULT_FS;
+        } catch(err){ /* 메타 파싱 실패 시 기본값 사용 */ }
+        contentHtml = contentEl.innerHTML;
+      } else {
+        const titleTag = doc.querySelector('title');
+        title = (titleTag && titleTag.textContent.trim()) || file.name.replace(/\.html?$/i, '');
+        contentHtml = doc.body ? doc.body.innerHTML : text;
+      }
+      problemTitle.value = title;
+      editArea.innerHTML = contentHtml;
+      editArea.style.lineHeight = lineHeight;
+      editArea.style.textAlign = align;
+      editArea.style.fontSize = fontSize;
+      lineHeightSelect.value = lineHeight;
+      alignSelect.value = align;
+      fontSizeSelect.value = fontSize;
+      resetUndoHistory();
+      scheduleAutosave();
+      showToast('⬆ HTML 파일을 불러왔습니다!');
+    } catch(err){
+      alert('HTML 파일을 읽는 중 오류가 발생했습니다.\n(이 편집기 또는 일반 웹페이지에서 저장한 .html 파일인지 확인해주세요)');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+/* ================= 퀴즈뱅크2 모범답안 연동 (postMessage 브릿지) =================
+   quizbank2.html의 "📄 모범답안 등록/수정" 모달에 있는
+   "📝 답안연습장 편집기로 작성/수정" 버튼으로 이 페이지를 팝업으로 열면:
+   1) 이 창은 window.opener가 있으면 'qb2-notebook-ready'를 부모창에 보낸다.
+   2) 부모창(quizbank2)은 이를 받으면 현재 문제의 모범답안 HTML을
+      'qb2-load-answer' 메시지로 이 창에 보내준다. (없으면 빈 문서로 시작)
+   3) 이 창에서 작성을 마치고 "💾 저장하고 퀴즈뱅크로 보내기"를 누르면,
+      지금까지 작성한 내용을 답안연습장 표준 HTML 문서로 만들어
+      'qb2-save-answer' 메시지로 부모창에 돌려준다.
+   quizbank2.html이 아닌 다른 곳에서 이 페이지를 단독으로 열었을 때는
+   opener가 없으므로 위 로직이 전혀 동작하지 않고 평소와 똑같이 동작한다. */
+
+function qb2LoadAnswerFromHost(html, suggestedTitle){
+  const hasHtml = !!(html && html.trim());
+  if(!hasHtml){
+    // 아직 등록된 모범답안이 없는 경우: 편집창을 비우고 제안된 제목만 채워준다
+    editArea.innerHTML = '';
+    problemTitle.value = suggestedTitle || '';
+    editArea.style.lineHeight = DEFAULT_LH;
+    editArea.style.textAlign = DEFAULT_ALIGN;
+    editArea.style.fontSize = DEFAULT_FS;
+    lineHeightSelect.value = DEFAULT_LH;
+    alignSelect.value = DEFAULT_ALIGN;
+    fontSizeSelect.value = DEFAULT_FS;
+    resetUndoHistory();
+    scheduleAutosave();
+    return;
+  }
+  try{
+    // ⬆ HTML 불러오기와 동일한 방식으로 파싱한다: 이 편집기가 만든 표준 문서라면
+    // answer-meta/answerContent에서 서식까지 그대로 복원하고, 아니라면 body 전체를 내용으로 채운다
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    let title = '', contentHtml = '', lineHeight = DEFAULT_LH, align = DEFAULT_ALIGN, fontSize = DEFAULT_FS;
+    const metaScript = doc.getElementById('answer-meta');
+    const contentEl = doc.getElementById('answerContent');
+    if(metaScript && contentEl){
+      try{
+        const meta = JSON.parse(metaScript.textContent);
+        title = meta.title || '';
+        lineHeight = meta.lineHeight || DEFAULT_LH;
+        align = meta.align || DEFAULT_ALIGN;
+        fontSize = meta.fontSize || DEFAULT_FS;
+      } catch(err){ /* 메타 파싱 실패 시 기본값 사용 */ }
+      contentHtml = contentEl.innerHTML;
+    } else {
+      const titleTag = doc.querySelector('title');
+      title = (titleTag && titleTag.textContent.trim()) || suggestedTitle || '';
+      contentHtml = doc.body ? doc.body.innerHTML : html;
+    }
+    problemTitle.value = title || suggestedTitle || '';
+    editArea.innerHTML = contentHtml;
+    editArea.style.lineHeight = lineHeight;
+    editArea.style.textAlign = align;
+    editArea.style.fontSize = fontSize;
+    lineHeightSelect.value = lineHeight;
+    alignSelect.value = align;
+    fontSizeSelect.value = fontSize;
+    resetUndoHistory();
+    scheduleAutosave();
+  } catch(err){
+    alert('퀴즈뱅크2에서 전달받은 모범답안 내용을 여는 중 문제가 발생했습니다.');
+  }
+}
+
+window.addEventListener('message', function(e){
+  if(!e.data || typeof e.data !== 'object') return;
+  if(e.data.type === 'qb2-load-answer'){
+    document.getElementById('qb2BridgeBanner').classList.add('show');
+    qb2LoadAnswerFromHost(e.data.html || '', e.data.suggestedTitle || '');
+  }
+});
+
+// 팝업으로 열렸다면(= window.opener 존재) 부모창에 준비 완료를 알린다.
+// 부모창이 quizbank2가 아니면 이 메시지는 그냥 무시될 뿐, 아무 부작용이 없다.
+if(window.opener){
+  try{ window.opener.postMessage({ type:'qb2-notebook-ready' }, '*'); } catch(err){ /* 무시 */ }
+}
+
+document.getElementById('qb2ReturnBtn').addEventListener('click', ()=>{
+  if(!window.opener || window.opener.closed){
+    alert('연결된 퀴즈뱅크2 창을 찾을 수 없습니다. (창이 닫혔을 수 있어요)\n대신 "⬇ HTML 다운로드"로 저장한 뒤, 모범답안 등록 창에서 파일로 첨부해주세요.');
+    return;
+  }
+  if(!editArea.textContent.trim() && !editArea.querySelector('img')){
+    if(!confirm('작성된 내용이 없습니다. 빈 답안으로 저장할까요?')) return;
+  }
+  const lh = editArea.style.lineHeight || DEFAULT_LH;
+  const al = editArea.style.textAlign || DEFAULT_ALIGN;
+  const fs = editArea.style.fontSize || DEFAULT_FS;
+  const htmlStr = buildStandaloneHtml(problemTitle.value, editArea.innerHTML, lh, al, fs);
+  try{
+    window.opener.postMessage({ type:'qb2-save-answer', html: htmlStr }, '*');
+    showToast('💾 퀴즈뱅크2로 저장되어 전달되었습니다!');
+  } catch(err){
+    alert('퀴즈뱅크2 창으로 전달하는 중 오류가 발생했습니다.');
+  }
+});
+</script>
+</body>
+</html>
