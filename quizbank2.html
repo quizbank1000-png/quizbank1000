@@ -431,6 +431,123 @@
     min-height:340px;
     padding:18px;
   }
+
+  /* ---------- 3분할 학습 화면 (문제 / 풀이·정답 / 답안연습장 동시 보기) ---------- */
+  .split-container{ display:none; }
+  .split-container.active{
+    display:grid;
+    grid-template-columns: minmax(280px, 1fr) 8px minmax(280px, 1fr);
+    align-items:stretch;
+    gap:0;
+  }
+  .split-left{ min-width:0; display:flex; flex-direction:column; }
+  .split-left .paste-card{ display:flex; flex-direction:column; gap:12px; }
+  .split-resize-handle{
+    cursor:col-resize;
+    background:transparent;
+    position:relative;
+  }
+  .split-resize-handle::after{
+    content:'';
+    position:absolute; top:0; bottom:0; left:3px; width:2px;
+    background: var(--line);
+    border-radius:2px;
+  }
+  .split-resize-handle:hover::after{ background: var(--blue-300); }
+  .split-right{
+    min-width:280px;
+    display:flex;
+    flex-direction:column;
+    background: var(--card-bg);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    /* 페이지를 스크롤해도 답안연습장이 항상 화면에 보이도록 고정 */
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    height: calc(100vh - 24px);
+  }
+
+  /* 3분할 모드: 문제/풀이·정답/나의 답안 각각 높이 상한 + 개별 스크롤을 줘서
+     풀이를 펼쳐도 문제가 화면 밖으로 밀려나지 않게 한다 */
+  .paste-card.split-mode #problemPane,
+  .paste-card.split-mode #solutionPane,
+  .paste-card.split-mode #myAnswerPane{
+    max-height: 42vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .paste-card.split-mode .paste-zone{ min-height: 140px; }
+  .notebook-panel-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    background:#f5f8fc;
+  }
+  .notebook-panel-header .title{
+    font-size:13px; font-weight:800; color: var(--ink-soft);
+  }
+  .notebook-panel-header .btns{ display:flex; gap:6px; }
+  .notebook-panel-header .mini-tool-btn{
+    font-size:11.5px;
+    padding:5px 9px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    background:#fff;
+    color: var(--ink-soft);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .notebook-panel-header .mini-tool-btn:hover{ background: var(--line); }
+  #embeddedNotebookFrame{
+    flex:1;
+    width:100%;
+    border:none;
+    min-height:0;
+    background:#fff;
+  }
+  .accordion-header{
+    display:none;
+    cursor:pointer;
+    padding:10px 14px;
+    background:#e4ebf5;
+    border-radius:9px;
+    font-size:13px;
+    font-weight:700;
+    color: var(--ink-soft);
+    justify-content:space-between;
+    align-items:center;
+    user-select:none;
+  }
+  .accordion-header:hover{ background:#d9e3f2; }
+  .accordion-header .accordion-hint{ font-size:11.5px; font-weight:600; color:#9aabc2; }
+  .accordion-header.open{ color: var(--blue-700); background:#eaf1fb; }
+  .paste-card.split-mode .accordion-header{ display:flex; }
+  .paste-card.split-mode #problemPane{ display:block; }
+
+  .qb2-toast{
+    position:fixed;
+    left:50%; bottom:28px;
+    transform:translateX(-50%) translateY(20px);
+    background:#1d2b45;
+    color:#fff;
+    font-size:13px;
+    font-weight:700;
+    padding:11px 20px;
+    border-radius:10px;
+    box-shadow:0 6px 20px rgba(10,25,60,0.35);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s, transform .25s;
+    z-index:9999;
+    max-width:80vw;
+  }
+  .qb2-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   .paste-zone{
     min-height:300px;
     border:2px dashed #c4d3e8;
@@ -1237,6 +1354,7 @@
         <div class="solve-toolbar">
           <button class="tool-btn exam-toggle" id="examModeBtn">🎯 문제만 보기</button>
           <button class="tool-btn exam-toggle" id="cardPackToggleBtn">🗂 카드팩 보기</button>
+          <button class="tool-btn exam-toggle" id="splitModeBtn" title="문제 / 풀이·정답 / 답안연습장을 한 화면에서 동시에 봅니다">🖥 3분할 학습모드</button>
           <button class="tool-btn model-answer" id="modelAnswerBtn">📄 모범답안 등록</button>
           <button class="tool-btn model-answer model-answer-edit" id="modelAnswerEditBtn" title="모범답안 수정/삭제" style="display:none;">✏️</button>
           <button class="tool-btn primary" id="clueBtn">💡 단서카드 등록</button>
@@ -1254,26 +1372,55 @@
 
         <div class="clue-strip" id="clueStrip" style="display:none;"></div>
 
-        <div class="paste-card">
-          <div id="problemPane">
-            <div class="paste-zone" id="problemPaste" tabindex="0">
-              <div class="hint-icon">🖼️</div>
-              <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
+        <div class="split-container" id="splitContainer">
+          <div class="split-left">
+            <div class="paste-card" id="pasteCard">
+              <div id="problemPane">
+                <div class="paste-zone" id="problemPaste" tabindex="0">
+                  <div class="hint-icon">🖼️</div>
+                  <div>이 영역을 클릭한 뒤 <b>Ctrl+V</b>로 문제 이미지를 붙여넣으세요</div>
+                </div>
+                <div class="exam-practice-view" id="examPracticeView" style="display:none;"></div>
+              </div>
+
+              <div class="accordion-header" id="solutionAccordionHeader">
+                <span>✅ 풀이/정답</span>
+                <span class="accordion-hint" id="solutionAccordionHint">눌러서 펼치기</span>
+              </div>
+              <div id="solutionPane" style="display:none;">
+                <div class="paste-zone" id="solutionPaste" tabindex="0">
+                  <div class="hint-icon">✅</div>
+                  <div>PDF에서 캡쳐한 <b>풀이과정/정답 이미지</b>를 여기에 Ctrl+V로 붙여넣으세요</div>
+                </div>
+              </div>
+
+              <div class="accordion-header" id="myAnswerAccordionHeader">
+                <span>✍️ 나의 답안</span>
+                <span class="accordion-hint" id="myAnswerAccordionHint">눌러서 펼치기</span>
+              </div>
+              <div id="myAnswerPane" style="display:none;">
+                <div class="my-answer-text-box" id="myAnswerTextBox"></div>
+                <div class="paste-zone" id="myAnswerPaste" tabindex="0">
+                  <div class="hint-icon">✍️</div>
+                  <div>직접 푼 <b>나의 답안</b>을 사진 찍어 Ctrl+V로 붙여넣으세요</div>
+                </div>
+              </div>
             </div>
-            <div class="exam-practice-view" id="examPracticeView" style="display:none;"></div>
           </div>
-          <div id="solutionPane" style="display:none;">
-            <div class="paste-zone" id="solutionPaste" tabindex="0">
-              <div class="hint-icon">✅</div>
-              <div>PDF에서 캡쳐한 <b>풀이과정/정답 이미지</b>를 여기에 Ctrl+V로 붙여넣으세요</div>
+
+          <div class="split-resize-handle" id="splitResizeHandle" title="드래그해서 너비 조절"></div>
+
+          <div class="split-right" id="splitRight">
+            <div class="notebook-panel-header">
+              <span class="title">📝 답안연습장</span>
+              <div class="btns">
+                <button type="button" class="mini-tool-btn" id="embeddedNotebookLoadMyBtn" title="이 문제에 저장된 '나의 답안'을 답안연습장으로 불러와 이어서 작성합니다">✍️ 나의 답안 불러오기</button>
+                <button type="button" class="mini-tool-btn" id="embeddedNotebookLoadBtn" title="이 문제에 등록된 모범답안을 답안연습장으로 불러옵니다">📥 모범답안 불러오기</button>
+                <button type="button" class="mini-tool-btn" id="embeddedNotebookPopoutBtn" title="답안연습장을 별도 팝업창으로 엽니다">🗗 팝업으로 열기</button>
+                <button type="button" class="mini-tool-btn" id="embeddedNotebookReloadBtn" title="답안연습장을 새로고침합니다">↺</button>
+              </div>
             </div>
-          </div>
-          <div id="myAnswerPane" style="display:none;">
-            <div class="my-answer-text-box" id="myAnswerTextBox"></div>
-            <div class="paste-zone" id="myAnswerPaste" tabindex="0">
-              <div class="hint-icon">✍️</div>
-              <div>직접 푼 <b>나의 답안</b>을 사진 찍어 Ctrl+V로 붙여넣으세요</div>
-            </div>
+            <iframe id="embeddedNotebookFrame" title="답안연습장"></iframe>
           </div>
         </div>
 
@@ -3964,6 +4111,7 @@ const tabMyAnswer = document.getElementById('tabMyAnswer');
 const myAnswerPane = document.getElementById('myAnswerPane');
 tabMyAnswer.addEventListener('click', ()=>switchTab('myAnswer'));
 function switchTab(which){
+  if(splitMode) return; // 3분할 학습모드에서는 탭이 아니라 아코디언으로 각 패널을 펼치고 접는다
   tabProblem.classList.toggle('active', which==='problem');
   tabSolution.classList.toggle('active', which==='solution');
   tabMyAnswer.classList.toggle('active', which==='myAnswer');
@@ -3972,11 +4120,98 @@ function switchTab(which){
   myAnswerPane.style.display = which==='myAnswer' ? 'block':'none';
 }
 
+/* ---------------- 3분할 학습모드 (문제 / 풀이·정답 / 답안연습장 동시 보기) ----------------
+   좌측: 문제(항상 펼침) + 풀이·정답 아코디언(기본 접힘, 스포일러 방지) + 나의 답안 아코디언(기본 접힘)
+   우측: 답안연습장을 iframe으로 내장 (팝업으로 전환도 가능) */
+let splitMode = false;
+try{ splitMode = localStorage.getItem('quizbank2_split_mode') === '1'; }catch(e){}
+
+const splitModeBtn = document.getElementById('splitModeBtn');
+const splitContainerEl = document.getElementById('splitContainer');
+const pasteCardEl = document.getElementById('pasteCard');
+const solutionAccordionHeader = document.getElementById('solutionAccordionHeader');
+const myAnswerAccordionHeader = document.getElementById('myAnswerAccordionHeader');
+
+function setAccordionOpen(which, open){
+  const pane = which==='solution' ? solutionPane : myAnswerPane;
+  const header = which==='solution' ? solutionAccordionHeader : myAnswerAccordionHeader;
+  const hint = document.getElementById(which==='solution' ? 'solutionAccordionHint' : 'myAnswerAccordionHint');
+  pane.style.display = open ? 'block' : 'none';
+  header.classList.toggle('open', open);
+  if(hint) hint.textContent = open ? '눌러서 접기' : '눌러서 펼치기';
+}
+function toggleAccordion(which){
+  const pane = which==='solution' ? solutionPane : myAnswerPane;
+  setAccordionOpen(which, pane.style.display === 'none');
+}
+solutionAccordionHeader.addEventListener('click', ()=>toggleAccordion('solution'));
+myAnswerAccordionHeader.addEventListener('click', ()=>toggleAccordion('myAnswer'));
+
+function resetSplitPanesForNewProblem(){
+  problemPane.style.display = 'block';
+  setAccordionOpen('solution', false); // 스포일러 방지: 문제를 바꾸면 풀이/정답은 항상 다시 접어둔다
+  setAccordionOpen('myAnswer', false);
+}
+
+function applySplitMode(){
+  splitContainerEl.classList.toggle('active', splitMode);
+  pasteCardEl.classList.toggle('split-mode', splitMode);
+  splitModeBtn.classList.toggle('on', splitMode);
+  splitModeBtn.textContent = splitMode ? '📑 탭 모드로 전환' : '🖥 3분할 학습모드';
+  viewTabsEl.style.display = (splitMode || examMode) ? 'none' : 'flex';
+  if(splitMode){
+    resetSplitPanesForNewProblem();
+    ensureEmbeddedNotebookLoaded();
+  } else {
+    switchTab('problem');
+  }
+}
+splitModeBtn.addEventListener('click', ()=>{
+  if(examMode){ alert('문제만 보기(실전 연습 모드)에서는 3분할 학습모드를 사용할 수 없어요. 먼저 문제만 보기를 꺼주세요.'); return; }
+  splitMode = !splitMode;
+  try{ localStorage.setItem('quizbank2_split_mode', splitMode ? '1' : '0'); }catch(e){}
+  applySplitMode();
+});
+
+/* ---------------- 3분할 학습모드: 좌우 패널 너비 드래그 조절 ---------------- */
+const splitResizeHandle = document.getElementById('splitResizeHandle');
+const SPLIT_WIDTH_KEY = 'quizbank2_split_left_width';
+function setSplitLeftWidth(px){
+  const rect = splitContainerEl.getBoundingClientRect();
+  const min = 280, max = rect.width - 8 - 280;
+  if(max <= min) return;
+  const clamped = Math.min(max, Math.max(min, Math.round(px)));
+  splitContainerEl.style.gridTemplateColumns = clamped + 'px 8px 1fr';
+  try{ localStorage.setItem(SPLIT_WIDTH_KEY, String(clamped)); }catch(e){}
+}
+(function restoreSplitLeftWidth(){
+  try{
+    const saved = parseInt(localStorage.getItem(SPLIT_WIDTH_KEY), 10);
+    if(!isNaN(saved)) splitContainerEl.style.gridTemplateColumns = saved + 'px 8px 1fr';
+  }catch(e){}
+})();
+let resizingSplit = false;
+splitResizeHandle.addEventListener('mousedown', (e)=>{
+  resizingSplit = true;
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+document.addEventListener('mousemove', (e)=>{
+  if(!resizingSplit) return;
+  const rect = splitContainerEl.getBoundingClientRect();
+  setSplitLeftWidth(e.clientX - rect.left);
+});
+document.addEventListener('mouseup', ()=>{
+  if(!resizingSplit) return;
+  resizingSplit = false;
+  document.body.style.userSelect = '';
+});
+
 /* ---------------- 문제만 보기 (실전 연습 모드) ---------------- */
 let examMode = false;
 const examModeBtn = document.getElementById('examModeBtn');
 const viewTabsEl = document.querySelector('.view-tabs');
-const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn','modelAnswerBtn'].map(id=>document.getElementById(id));
+const examHideEls = ['clueBtn','memoBtn','templateBtn','wrongBtn','correctBtn','modelAnswerBtn','splitModeBtn'].map(id=>document.getElementById(id));
 
 /* 카드팩 보기 토글: 평소 모드/문제만 보기 모드 공통 버튼 하나 + 상태 하나
    (예전엔 모드별로 버튼이 따로 있어서 헷갈렸음 → 위치·이름·동작을 통일) */
@@ -3986,7 +4221,7 @@ const cardPackToggleBtn = document.getElementById('cardPackToggleBtn');
 function applyExamModeUI(){
   examModeBtn.classList.toggle('on', examMode);
   examModeBtn.textContent = examMode ? '🎯 문제만 보기 (끄려면 클릭)' : '🎯 문제만 보기';
-  viewTabsEl.style.display = examMode ? 'none' : 'flex';
+  viewTabsEl.style.display = (examMode || splitMode) ? 'none' : 'flex';
   examHideEls.forEach(el=>{ if(el) el.style.display = examMode ? 'none' : ''; });
   cardPackToggleBtn.classList.toggle('on', cardPackVisible);
   cardPackToggleBtn.textContent = cardPackVisible ? '🗂 카드팩 숨기기' : '🗂 카드팩 보기';
@@ -4011,6 +4246,11 @@ function applyExamModeUI(){
 }
 examModeBtn.addEventListener('click', ()=>{
   examMode = !examMode;
+  if(examMode && splitMode){
+    splitMode = false;
+    try{ localStorage.setItem('quizbank2_split_mode', '0'); }catch(e){}
+    applySplitMode();
+  }
   applyExamModeUI();
 });
 cardPackToggleBtn.addEventListener('click', ()=>{
@@ -4118,6 +4358,7 @@ function renderSolveView(){
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
   updateProblemNavButtons();
   switchTab('problem');
+  if(splitMode) resetSplitPanesForNewProblem();
   bindPasteZone(document.getElementById('problemPaste'), p, 'problemImgs', '문제 이미지', '🖼️');
   bindPasteZone(document.getElementById('solutionPaste'), p, 'solutionImgs', '풀이/정답 이미지', '✅');
   bindPasteZone(document.getElementById('myAnswerPaste'), p, 'myAnswerImgs', '나의 답안 이미지', '✍️');
@@ -4979,6 +5220,11 @@ document.getElementById('openNotebookAnswerBtn').addEventListener('click', ()=>{
       notebookAnswerReady = true;
       sendAnswerToNotebook(p);
     } else if(e.data.type === 'qb2-save-answer'){
+      if(e.data.target === 'myAnswer'){
+        // "나의 답안으로 저장"은 모달의 모범답안 입력칸을 거치지 않고 문제 데이터에 바로 저장한다
+        applyNotebookSave(p, e.data);
+        return;
+      }
       document.getElementById('modelAnswerHtmlInput').value = e.data.html || '';
       document.getElementById('previewModelAnswerBtn').style.display = '';
       showNotebookAnswerStatus('📝 답안연습장에서 작성한 내용을 불러왔어요. 아래 내용을 확인하고 "저장"을 눌러 반영하세요.');
@@ -5001,6 +5247,137 @@ document.getElementById('openNotebookAnswerBtn').addEventListener('click', ()=>{
     // 아직 ready 신호 전(창이 막 열리는 중)이면 위 핸들러가 ready 수신 즉시 보내준다
   }
 });
+
+/* ---------------- 3분할 학습모드: 답안연습장을 iframe으로 내장 ----------------
+   팝업(위 로직)과 동일한 handshake(ready→load→save)를 그대로 쓰되, 대상이
+   window.open()이 아니라 <iframe id="embeddedNotebookFrame">인 버전이다.
+   문제를 바꿀 때 내용을 자동으로 덮어쓰지 않도록, 모범답안 불러오기는
+   "📥 모범답안 불러오기" 버튼을 눌렀을 때만 명시적으로 전송한다. */
+let embeddedNotebookReady = false;
+let embeddedNotebookSrcLoaded = false;
+
+function embeddedNotebookFrameEl(){
+  return document.getElementById('embeddedNotebookFrame');
+}
+
+function ensureEmbeddedNotebookLoaded(){
+  const frame = embeddedNotebookFrameEl();
+  if(!frame) return;
+  if(!embeddedNotebookSrcLoaded){
+    embeddedNotebookReady = false;
+    frame.src = NOTEBOOK_EDITOR_FILE;
+    embeddedNotebookSrcLoaded = true;
+  }
+}
+
+/* 화면 어디서든 보이는 간단한 토스트 (모달 안 상태표시는 모달이 닫혀있으면 안 보이므로) */
+let qb2ToastTimer = null;
+function qb2Toast(msg){
+  let el = document.getElementById('qb2Toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'qb2Toast';
+    el.className = 'qb2-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  if(qb2ToastTimer) clearTimeout(qb2ToastTimer);
+  qb2ToastTimer = setTimeout(()=> el.classList.remove('show'), 3500);
+}
+
+/* 답안연습장이 만든 독립 HTML 문서에서, 앱 화면(나의 답안 상자)에 바로 넣을 수 있는
+   본문 조각(fragment)과 일반 텍스트를 추출한다. */
+function extractNotebookFragment(html){
+  try{
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    const contentEl = doc.getElementById('answerContent');
+    const fragEl = contentEl || doc.body;
+    return {
+      html: fragEl ? fragEl.innerHTML : (html || ''),
+      text: fragEl ? (fragEl.textContent || '').trim() : ''
+    };
+  }catch(e){
+    return { html: html || '', text: '' };
+  }
+}
+
+/* 답안연습장에서 보낸 저장 요청을 대상(target)에 따라 반영한다.
+   'myAnswer' → 나의 답안(myAnswerTextHtml), 그 외 → 모범답안(modelAnswerHtml) */
+function applyNotebookSave(p, data){
+  if(data.target === 'myAnswer'){
+    const frag = extractNotebookFragment(data.html || '');
+    p.myAnswerTextHtml = frag.html;
+    p.myAnswerText = frag.text;
+    saveState();
+    myAnswerTextEditMode = false;
+    renderMyAnswerTextBox(p);
+    if(splitMode) setAccordionOpen('myAnswer', true); // 저장된 내 답안이 바로 보이도록 펼쳐준다
+    qb2Toast('✍️ "나의 답안"으로 저장되었습니다 (' + (state.currentRound||'') + ' ' + p.num + '번)');
+  } else {
+    p.modelAnswerHtml = data.html || '';
+    updateModelAnswerBtn(p);
+    saveState();
+    qb2Toast('📄 "모범답안"으로 저장되었습니다 (' + (state.currentRound||'') + ' ' + p.num + '번)');
+  }
+}
+
+window.addEventListener('message', function(e){
+  const frame = embeddedNotebookFrameEl();
+  if(!frame || !frame.contentWindow || e.source !== frame.contentWindow) return;
+  if(!e.data || typeof e.data !== 'object') return;
+  if(e.data.type === 'qb2-notebook-ready'){
+    embeddedNotebookReady = true;
+  } else if(e.data.type === 'qb2-save-answer'){
+    const p = getProblem();
+    if(!p){ alert('저장할 문제가 선택되어 있지 않습니다. 문제를 먼저 선택한 뒤 다시 저장해주세요.'); return; }
+    applyNotebookSave(p, e.data);
+  }
+});
+
+/* 내장 답안연습장으로 내용을 보내는 공통 로직 (ready 대기 포함) */
+function sendToEmbeddedNotebook(html, suggestedTitle){
+  ensureEmbeddedNotebookLoaded();
+  const frame = embeddedNotebookFrameEl();
+  const send = ()=> frame.contentWindow.postMessage({
+    type:'qb2-load-answer', html: html || '', suggestedTitle: suggestedTitle || ''
+  }, '*');
+  if(embeddedNotebookReady) send();
+  else {
+    const waitTimer = setInterval(()=>{
+      if(embeddedNotebookReady){ clearInterval(waitTimer); send(); }
+    }, 200);
+    setTimeout(()=>clearInterval(waitTimer), 8000);
+  }
+}
+
+document.getElementById('embeddedNotebookLoadBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+  if(!confirm('현재 답안연습장에 작성 중인 내용 위에\n이 문제의 모범답안을 불러올까요? (저장하지 않은 내용은 사라질 수 있어요)')) return;
+  sendToEmbeddedNotebook(p.modelAnswerHtml || '', suggestModelAnswerTitle(p));
+});
+
+document.getElementById('embeddedNotebookLoadMyBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+  if(!confirm('현재 답안연습장에 작성 중인 내용 위에\n이 문제에 저장된 "나의 답안"을 불러올까요? (저장하지 않은 내용은 사라질 수 있어요)')) return;
+  const roundName = state.currentRound || '';
+  const myTitle = `${roundName} ${p.num}번${p.field ? ' ' + p.field : ''} 나의 답안`.trim();
+  sendToEmbeddedNotebook(p.myAnswerTextHtml || p.myAnswerText || '', myTitle);
+});
+
+document.getElementById('embeddedNotebookPopoutBtn').addEventListener('click', ()=>{
+  document.getElementById('openNotebookAnswerBtn').click();
+});
+
+document.getElementById('embeddedNotebookReloadBtn').addEventListener('click', ()=>{
+  if(!confirm('답안연습장을 새로고침할까요? 저장하지 않은 내용은 사라집니다.')) return;
+  embeddedNotebookSrcLoaded = false;
+  ensureEmbeddedNotebookLoaded();
+});
+
+applySplitMode(); // 저장된 3분할 학습모드 설정을 초기 적용 (NOTEBOOK_EDITOR_FILE 정의 이후에 실행되어야 함)
 
 document.getElementById('confirmClue').addEventListener('click', ()=>{
   const kw = document.getElementById('clueKeyword').value.trim();
