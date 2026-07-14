@@ -1501,15 +1501,20 @@
 <div class="overlay" id="overlayModelAnswer">
   <div class="modal" style="width:760px; max-width:92vw;">
     <h3 id="modelAnswerModalTitle">📄 모범답안 등록</h3>
-    <div class="desc">이 문제의 모범답안 HTML 문서를 붙여넣거나 직접 입력하세요. 저장하면 "모범답안 보기" 버튼으로 새 창에서 바로 열어볼 수 있어요.</div>
+    <div class="desc">답안연습장 편집기로 서식/분수/기호를 사용해 작성하거나, HTML 문서를 붙여넣거나 파일로 첨부하세요. 저장하면 "모범답안 보기" 버튼으로 새 창에서 바로 열어볼 수 있어요.</div>
     <div class="field">
-      <label>HTML 파일 첨부 (선택)</label>
+      <button type="button" class="btn confirm" id="openNotebookAnswerBtn" style="width:100%; background:var(--green);">📝 답안연습장 편집기로 작성/수정하기</button>
+      <div style="font-size:11px; color:var(--ink-soft); margin-top:6px;">새 창으로 답안연습장이 열립니다. 이미 등록된 모범답안이 있으면 그 내용을 그대로 불러와요. 편집기에서 <b>💾 저장하고 퀴즈뱅크로 보내기</b>를 누르면 아래 HTML 칸에 자동으로 채워집니다.</div>
+      <div id="notebookAnswerStatus" style="font-size:11.5px; color:var(--green); margin-top:5px; font-weight:700; display:none;"></div>
+    </div>
+    <div class="field">
+      <label>고급: HTML 파일 첨부 (선택)</label>
       <input type="file" id="modelAnswerFileInput" accept=".html,.htm,text/html">
       <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">미리 만들어둔 .html 파일을 선택하면 아래 칸에 내용이 자동으로 채워져요. 채워진 후에도 직접 수정할 수 있어요.</div>
     </div>
     <div class="field">
-      <label>HTML 문서 내용</label>
-      <textarea id="modelAnswerHtmlInput" rows="14" placeholder="<html>...</html> 형태의 전체 HTML 코드를 붙여넣거나, 위에서 파일을 첨부하세요" style="font-family:monospace; font-size:12px; white-space:pre;"></textarea>
+      <label>고급: HTML 문서 내용 직접 입력/붙여넣기</label>
+      <textarea id="modelAnswerHtmlInput" rows="14" placeholder="<html>...</html> 형태의 전체 HTML 코드를 붙여넣거나, 위에서 파일을 첨부하거나, 답안연습장 편집기를 사용하세요" style="font-family:monospace; font-size:12px; white-space:pre;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn cancel" data-close="overlayModelAnswer">취소</button>
@@ -4902,6 +4907,99 @@ document.getElementById('deleteModelAnswerBtn').addEventListener('click', ()=>{
   updateModelAnswerBtn(p);
   saveState();
   closeModal('overlayModelAnswer');
+});
+
+/* ---------------- 모범답안을 답안연습장(답안연습장.html) 편집기로 작성 ----------------
+   답안연습장.html을 quizbank2.html과 같은 폴더에 두면, 모범답안 등록/수정 모달의
+   "📝 답안연습장 편집기로 작성/수정하기" 버튼으로 새 창을 열어 서식/분수/기호 도구로
+   모범답안을 작성하고, 그 결과를 postMessage로 돌려받아 아래 HTML 칸에 채워준다.
+   (edit_card.html 리치에디터 연동과 동일한 handshake 방식: ready → load → save) */
+const NOTEBOOK_EDITOR_FILE = '답안연습장.html'; // 실제 파일명이 다르면 이 값을 맞게 바꿔주세요
+
+let notebookAnswerWindow = null;
+let notebookAnswerMessageHandler = null;
+let notebookAnswerReady = false;
+let notebookAnswerCloseWatcher = null;
+let notebookAnswerStatusTimer = null;
+
+function cleanupNotebookAnswerListener(){
+  if(notebookAnswerMessageHandler){
+    window.removeEventListener('message', notebookAnswerMessageHandler);
+    notebookAnswerMessageHandler = null;
+  }
+  if(notebookAnswerCloseWatcher){
+    clearInterval(notebookAnswerCloseWatcher);
+    notebookAnswerCloseWatcher = null;
+  }
+  notebookAnswerReady = false;
+}
+
+function suggestModelAnswerTitle(p){
+  if(!p) return '';
+  const roundName = state.currentRound || '';
+  const fieldTxt = p.field ? ` ${p.field}` : '';
+  return `${roundName} ${p.num}번${fieldTxt} 모범답안`.trim();
+}
+
+function sendAnswerToNotebook(p){
+  notebookAnswerWindow.postMessage({
+    type: 'qb2-load-answer',
+    html: p.modelAnswerHtml || '',
+    suggestedTitle: suggestModelAnswerTitle(p)
+  }, '*');
+}
+
+function showNotebookAnswerStatus(msg){
+  const el = document.getElementById('notebookAnswerStatus');
+  el.textContent = msg;
+  el.style.display = '';
+  if(notebookAnswerStatusTimer) clearTimeout(notebookAnswerStatusTimer);
+  notebookAnswerStatusTimer = setTimeout(()=>{ el.style.display = 'none'; }, 6000);
+}
+
+document.getElementById('openNotebookAnswerBtn').addEventListener('click', ()=>{
+  const p = getProblem();
+  if(!p){ alert('문제를 먼저 선택하세요.'); return; }
+
+  const reuseExisting = notebookAnswerWindow && !notebookAnswerWindow.closed;
+  cleanupNotebookAnswerListener();
+
+  if(!reuseExisting){
+    notebookAnswerWindow = window.open(NOTEBOOK_EDITOR_FILE, 'qb2NotebookAnswerEditor', 'width=1000,height=880');
+    if(!notebookAnswerWindow){
+      alert('팝업이 차단된 것 같습니다. 브라우저의 팝업 차단을 허용해주세요.\n(' + NOTEBOOK_EDITOR_FILE + ' 파일이 quizbank2.html과 같은 폴더에 있어야 합니다)');
+      return;
+    }
+  }
+
+  notebookAnswerMessageHandler = function(e){
+    if(!e.data || typeof e.data !== 'object') return;
+    if(e.source !== notebookAnswerWindow) return;
+    if(e.data.type === 'qb2-notebook-ready'){
+      notebookAnswerReady = true;
+      sendAnswerToNotebook(p);
+    } else if(e.data.type === 'qb2-save-answer'){
+      document.getElementById('modelAnswerHtmlInput').value = e.data.html || '';
+      document.getElementById('previewModelAnswerBtn').style.display = '';
+      showNotebookAnswerStatus('📝 답안연습장에서 작성한 내용을 불러왔어요. 아래 내용을 확인하고 "저장"을 눌러 반영하세요.');
+    }
+  };
+  window.addEventListener('message', notebookAnswerMessageHandler);
+
+  // 저장 없이 창을 그냥 닫아버린 경우를 감지해서 리스너를 정리한다
+  notebookAnswerCloseWatcher = setInterval(()=>{
+    if(!notebookAnswerWindow || notebookAnswerWindow.closed){
+      cleanupNotebookAnswerListener();
+    }
+  }, 800);
+
+  if(reuseExisting){
+    notebookAnswerWindow.focus();
+    if(notebookAnswerReady){
+      sendAnswerToNotebook(p);
+    }
+    // 아직 ready 신호 전(창이 막 열리는 중)이면 위 핸들러가 ready 수신 즉시 보내준다
+  }
 });
 
 document.getElementById('confirmClue').addEventListener('click', ()=>{
