@@ -329,6 +329,14 @@
   .find-replace-status{ font-size:11.5px; color:var(--ink-soft); min-width:44px; text-align:center; }
   .find-replace-status.no-match{ color:#c0392b; }
 
+  /* 찾기 결과 하이라이트: 브라우저 Ctrl+F처럼 전체 일치는 노란색, 지금 보고 있는 항목은 주황색 */
+  mark.qb2-find-mark{
+    background:#fff066; color:inherit; padding:0; border-radius:2px; box-shadow:none;
+  }
+  mark.qb2-find-mark.current{
+    background:#ff9d2e; box-shadow:0 0 0 2px #e8790a; border-radius:2px;
+  }
+
   /* ---- 공식 추가/수정 폼 ---- */
   .formula-form{
     display:none;
@@ -1117,12 +1125,18 @@ document.getElementById('shortcutHelpBtn').addEventListener('click', ()=>{
   shortcutHelp.classList.toggle('show');
 });
 
-/* ================= 찾기/바꾸기 ================= */
+/* ================= 찾기/바꾸기 =================
+   Selection API(window.getSelection/addRange)로 하이라이트하던 예전 방식은 답안 영역의
+   문서 선택 상태를 계속 건드려서, 검색창의 포커스/한글 조합(IME) 상태와 충돌해
+   "두 번째 글자 자음이 안 눌리는" 등의 문제를 일으켰다.
+   그래서 지금은 일치하는 텍스트를 <mark> 태그로 실제로 감싸서 브라우저 Ctrl+F처럼
+   색으로 표시하는 방식으로 바꿨다. 이 방식은 검색창의 포커스나 선택 상태를 전혀
+   건드리지 않으므로 타이핑/한글 입력에 어떤 영향도 주지 않는다. */
 const findReplacePanel = document.getElementById('findReplacePanel');
 const findQueryInput = document.getElementById('findQueryInput');
 const findReplaceInput = document.getElementById('findReplaceInput');
 const findStatus = document.getElementById('findStatus');
-let findMatches = [];
+let findMarks = []; // [{ marks:[<mark>,...] }, ...] 매치 하나당 하나 (서식 경계를 가로지르면 mark가 여러 개일 수 있음)
 let findCurrentIndex = -1;
 
 function findGetTextNodes(){
@@ -1133,10 +1147,11 @@ function findGetTextNodes(){
   return nodes;
 }
 
-/* editArea 안의 텍스트 노드를 모두 이어 붙여 하나의 문자열로 만들고, 각 글자가
-   원래 어느 텍스트노드의 몇 번째 위치였는지 매핑해둔다. 서식(굵게/분수 등)이
-   중간에 섞여 있어도 검색어가 그 경계를 가로질러도 찾을 수 있게 하기 위함. */
-function findAllMatches(query){
+/* editArea 안의 텍스트 노드를 모두 이어 붙여 하나의 문자열로 만들고, 각 글자가 원래
+   어느 텍스트노드의 몇 번째 위치였는지 매핑한다. 매치 하나를 "노드별 구간(segment)"
+   목록으로 쪼개서 반환하므로, 검색어가 굵게/분수 같은 서식 경계를 가로질러도 각 구간을
+   따로 감쌀 수 있다. (반드시 하이라이트 삽입 전, 즉 editArea가 mark 없이 깨끗한 상태에서 호출) */
+function findComputeMatches(query){
   const results = [];
   if(!query) return results;
   const nodes = findGetTextNodes();
@@ -1153,17 +1168,53 @@ function findAllMatches(query){
   while(true){
     const found = ft.indexOf(q, idx);
     if(found === -1) break;
-    const startMap = map[found];
-    const endMap = map[found + query.length - 1];
-    if(startMap && endMap){
-      const range = document.createRange();
-      range.setStart(startMap.node, startMap.offset);
-      range.setEnd(endMap.node, endMap.offset + 1);
-      results.push(range);
+    const segments = [];
+    let segNode = null, segStart = 0, segEnd = 0;
+    for(let i = found; i < found + query.length; i++){
+      const m = map[i];
+      if(!m) break;
+      if(segNode === m.node && m.offset === segEnd){
+        segEnd = m.offset + 1;
+      } else {
+        if(segNode) segments.push({ node:segNode, start:segStart, end:segEnd });
+        segNode = m.node; segStart = m.offset; segEnd = m.offset + 1;
+      }
     }
+    if(segNode) segments.push({ node:segNode, start:segStart, end:segEnd });
+    if(segments.length) results.push(segments);
     idx = found + query.length;
   }
   return results;
+}
+
+// 이미 삽입된 하이라이트(<mark>)를 모두 제거하고 원래 텍스트로 되돌린다
+function findClearHighlights(){
+  const marks = editArea.querySelectorAll('mark.qb2-find-mark');
+  marks.forEach(mark=>{
+    const parent = mark.parentNode;
+    if(!parent) return;
+    while(mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+  });
+  if(marks.length) editArea.normalize();
+  findMarks = [];
+  findCurrentIndex = -1;
+}
+// 검색/저장/내보내기 등 editArea.innerHTML을 읽기 전에 항상 이걸 먼저 호출해서
+// 저장되는 내용에 하이라이트 태그가 섞여 들어가지 않게 한다
+function findClearHighlightsIfAny(){
+  if(editArea.querySelector('mark.qb2-find-mark')) findClearHighlights();
+}
+
+function findWrapSegment(seg){
+  const node = seg.node;
+  if(seg.end < node.nodeValue.length) node.splitText(seg.end);
+  const middle = seg.start > 0 ? node.splitText(seg.start) : node;
+  const mark = document.createElement('mark');
+  mark.className = 'qb2-find-mark';
+  middle.parentNode.insertBefore(mark, middle);
+  mark.appendChild(middle);
+  return mark;
 }
 
 function findUpdateStatus(){
@@ -1172,73 +1223,77 @@ function findUpdateStatus(){
     findStatus.classList.remove('no-match');
     return;
   }
-  if(!findMatches.length){
+  if(!findMarks.length){
     findStatus.textContent = '일치 없음';
     findStatus.classList.add('no-match');
-  } else if(findCurrentIndex < 0){
-    findStatus.textContent = `총 ${findMatches.length}건`; // 아직 특정 항목으로 이동하기 전(타이핑 중)
-    findStatus.classList.remove('no-match');
   } else {
-    findStatus.textContent = `${findCurrentIndex + 1}/${findMatches.length}`;
+    findStatus.textContent = `${findCurrentIndex + 1}/${findMarks.length}`;
     findStatus.classList.remove('no-match');
   }
 }
 
-function findGoTo(index){
-  if(!findMatches.length) return;
-  findCurrentIndex = ((index % findMatches.length) + findMatches.length) % findMatches.length;
-  const range = findMatches[findCurrentIndex];
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-  const container = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
-  if(container && container.scrollIntoView) container.scrollIntoView({ block:'center', behavior:'smooth' });
-  findUpdateStatus();
-  // 계속 Enter로 다음/이전을 넘기거나 검색어를 고칠 수 있도록 포커스를 검색창으로 되돌린다
-  requestAnimationFrame(()=>{
-    try{ findQueryInput.focus({ preventScroll:true }); }catch(e){ findQueryInput.focus(); }
-  });
-}
-
-function findRunSearch(keepIndex){
+// 검색어에 맞는 모든 항목을 하이라이트하고(색 표시), keepIndex 항목을 "현재 항목"으로 표시한다
+function findApplyHighlights(keepIndex){
   const query = findQueryInput.value;
-  findMatches = findAllMatches(query);
-  if(!findMatches.length){
+  findClearHighlights();
+  if(!query){ findUpdateStatus(); return; }
+  const matchSegments = findComputeMatches(query);
+  // 뒤에서부터 감싸야 아직 처리하지 않은 앞쪽 매치들의 텍스트노드 offset이 흔들리지 않는다
+  const built = [];
+  for(let mi = matchSegments.length - 1; mi >= 0; mi--){
+    const segments = matchSegments[mi];
+    const markEls = [];
+    for(let si = segments.length - 1; si >= 0; si--){
+      markEls.unshift(findWrapSegment(segments[si]));
+    }
+    built.unshift({ marks: markEls });
+  }
+  findMarks = built;
+  if(!findMarks.length){
     findCurrentIndex = -1;
     findUpdateStatus();
     return;
   }
-  const idx = (typeof keepIndex === 'number') ? Math.min(keepIndex, findMatches.length - 1) : 0;
+  const idx = (typeof keepIndex === 'number') ? Math.min(Math.max(keepIndex,0), findMarks.length - 1) : 0;
   findGoTo(idx);
 }
 
-/* 한글/일본어 등은 자모를 조합해서 한 글자를 완성하는데(예: ㅊ+ㅏ+ㅈ+ㄱ→찾),
-   조합이 끝나기 전에 매번 검색(DOM 전체 탐색 + 하이라이트)을 돌리면 조합 타이밍이 깨져서
-   입력이 중간에 끊기는 문제가 생긴다. 그래서 조합 중(findComposing)에는 전혀 건드리지 않고,
-   조합이 끝났을 때(compositionend)와 그 외의 일반 입력(input)마다 첫 번째 일치 항목으로
-   바로 이동해서 하이라이트해준다 — 검색어를 입력하는 즉시 원하는 위치를 바로 볼 수 있도록.
-   이동 후에는 findGoTo()가 포커스를 검색창으로 되돌려주므로 계속 이어서 타이핑할 수 있다. */
+// 이미 하이라이트된 상태에서, "현재 항목" 표시만 옮기고 화면을 스크롤한다 (재검색 없음)
+function findGoTo(index){
+  if(!findMarks.length) return;
+  findMarks.forEach(m=> m.marks.forEach(el=> el.classList.remove('current')));
+  findCurrentIndex = ((index % findMarks.length) + findMarks.length) % findMarks.length;
+  const marks = findMarks[findCurrentIndex].marks;
+  marks.forEach(el=> el.classList.add('current'));
+  if(marks[0] && marks[0].scrollIntoView) marks[0].scrollIntoView({ block:'center', behavior:'smooth' });
+  findUpdateStatus();
+}
+
+/* 한글/일본어 등은 자음+모음을 조합해서 한 글자를 완성한다(예: ㅊ+ㅏ+ㅈ+ㄱ→찾).
+   조합 도중(findComposing)에는 하이라이트를 갱신하지 않고, 조합이 끝났을 때(compositionend)와
+   그 외의 일반 입력(input)에만 다시 검색한다. 이 방식은 Selection이나 포커스를 전혀
+   건드리지 않으므로, 이전처럼 조합이 중간에 끊기는 문제가 생기지 않는다. */
 let findComposing = false;
 findQueryInput.addEventListener('compositionstart', ()=>{ findComposing = true; });
-findQueryInput.addEventListener('compositionend', ()=>{ findComposing = false; findRunSearch(0); });
+findQueryInput.addEventListener('compositionend', ()=>{ findComposing = false; findApplyHighlights(0); });
 findQueryInput.addEventListener('input', ()=>{
-  if(findComposing) return; // 조합 중에는 아직 처리하지 않는다 (위 compositionend에서 처리)
-  findRunSearch(0);
+  if(findComposing) return;
+  findApplyHighlights(0);
 });
 document.getElementById('findNextBtn').addEventListener('click', ()=>{
-  if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+  if(!findMarks.length) findApplyHighlights(0); else findGoTo(findCurrentIndex + 1);
 });
 document.getElementById('findPrevBtn').addEventListener('click', ()=>{
-  if(!findMatches.length || findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
+  if(!findMarks.length) findApplyHighlights(0); else findGoTo(findCurrentIndex - 1);
 });
 findQueryInput.addEventListener('keydown', (e)=>{
-  if(e.isComposing || e.keyCode === 229) return; // 한글 조합 확정용 Enter는 무시 (조합만 끝내고 검색은 안 함)
+  if(e.isComposing || e.keyCode === 229) return; // 한글 조합 확정용 Enter는 무시
   if(e.key === 'Enter'){
     e.preventDefault();
     if(e.shiftKey){
-      if(findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
+      if(!findMarks.length) findApplyHighlights(0); else findGoTo(findCurrentIndex - 1);
     } else {
-      if(findCurrentIndex < 0) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+      if(!findMarks.length) findApplyHighlights(0); else findGoTo(findCurrentIndex + 1);
     }
   } else if(e.key === 'Escape'){
     e.preventDefault();
@@ -1246,47 +1301,51 @@ findQueryInput.addEventListener('keydown', (e)=>{
   }
 });
 
+// 매치 하나(그 매치에 속한 mark 전부)를 replacement 텍스트로 바꾼다
+function findReplaceMatch(matchIndex, replacement){
+  const marks = findMarks[matchIndex] && findMarks[matchIndex].marks;
+  if(!marks || !marks.length) return;
+  const first = marks[0];
+  first.parentNode.insertBefore(document.createTextNode(replacement), first);
+  marks.forEach(m=> m.remove());
+}
+
 document.getElementById('findReplaceBtn').addEventListener('click', ()=>{
-  if(findCurrentIndex < 0 || !findMatches[findCurrentIndex]){
-    if(!findQueryInput.value) return;
-    findRunSearch(0);
-    if(findCurrentIndex < 0) return;
-  }
-  const range = findMatches[findCurrentIndex];
-  range.deleteContents();
-  range.insertNode(document.createTextNode(findReplaceInput.value));
+  if(!findQueryInput.value) return;
+  if(findCurrentIndex < 0 || !findMarks[findCurrentIndex]) findApplyHighlights(0);
+  if(findCurrentIndex < 0 || !findMarks[findCurrentIndex]) return;
+  const keepIdx = findCurrentIndex;
+  findReplaceMatch(findCurrentIndex, findReplaceInput.value);
   editArea.normalize();
   scheduleAutosave();
-  findRunSearch(findCurrentIndex); // 같은 위치를 유지하며 목록을 새로 고침
+  findApplyHighlights(keepIdx); // 같은 위치를 유지하며 다시 검색/하이라이트
 });
 
 document.getElementById('findReplaceAllBtn').addEventListener('click', ()=>{
   const query = findQueryInput.value;
   if(!query) return;
-  const matches = findAllMatches(query);
-  if(!matches.length){ findUpdateStatus(); return; }
-  // 뒤에서 앞으로 바꿔야 아직 처리하지 않은 앞쪽 매치들의 위치가 흔들리지 않는다
-  for(let i = matches.length - 1; i >= 0; i--){
-    const range = matches[i];
-    range.deleteContents();
-    range.insertNode(document.createTextNode(findReplaceInput.value));
-  }
+  findApplyHighlights(0);
+  if(!findMarks.length) return;
+  const count = findMarks.length;
+  // mark는 매치마다 독립된 DOM 요소라서, 순서와 상관없이 하나씩 바꿔도 다른 매치의 위치가 흔들리지 않는다
+  findMarks.forEach((m, i)=> findReplaceMatch(i, findReplaceInput.value));
   editArea.normalize();
+  findMarks = [];
+  findCurrentIndex = -1;
   scheduleAutosave();
-  showToast(`✅ ${matches.length}건을 모두 바꿨습니다.`);
-  findRunSearch(0);
+  showToast(`✅ ${count}건을 모두 바꿨습니다.`);
+  findApplyHighlights(0);
 });
 
 function findOpen(){
   findReplacePanel.classList.add('show');
   findQueryInput.focus();
   findQueryInput.select();
-  if(findQueryInput.value) findRunSearch(0);
+  if(findQueryInput.value) findApplyHighlights(0);
 }
 function findClose(){
   findReplacePanel.classList.remove('show');
-  findMatches = [];
-  findCurrentIndex = -1;
+  findClearHighlights();
 }
 document.getElementById('findReplaceToggleBtn').addEventListener('click', ()=>{
   if(findReplacePanel.classList.contains('show')) findClose(); else findOpen();
@@ -1300,6 +1359,10 @@ editArea.addEventListener('keydown', (e)=>{
     findOpen();
   }
 });
+// 답안 영역을 직접 클릭/편집하려는 순간에는 하이라이트를 지워서, 저장되는 내용에
+// <mark> 태그가 섞여 들어가거나 커서 위치가 꼬이는 일을 막는다
+editArea.addEventListener('mousedown', findClearHighlightsIfAny);
+editArea.addEventListener('focus', findClearHighlightsIfAny);
 
 /* ================= 자주 쓰는 공식 (분류 그룹핑) ================= */
 const FORMULA_KEY = 'formula_bank_v2';
@@ -1748,6 +1811,7 @@ function scheduleAutosave(){
   autosaveTimer = setTimeout(doAutosave, 500);
 }
 function doAutosave(){
+  findClearHighlightsIfAny();
   try{
     const data = {
       title: problemTitle.value,
@@ -2017,6 +2081,7 @@ document.getElementById('archiveToggleBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('archiveSaveBtn').addEventListener('click', ()=>{
+  findClearHighlightsIfAny();
   const title = problemTitle.value.trim();
   if(!title){ alert('먼저 문제 제목을 입력하세요.'); problemTitle.focus(); return; }
   if(!editArea.textContent.trim()){ alert('저장할 답안 내용이 없습니다.'); return; }
@@ -2457,6 +2522,7 @@ function startSelfTest(id){
 
 document.getElementById('testCheckBtn').addEventListener('click', ()=>{
   if(!testState) return;
+  findClearHighlightsIfAny();
   const item = archive.find(a => a.id === testState.id);
   if(!item) return;
   clearInterval(testState.interval);
@@ -2597,6 +2663,7 @@ function loadHtml2Canvas(){
 }
 
 document.getElementById('exportImgBtn').addEventListener('click', async ()=>{
+  findClearHighlightsIfAny();
   if(!editArea.textContent.trim() && !editArea.querySelector('img')){
     alert('저장할 내용이 없습니다.');
     return;
@@ -2625,6 +2692,7 @@ document.getElementById('exportImgBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
+  findClearHighlightsIfAny();
   if(!editArea.textContent.trim() && !editArea.querySelector('img')){
     alert('저장할 내용이 없습니다.');
     return;
@@ -2640,6 +2708,7 @@ document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
 
 /* ================= 하단 액션 ================= */
 document.getElementById('copyBtn').addEventListener('click', async ()=>{
+  findClearHighlightsIfAny();
   const html = buildWrappedHtml();
   try{
     await navigator.clipboard.writeText(html);
@@ -2659,6 +2728,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   if(!confirm('새 답안을 시작할까요? 현재 내용과 문제 제목이 지워집니다.\n(필요하면 먼저 💾 보관함에 저장하세요)')) return;
   editArea.innerHTML = '';
   problemTitle.value = '';
+  findMarks = []; findCurrentIndex = -1; // editArea를 통째로 비웠으니 남아있던 하이라이트 참조도 정리
   resetUndoHistory();
   doAutosave();
   editArea.focus();
@@ -2741,6 +2811,7 @@ function downloadHtmlFile(filename, htmlStr){
 }
 
 document.getElementById('exportHtmlBtn').addEventListener('click', ()=>{
+  findClearHighlightsIfAny();
   if(!editArea.textContent.trim() && !editArea.querySelector('img')){ alert('저장할 내용이 없습니다.'); return; }
   const lh = editArea.style.lineHeight || DEFAULT_LH;
   const al = editArea.style.textAlign || DEFAULT_ALIGN;
@@ -2899,6 +2970,7 @@ window.addEventListener('message', function(e){
 /* 저장 대상(target)을 지정해서 퀴즈뱅크2로 보낸다.
    'myAnswer' → 현재 문제의 나의 답안,  'model' → 현재 문제의 모범답안 */
 function qb2SendToHost(target){
+  findClearHighlightsIfAny();
   const host = qb2FindHostWindow();
   if(!host){
     alert('연결된 퀴즈뱅크2 화면을 찾을 수 없습니다. (창이 닫혔거나 독립 실행 중일 수 있어요)\n대신 "⬇ HTML 다운로드"로 저장한 뒤, 모범답안 등록 창에서 파일로 첨부해주세요.');
