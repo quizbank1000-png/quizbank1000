@@ -284,10 +284,6 @@
       #fff;
   }
 
-  .formula-toolbar button.calc-toggle-btn{
-    font-weight:700; color:#fff; background:var(--blue-500); border-color:var(--blue-500);
-  }
-  .formula-toolbar button.calc-toggle-btn:hover{ background:var(--blue-700); }
   .formula-toolbar button.mgmt-btn{ font-weight:700; }
   .formula-toolbar button.mgmt-btn.danger{ color:#c0392b; border-color:#f2b8b0; }
   .formula-toolbar button.skeleton-btn{ font-weight:700; color:var(--blue-700); border-color:var(--blue-300); }
@@ -306,6 +302,29 @@
     border-radius:4px; padding:1px 5px; margin-right:2px; font-size:11.5px;
   }
   .shortcut-help .sc-item{ display:inline-block; margin-right:12px; white-space:nowrap; }
+
+  /* ---- 찾기/바꾸기 ---- */
+  .find-replace-panel{
+    display:none;
+    background:#fbfdff; border:1.5px dashed var(--blue-300); border-radius:9px;
+    padding:10px; margin-bottom:10px; gap:8px; flex-direction:column;
+  }
+  .find-replace-panel.show{ display:flex; }
+  .find-replace-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .find-replace-row label{ font-size:11.5px; color:var(--ink-soft); width:44px; flex:none; }
+  .find-replace-row input[type=text]{
+    flex:1; min-width:140px; font-size:13px; border:1px solid var(--line); border-radius:6px;
+    padding:7px 9px; font-family:inherit;
+  }
+  .find-replace-row button{
+    font-size:12px; font-weight:700; border-radius:7px; padding:6px 12px; cursor:pointer;
+    border:1px solid var(--line); background:#fff; color:var(--ink-soft); white-space:nowrap;
+  }
+  .find-replace-row button:hover{ background:var(--blue-100); }
+  .find-replace-row button.primary{ background:var(--blue-500); color:#fff; border-color:var(--blue-500); }
+  .find-replace-row button.primary:hover{ background:var(--blue-700); }
+  .find-replace-status{ font-size:11.5px; color:var(--ink-soft); min-width:44px; text-align:center; }
+  .find-replace-status.no-match{ color:#c0392b; }
 
   /* ---- 공식 추가/수정 폼 ---- */
   .formula-form{
@@ -508,7 +527,25 @@
     <button type="button" id="exportHtmlBtn" title="지금 작성 중인 답안을 html 파일로 내려받습니다">⬇ HTML 다운로드</button>
     <button type="button" id="importHtmlBtn" title="html 파일을 불러와 편집기에서 이어서 편집합니다">⬆ HTML 불러오기</button>
     <input type="file" id="importHtmlInput" accept=".html,.htm,text/html" style="display:none;">
+    <button type="button" id="findReplaceToggleBtn" title="편집 중인 답안에서 텍스트를 찾고 바꿉니다 (편집기 안에서 Ctrl+F)">🔍 찾기/바꾸기</button>
     <button type="button" id="timerToggleBtn">⏱ 타이머</button>
+  </div>
+
+  <div class="find-replace-panel" id="findReplacePanel">
+    <div class="find-replace-row">
+      <label>찾기</label>
+      <input type="text" id="findQueryInput" placeholder="찾을 내용을 입력하세요">
+      <button type="button" id="findPrevBtn" title="이전 항목">◀ 이전</button>
+      <button type="button" id="findNextBtn" title="다음 항목">다음 ▶</button>
+      <span class="find-replace-status" id="findStatus">0/0</span>
+    </div>
+    <div class="find-replace-row">
+      <label>바꾸기</label>
+      <input type="text" id="findReplaceInput" placeholder="바꿀 내용을 입력하세요">
+      <button type="button" id="findReplaceBtn">바꾸기</button>
+      <button type="button" class="primary" id="findReplaceAllBtn">모두 바꾸기</button>
+      <button type="button" id="findCloseBtn">닫기</button>
+    </div>
   </div>
 
   <!-- 퀴즈뱅크2 연동 배너 (quizbank2.html에서 팝업 또는 내장(iframe)으로 열었을 때 표시됨) -->
@@ -719,7 +756,6 @@
     </select>
     <span class="tb-sep"></span>
     <button type="button" id="shortcutHelpBtn" title="키보드 단축입력 목록">⌨ 단축입력</button>
-    <button type="button" class="calc-toggle-btn" id="toggleCalcBtn">🧮 계산기</button>
   </div>
   </div><!-- /stickyToolbarFrame -->
 
@@ -1078,6 +1114,166 @@ document.getElementById('shortcutHelpBtn').addEventListener('click', ()=>{
   shortcutHelp.classList.toggle('show');
 });
 
+/* ================= 찾기/바꾸기 ================= */
+const findReplacePanel = document.getElementById('findReplacePanel');
+const findQueryInput = document.getElementById('findQueryInput');
+const findReplaceInput = document.getElementById('findReplaceInput');
+const findStatus = document.getElementById('findStatus');
+let findMatches = [];
+let findCurrentIndex = -1;
+
+function findGetTextNodes(){
+  const nodes = [];
+  const walker = document.createTreeWalker(editArea, NodeFilter.SHOW_TEXT, null);
+  let n;
+  while((n = walker.nextNode())) nodes.push(n);
+  return nodes;
+}
+
+/* editArea 안의 텍스트 노드를 모두 이어 붙여 하나의 문자열로 만들고, 각 글자가
+   원래 어느 텍스트노드의 몇 번째 위치였는지 매핑해둔다. 서식(굵게/분수 등)이
+   중간에 섞여 있어도 검색어가 그 경계를 가로질러도 찾을 수 있게 하기 위함. */
+function findAllMatches(query){
+  const results = [];
+  if(!query) return results;
+  const nodes = findGetTextNodes();
+  let fullText = '';
+  const map = [];
+  nodes.forEach(node=>{
+    const text = node.nodeValue;
+    for(let i=0; i<text.length; i++) map.push({ node, offset:i });
+    fullText += text;
+  });
+  const q = query.toLowerCase();
+  const ft = fullText.toLowerCase();
+  let idx = 0;
+  while(true){
+    const found = ft.indexOf(q, idx);
+    if(found === -1) break;
+    const startMap = map[found];
+    const endMap = map[found + query.length - 1];
+    if(startMap && endMap){
+      const range = document.createRange();
+      range.setStart(startMap.node, startMap.offset);
+      range.setEnd(endMap.node, endMap.offset + 1);
+      results.push(range);
+    }
+    idx = found + query.length;
+  }
+  return results;
+}
+
+function findUpdateStatus(){
+  if(!findQueryInput.value){
+    findStatus.textContent = '0/0';
+    findStatus.classList.remove('no-match');
+    return;
+  }
+  if(!findMatches.length){
+    findStatus.textContent = '일치 없음';
+    findStatus.classList.add('no-match');
+  } else {
+    findStatus.textContent = `${findCurrentIndex + 1}/${findMatches.length}`;
+    findStatus.classList.remove('no-match');
+  }
+}
+
+function findGoTo(index){
+  if(!findMatches.length) return;
+  findCurrentIndex = ((index % findMatches.length) + findMatches.length) % findMatches.length;
+  const range = findMatches[findCurrentIndex];
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  const container = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
+  if(container && container.scrollIntoView) container.scrollIntoView({ block:'center', behavior:'smooth' });
+  findUpdateStatus();
+}
+
+function findRunSearch(keepIndex){
+  const query = findQueryInput.value;
+  findMatches = findAllMatches(query);
+  if(!findMatches.length){
+    findCurrentIndex = -1;
+    findUpdateStatus();
+    return;
+  }
+  const idx = (typeof keepIndex === 'number') ? Math.min(keepIndex, findMatches.length - 1) : 0;
+  findGoTo(idx);
+}
+
+findQueryInput.addEventListener('input', ()=> findRunSearch(0));
+document.getElementById('findNextBtn').addEventListener('click', ()=>{
+  if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+});
+document.getElementById('findPrevBtn').addEventListener('click', ()=>{
+  if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex - 1);
+});
+findQueryInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    if(e.shiftKey) findGoTo(findCurrentIndex - 1); else if(!findMatches.length) findRunSearch(0); else findGoTo(findCurrentIndex + 1);
+  } else if(e.key === 'Escape'){
+    e.preventDefault();
+    findClose();
+  }
+});
+
+document.getElementById('findReplaceBtn').addEventListener('click', ()=>{
+  if(findCurrentIndex < 0 || !findMatches[findCurrentIndex]){
+    if(!findQueryInput.value) return;
+    findRunSearch(0);
+    if(findCurrentIndex < 0) return;
+  }
+  const range = findMatches[findCurrentIndex];
+  range.deleteContents();
+  range.insertNode(document.createTextNode(findReplaceInput.value));
+  editArea.normalize();
+  scheduleAutosave();
+  findRunSearch(findCurrentIndex); // 같은 위치를 유지하며 목록을 새로 고침
+});
+
+document.getElementById('findReplaceAllBtn').addEventListener('click', ()=>{
+  const query = findQueryInput.value;
+  if(!query) return;
+  const matches = findAllMatches(query);
+  if(!matches.length){ findUpdateStatus(); return; }
+  // 뒤에서 앞으로 바꿔야 아직 처리하지 않은 앞쪽 매치들의 위치가 흔들리지 않는다
+  for(let i = matches.length - 1; i >= 0; i--){
+    const range = matches[i];
+    range.deleteContents();
+    range.insertNode(document.createTextNode(findReplaceInput.value));
+  }
+  editArea.normalize();
+  scheduleAutosave();
+  showToast(`✅ ${matches.length}건을 모두 바꿨습니다.`);
+  findRunSearch(0);
+});
+
+function findOpen(){
+  findReplacePanel.classList.add('show');
+  findQueryInput.focus();
+  findQueryInput.select();
+  if(findQueryInput.value) findRunSearch(0);
+}
+function findClose(){
+  findReplacePanel.classList.remove('show');
+  findMatches = [];
+  findCurrentIndex = -1;
+}
+document.getElementById('findReplaceToggleBtn').addEventListener('click', ()=>{
+  if(findReplacePanel.classList.contains('show')) findClose(); else findOpen();
+});
+document.getElementById('findCloseBtn').addEventListener('click', findClose);
+
+// 편집기 안에 커서가 있을 때 Ctrl+F(또는 Cmd+F)를 누르면 브라우저 기본 찾기 대신 이 찾기/바꾸기를 연다
+editArea.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f'){
+    e.preventDefault();
+    findOpen();
+  }
+});
+
 /* ================= 자주 쓰는 공식 (분류 그룹핑) ================= */
 const FORMULA_KEY = 'formula_bank_v2';
 const OLD_FORMULA_KEY = 'formula_bank_v1';
@@ -1287,7 +1483,6 @@ loadFormulaBank();
 renderFormulaSelect();
 
 /* ================= 계산기 (공학용) ================= */
-const toggleCalcBtn = document.getElementById('toggleCalcBtn');
 const calcPanel = document.getElementById('calcPanel');
 const calcExpr = document.getElementById('calcExpr');
 const calcResult = document.getElementById('calcResult');
@@ -1305,10 +1500,6 @@ let calcAns = 0;
 let calcMemory = 0;
 let fracLastValue = null;
 
-toggleCalcBtn.addEventListener('click', ()=>{
-  calcPanel.classList.toggle('show');
-  if(calcPanel.classList.contains('show')) calcExpr.focus();
-});
 toggleCalcBtnTop.addEventListener('click', ()=>{
   calcPanel.classList.toggle('show');
   if(calcPanel.classList.contains('show')){
