@@ -2122,6 +2122,17 @@ function sanitizePastedHtml(html){
 async function ctxCopySelection(){
   const range = ctxSavedRange;
   if(!range || range.collapsed){ showToast('먼저 복사할 내용을 블럭 지정하세요'); return; }
+  /* 1순위: 선택을 되살린 뒤 브라우저 복사 명령(동기).
+     - 클릭 직후의 사용자 제스처가 살아있는 동안 동기로 실행되므로 iframe 안에서도 동작한다.
+     - DOM 선택을 복사하면 text/html 서식(분수·색상)도 함께 클립보드에 들어간다.
+     (예전처럼 비동기 clipboard.write를 먼저 시도하면, iframe에서 권한 거부가 나는 사이
+      제스처 유효 시간이 끝나 execCommand 폴백까지 연달아 실패했다.) */
+  try{
+    editArea.focus();
+    restoreCtxSelection();
+    if(document.execCommand('copy')){ showToast('📋 복사했습니다'); return; }
+  } catch(e){ /* 아래 폴백으로 */ }
+  // 2순위: 비동기 클립보드 API (최상위 창에서만 확실히 동작)
   const div = document.createElement('div');
   div.appendChild(range.cloneContents());
   // 하이라이트 중이던 텍스트를 복사해도 <mark>가 딸려가지 않게 정리
@@ -2131,7 +2142,6 @@ async function ctxCopySelection(){
   });
   const html = div.innerHTML;
   const text = range.toString();
-  // 1순위: 서식(HTML)까지 함께 클립보드에 넣기 (분수·색상 유지)
   if(navigator.clipboard && window.ClipboardItem){
     try{
       await navigator.clipboard.write([ new ClipboardItem({
@@ -2140,14 +2150,10 @@ async function ctxCopySelection(){
       })]);
       showToast('📋 복사했습니다');
       return;
-    } catch(e){ /* 아래 폴백으로 */ }
+    } catch(e){ /* 무시 */ }
   }
-  // 2순위: 선택을 되살린 뒤 브라우저 복사 명령
-  try{
-    restoreCtxSelection();
-    if(document.execCommand('copy')){ showToast('📋 복사했습니다'); return; }
-  } catch(e){ /* 무시 */ }
-  showToast('⚠️ 복사에 실패했습니다. Ctrl+C를 사용해주세요');
+  // 실패해도 선택은 되살려 두었으니 바로 Ctrl+C를 누르면 복사된다
+  showToast('⚠️ 복사에 실패했습니다. 그대로 Ctrl+C를 눌러주세요');
 }
 
 async function ctxPasteClipboard(){
@@ -2167,7 +2173,18 @@ async function ctxPasteClipboard(){
     try{ if(navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch(e2){ /* 무시 */ }
   }
   if(!html && !text){
-    showToast('⚠️ 클립보드를 읽을 수 없습니다. 권한을 허용하거나 Ctrl+V를 사용해주세요');
+    /* iframe 안에서는 부모 문서가 <iframe allow="clipboard-read; clipboard-write">
+       권한을 주지 않는 한 클립보드 읽기가 차단된다. 이때는 커서를 원래 붙여넣으려던
+       자리에 되돌려 두고, 사용자가 곧바로 Ctrl+V를 누르면 브라우저 기본 붙여넣기가
+       정확히 그 위치에 들어가도록 유도한다. */
+    editArea.focus();
+    restoreCtxSelection();
+    const inFrame = (()=>{ try{ return window.self !== window.top; }catch(e){ return true; } })();
+    if(inFrame){
+      showToast('⚠️ 프레임 안이라 클립보드 읽기가 차단되었습니다. 그대로 Ctrl+V를 눌러주세요');
+    } else {
+      showToast('⚠️ 클립보드를 읽을 수 없습니다. 그대로 Ctrl+V를 눌러주세요');
+    }
     return;
   }
   commitDiscreteAction(()=>{
