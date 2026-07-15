@@ -1496,7 +1496,8 @@
                 <button type="button" class="mini-tool-btn" id="embeddedNotebookReloadBtn" title="답안연습장을 새로고침합니다">↺</button>
               </div>
             </div>
-            <iframe id="embeddedNotebookFrame" title="답안연습장"></iframe>
+            <!-- allow 속성: iframe 안의 답안연습장에서 우클릭 복사/붙여넣기(클립보드 API)가 동작하려면 필수 -->
+            <iframe id="embeddedNotebookFrame" title="답안연습장" allow="clipboard-read; clipboard-write"></iframe>
           </div>
         </div>
 
