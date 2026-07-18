@@ -639,7 +639,7 @@
     <span class="tb-sep"></span>
     <button type="button" id="removeParensBtn" title="블럭 지정 후 클릭하면 선택 영역의 ( 와 ) 를 모두 삭제합니다">( ) 삭제</button>
     <button type="button" id="removeCommaBtn" title="블럭 지정 후 클릭하면 선택 영역의 천단위 콤마(,)를 모두 삭제합니다 (예: 2,203 → 2203)">, 삭제</button>
-    <button type="button" id="toFractionBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다 (예: 500/3600, 500÷3600, kJ/h 같은 단위 속 / 는 무시됩니다)'>➗ 분수로 바꾸기</button>
+    <button type="button" id="toFractionBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다 (예: 500/3600, 500÷3600, kJ/h 같은 단위 속 / 는 무시됩니다). 분자·분모 안의 ( ) 괄호는 자동으로 제거됩니다 (예: (7×26+3×30.1)/10 → 분수)'>➗ 분수로 바꾸기</button>
     <span class="tb-sep"></span>
     <select id="lineHeightSelect" title="줄간격">
       <option value="1.3">줄간격: 좁게</option>
@@ -924,7 +924,7 @@
   <div class="ctx-divider"></div>
   <button type="button" id="ctxRemoveParens">( ) 괄호 모두 삭제</button>
   <button type="button" id="ctxRemoveComma">천단위 콤마(,) 모두 삭제</button>
-  <button type="button" id="ctxToFraction">➗ 분수로 바꾸기 (A/B, A÷B)</button>
+  <button type="button" id="ctxToFraction" title="괄호 ( ) 는 자동으로 제거된 뒤 분수로 변환됩니다">➗ 분수로 바꾸기 (A/B, A÷B)</button>
 </div>
 
 <script>
@@ -2031,8 +2031,13 @@ function convertSelectionToFraction(){
     alert('선택 영역에서 나눗셈 구분기호(/ 또는 ÷)를 정확히 1개 찾지 못했습니다.\n예: 1,638,000kJ/h ÷ 2,203kJ/kg  (kJ/h처럼 단위 속 "/"는 무시됩니다)');
     return;
   }
-  const num = text.slice(0, index).trim();
-  const den = text.slice(index + 1).trim();
+  let num = text.slice(0, index).trim();
+  let den = text.slice(index + 1).trim();
+  /* 분자/분모 안에 남아있는 ( ) 괄호는 분수로 바뀌면서 의미가 사라지므로(분수 막대가 이미 그룹핑 역할을 함)
+     "괄호 모두 삭제" 버튼을 따로 누를 필요 없이 여기서 자동으로 함께 제거한다 */
+  const hadParens = /[()]/.test(num) || /[()]/.test(den);
+  num = num.replace(/[()]/g, '').trim();
+  den = den.replace(/[()]/g, '').trim();
   if(!num || !den){ alert('분자 또는 분모가 비어 있습니다.'); return; }
   commitDiscreteAction(()=>{
     const wrap = document.createElement('div');
@@ -2046,7 +2051,7 @@ function convertSelectionToFraction(){
     sel.removeAllRanges();
     sel.addRange(newRange);
   });
-  showToast('➗ 분수로 변환했습니다');
+  showToast(hadParens ? '( ) 괄호를 제거하고 ➗ 분수로 변환했습니다' : '➗ 분수로 변환했습니다');
 }
 
 document.getElementById('removeParensBtn').addEventListener('click', ()=>{
