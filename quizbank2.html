@@ -1989,6 +1989,7 @@ const DRIVE_FOLDER_NAME = '건축설비기사_퀴즈뱅크2_데이터';
 const DATA_FILE_NAME = 'quizbank2_data.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const CLIENT_ID_STORAGE_KEY = 'quizbank2_drive_client_id';
+const ACCOUNT_HINT_KEY = 'quizbank2_account_hint'; // 마지막으로 로그인한 계정 이메일 (계정 선택창 스킵용)
 
 let accessToken = null;
 let tokenClient = null;
@@ -2006,6 +2007,16 @@ function setSyncStatus(state_, text){
 /* ---------------- Google OAuth ---------------- */
 function getStoredClientId(){
   return localStorage.getItem(CLIENT_ID_STORAGE_KEY) || '';
+}
+
+function getStoredAccountHint(){
+  return localStorage.getItem(ACCOUNT_HINT_KEY) || '';
+}
+function setStoredAccountHint(email){
+  if(email) localStorage.setItem(ACCOUNT_HINT_KEY, email);
+}
+function clearStoredAccountHint(){
+  localStorage.removeItem(ACCOUNT_HINT_KEY);
 }
 
 function initGoogleAuth(){
@@ -2026,12 +2037,20 @@ function initGoogleAuth(){
     return;
   }
 
+  const storedHint = getStoredAccountHint();
+
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: SCOPES,
+    hint: storedHint || undefined, // 이전에 로그인한 계정으로 고정 → 계정 선택창 스킵
     callback: async (resp)=>{
       if(resp.error){
-        document.getElementById('gate-warn').textContent = '로그인 실패: ' + resp.error;
+        // 자동 재로그인 시도가 실패한 경우엔 조용히 무시하고 버튼을 눌러 수동 로그인하게 둔다
+        if(resp.error !== 'immediate_failed' && resp.error !== 'user_logged_out'){
+          document.getElementById('gate-warn').textContent = '로그인 실패: ' + resp.error;
+        }
+        signinBtn.disabled = false;
+        statusEl.textContent = '로그인할 준비가 되었습니다.';
         return;
       }
       accessToken = resp.access_token;
@@ -2042,6 +2061,12 @@ function initGoogleAuth(){
 
   statusEl.textContent = '로그인할 준비가 되었습니다.';
   signinBtn.disabled = false;
+
+  // 이전에 로그인했던 계정 기록이 있으면, 버튼 클릭 없이도 화면 없이 자동으로 로그인 연장을 시도한다.
+  if(storedHint){
+    statusEl.textContent = '자동 로그인 시도 중...';
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
 }
 
 async function afterSignIn(){
@@ -2069,6 +2094,7 @@ async function fetchUserEmail(){
   if(res.ok){
     const data = await res.json();
     userEmail = data.email || '';
+    setStoredAccountHint(userEmail);
   }
 }
 
@@ -6133,6 +6159,7 @@ document.getElementById('btn-signout').addEventListener('click', async ()=>{
     google.accounts.oauth2.revoke(accessToken, ()=>{});
   }
   accessToken = null;
+  clearStoredAccountHint();
   document.getElementById('app').style.display = 'none';
   document.getElementById('gate').style.display = 'flex';
   document.getElementById('gate-status').textContent = '로그인할 준비가 되었습니다.';
