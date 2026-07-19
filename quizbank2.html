@@ -4120,7 +4120,12 @@ function renderProblemList(){
       e.stopPropagation();
       const found = findProblemById(btn.dataset.id);
       if(!found) return;
-      found.problem.priorityDone = !found.problem.priorityDone;
+      const willBeDone = !found.problem.priorityDone;
+      const msg = willBeDone
+        ? `"${found.problem.num}번" 문제를 우선순위 학습에서 뺄까요? (충분히 학습한 문제로 표시됩니다)`
+        : `"${found.problem.num}번" 문제를 다시 우선순위 목록으로 되돌릴까요?`;
+      if(!confirm(msg)) return;
+      found.problem.priorityDone = willBeDone;
       saveState();
       renderProblemList();
     });
@@ -4130,7 +4135,12 @@ function renderProblemList(){
       e.stopPropagation();
       const found = findProblemById(btn.dataset.id);
       if(!found) return;
-      found.problem.excludeReview = !found.problem.excludeReview;
+      const willBeExcluded = !found.problem.excludeReview;
+      const msg = willBeExcluded
+        ? `"${found.problem.num}번" 문제를 복습 제외로 표시할까요?`
+        : `"${found.problem.num}번" 문제의 복습 제외를 해제할까요?`;
+      if(!confirm(msg)) return;
+      found.problem.excludeReview = willBeExcluded;
       saveState();
       renderProblemList();
       renderSideStat();
