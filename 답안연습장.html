@@ -706,22 +706,25 @@
     <button type="button" data-insert="±">±</button>
     <button type="button" data-insert="√">√</button>
     <button type="button" data-insert="Σ">Σ</button>
-    <button type="button" data-insert="→">→</button>
-    <button type="button" data-insert="←">←</button>
-    <button type="button" data-insert="↔">↔</button>
+    <button type="button" data-insert="→" data-bold="1">→</button>
+    <button type="button" data-insert="←" data-bold="1">←</button>
+    <button type="button" data-insert="↔" data-bold="1">↔</button>
     <button type="button" data-insert="≒">≒</button>
     <button type="button" data-insert="≤">≤</button>
     <button type="button" data-insert="≥">≥</button>
-    <button type="button" data-insert="★">★</button>
-    <button type="button" data-insert="☆">☆</button>
-    <button type="button" data-insert="※">※</button>
+    <button type="button" data-insert="★" data-bold="1">★</button>
+    <button type="button" data-insert="☆" data-bold="1">☆</button>
+    <button type="button" data-insert="※" data-bold="1">※</button>
     <button type="button" data-insert="▲">▲</button>
-    <button type="button" data-insert="■">■</button>
-    <button type="button" data-insert="·">·</button>
-    <button type="button" data-insert="【★】">【★】</button>
-    <button type="button" data-insert="□">□</button>
-    <button type="button" data-insert="【??】">【??】</button>
-    <button type="button" data-insert="【!!】">【!!】</button>
+    <button type="button" data-insert="■" data-bold="1">■</button>
+    <button type="button" data-insert="·" data-bold="1">·</button>
+    <button type="button" data-insert="【★】" data-bold="1">【★】</button>
+    <button type="button" data-insert="□" data-bold="1">□</button>
+    <button type="button" data-insert="【??】" data-bold="1">【??】</button>
+    <button type="button" data-insert="【!!】" data-bold="1">【!!】</button>
+    <button type="button" data-insert="⇒" data-bold="1">⇒</button>
+    <button type="button" data-insert="∵" data-bold="1">∵</button>
+    <button type="button" data-insert="∴" data-bold="1">∴</button>
     <span class="tb-sep"></span>
     <span class="tb-label">그리스문자</span>
     <button type="button" data-insert="Δ" title="델타 (//d)">Δ</button>
@@ -1050,7 +1053,12 @@ renderColorPalette(hiliteColorPalette, HILITE_COLORS, 'hilite');
 document.querySelectorAll('#symbolToolbar button[data-insert]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     editArea.focus();
-    document.execCommand('insertText', false, btn.dataset.insert);
+    if(btn.dataset.bold){
+      const esc = btn.dataset.insert.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      document.execCommand('insertHTML', false, '<b>' + esc + '</b>');
+    } else {
+      document.execCommand('insertText', false, btn.dataset.insert);
+    }
     scheduleAutosave();
   });
 });
