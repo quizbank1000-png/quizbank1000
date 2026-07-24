@@ -1408,6 +1408,26 @@ editArea.addEventListener('keydown', (e)=>{
 editArea.addEventListener('mousedown', findClearHighlightsIfAny);
 editArea.addEventListener('focus', findClearHighlightsIfAny);
 
+// 공식 박스/설명 박스처럼 style이 지정된 <div>(테두리·배경이 있는 박스) 안에서 Enter를 누르면
+// 기본 동작(박스가 둘로 쪼개지며 각각 별도의 박스가 됨)이 아니라, 박스는 그대로 유지한 채
+// 그 안에서 줄만 한 줄 늘어나도록(<br> 삽입) 바꾼다. 일반 문단(<p>)에서는 평소처럼 동작한다.
+editArea.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount) return;
+  let node = sel.getRangeAt(0).startContainer;
+  if(node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+  let el = node;
+  while(el && el !== editArea){
+    if(el.tagName === 'DIV' && el.hasAttribute('style')){
+      e.preventDefault();
+      document.execCommand('insertHTML', false, '<br>');
+      return;
+    }
+    el = el.parentElement;
+  }
+});
+
 /* ================= 자주 쓰는 공식 (분류 그룹핑) ================= */
 const FORMULA_KEY = 'formula_bank_v2';
 const OLD_FORMULA_KEY = 'formula_bank_v1';
