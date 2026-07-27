@@ -639,7 +639,8 @@
     <span class="tb-sep"></span>
     <button type="button" id="removeParensBtn" title="블럭 지정 후 클릭하면 선택 영역의 ( 와 ) 를 모두 삭제합니다">( ) 삭제</button>
     <button type="button" id="removeCommaBtn" title="블럭 지정 후 클릭하면 선택 영역의 천단위 콤마(,)를 모두 삭제합니다 (예: 2,203 → 2203)">, 삭제</button>
-    <button type="button" id="toFractionBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다 (예: 500/3600, 500÷3600, kJ/h 같은 단위 속 / 는 무시됩니다). 분자·분모 안의 ( ) 괄호는 자동으로 제거됩니다 (예: (7×26+3×30.1)/10 → 분수)'>➗ 분수로 바꾸기</button>
+    <button type="button" id="toFractionBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다 (예: 500/3600, 500÷3600, kJ/h 같은 단위 속 / 는 무시됩니다). 분자·분모 안의 ( ) 괄호는 자동으로 제거됩니다 (예: (7×26+3×30.1)/10 → 분수)'>➗ 분수로 (괄호 제거)</button>
+    <button type="button" id="toFractionKeepParenBtn" title='블럭 지정한 "분자/분모" 또는 "분자÷분모" 텍스트를 분수 모양으로 바꿉니다. 분자·분모 안의 ( ) 괄호는 그대로 남겨둡니다 (예: (7×26+3×30.1)/10 → 분수, 괄호 유지)'>➗ 분수로 (괄호 유지)</button>
     <span class="tb-sep"></span>
     <select id="lineHeightSelect" title="줄간격">
       <option value="1.3">줄간격: 좁게</option>
@@ -932,7 +933,8 @@
   <div class="ctx-divider"></div>
   <button type="button" id="ctxRemoveParens">( ) 괄호 모두 삭제</button>
   <button type="button" id="ctxRemoveComma">천단위 콤마(,) 모두 삭제</button>
-  <button type="button" id="ctxToFraction" title="괄호 ( ) 는 자동으로 제거된 뒤 분수로 변환됩니다">➗ 분수로 바꾸기 (A/B, A÷B)</button>
+  <button type="button" id="ctxToFraction" title="괄호 ( ) 는 자동으로 제거된 뒤 분수로 변환됩니다">➗ 분수로 (괄호 제거) - A/B, A÷B</button>
+  <button type="button" id="ctxToFractionKeepParen" title="괄호 ( ) 를 그대로 유지한 채 분수로 변환됩니다">➗ 분수로 (괄호 유지) - A/B, A÷B</button>
 </div>
 
 <script>
@@ -2054,7 +2056,7 @@ function findFractionDivider(text){
   return { index, count };
 }
 
-function convertSelectionToFraction(){
+function convertSelectionToFraction(keepParens){
   const found = getEditAreaSelection();
   if(!found){ showToast('먼저 "분자/분모" 또는 "분자÷분모" 텍스트를 블럭 지정하세요'); return; }
   const { sel, range } = found;
@@ -2067,10 +2069,13 @@ function convertSelectionToFraction(){
   let num = text.slice(0, index).trim();
   let den = text.slice(index + 1).trim();
   /* 분자/분모 안에 남아있는 ( ) 괄호는 분수로 바뀌면서 의미가 사라지므로(분수 막대가 이미 그룹핑 역할을 함)
-     "괄호 모두 삭제" 버튼을 따로 누를 필요 없이 여기서 자동으로 함께 제거한다 */
+     기본 모드에서는 "괄호 모두 삭제" 버튼을 따로 누를 필요 없이 여기서 자동으로 함께 제거한다.
+     keepParens=true인 "괄호 유지" 모드에서는 이 제거 과정을 건너뛰고 괄호를 그대로 남긴다. */
   const hadParens = /[()]/.test(num) || /[()]/.test(den);
-  num = num.replace(/[()]/g, '').trim();
-  den = den.replace(/[()]/g, '').trim();
+  if(!keepParens){
+    num = num.replace(/[()]/g, '').trim();
+    den = den.replace(/[()]/g, '').trim();
+  }
   if(!num || !den){ alert('분자 또는 분모가 비어 있습니다.'); return; }
   commitDiscreteAction(()=>{
     const wrap = document.createElement('div');
@@ -2084,7 +2089,11 @@ function convertSelectionToFraction(){
     sel.removeAllRanges();
     sel.addRange(newRange);
   });
-  showToast(hadParens ? '( ) 괄호를 제거하고 ➗ 분수로 변환했습니다' : '➗ 분수로 변환했습니다');
+  if(keepParens){
+    showToast('➗ 괄호를 유지한 채 분수로 변환했습니다');
+  } else {
+    showToast(hadParens ? '( ) 괄호를 제거하고 ➗ 분수로 변환했습니다' : '➗ 분수로 변환했습니다');
+  }
 }
 
 document.getElementById('removeParensBtn').addEventListener('click', ()=>{
@@ -2097,7 +2106,11 @@ document.getElementById('removeCommaBtn').addEventListener('click', ()=>{
 });
 document.getElementById('toFractionBtn').addEventListener('click', ()=>{
   editArea.focus();
-  convertSelectionToFraction();
+  convertSelectionToFraction(false);
+});
+document.getElementById('toFractionKeepParenBtn').addEventListener('click', ()=>{
+  editArea.focus();
+  convertSelectionToFraction(true);
 });
 
 /* 마우스 오른쪽 클릭(=길게 누르기) 시 블럭 편집 커스텀 메뉴 */
@@ -2260,7 +2273,8 @@ document.getElementById('ctxCopy').addEventListener('click', ()=>{ hideCtxMenu()
 document.getElementById('ctxPaste').addEventListener('click', ()=>{ hideCtxMenu(); ctxPasteClipboard(); });
 document.getElementById('ctxRemoveParens').addEventListener('click', ()=>{ removeParensInSelection(); hideCtxMenu(); });
 document.getElementById('ctxRemoveComma').addEventListener('click', ()=>{ removeCommasInSelection(); hideCtxMenu(); });
-document.getElementById('ctxToFraction').addEventListener('click', ()=>{ convertSelectionToFraction(); hideCtxMenu(); });
+document.getElementById('ctxToFraction').addEventListener('click', ()=>{ convertSelectionToFraction(false); hideCtxMenu(); });
+document.getElementById('ctxToFractionKeepParen').addEventListener('click', ()=>{ convertSelectionToFraction(true); hideCtxMenu(); });
 
 /* ================= 답안 보관함 ================= */
 const ARCHIVE_KEY = 'answer_archive_v1';
