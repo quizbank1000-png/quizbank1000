@@ -260,6 +260,24 @@
   }
   .priority-toggle-btn:hover{ background:rgba(255,255,255,0.32); }
   .problem-chip.active .priority-toggle-btn{ background: var(--blue-100); }
+  .grade-badge{
+    font-size:10px; font-weight:800; border-radius:4px; padding:1px 5px; margin-right:4px;
+  }
+  .grade-badge.grade-A{ background:#ef4444; color:#fff; }
+  .grade-badge.grade-B{ background:#f59e0b; color:#1a1200; }
+  .grade-badge.grade-C{ background:#10b981; color:#062b1c; }
+  .grade-badge.grade-x{ background:#6b7280; color:#fff; }
+  .grade-box{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+  .grade-row{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+  .grade-row-label{ font-size:10.5px; color:var(--ink-soft,#8a93a3); width:32px; flex:0 0 auto; }
+  .grade-btn{
+    border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:inherit;
+    border-radius:6px; padding:2px 7px; font-size:11px; cursor:pointer; line-height:1.6;
+  }
+  .grade-btn:hover{ background:rgba(255,255,255,0.14); }
+  .grade-btn[data-val="A"].active{ background:#ef4444; border-color:#ef4444; color:#fff; }
+  .grade-btn[data-val="B"].active{ background:#f59e0b; border-color:#f59e0b; color:#1a1200; }
+  .grade-btn[data-val="C"].active{ background:#10b981; border-color:#10b981; color:#062b1c; }
   .exam-badge{
     font-size:10px; font-weight:800; background:#8b5cf6; color:#fff;
     border-radius:4px; padding:1px 5px; margin-right:4px;
@@ -1353,6 +1371,21 @@
         <select id="problemRoundFilterSel"><option value="">전체 회차</option></select>
       </div>
       <select id="problemFieldFilter" style="margin-bottom:6px;"><option value="">전체 분야</option></select>
+      <div class="problem-filter-row" id="gradeFilterRow" style="gap:6px; align-items:center; margin-bottom:6px;" title="채점 등록한 그레이드(난이도×결과)로 필터링합니다. 둘 다 선택하면 예: A+A → AA만 표시">
+        <span style="font-size:11px; color:var(--ink-soft,#8a93a3); white-space:nowrap;">🏷 그레이드</span>
+        <select id="problemGradeDifficultyFilter" style="width:100%;">
+          <option value="">난이도 전체</option>
+          <option value="A">A 복잡</option>
+          <option value="B">B 중간</option>
+          <option value="C">C 단순</option>
+        </select>
+        <select id="problemGradeResultFilter" style="width:100%;">
+          <option value="">결과 전체</option>
+          <option value="A">A 오답</option>
+          <option value="B">B 애매</option>
+          <option value="C">C 정답</option>
+        </select>
+      </div>
       <div class="problem-filter-row" id="priorityRangeRow" style="display:none; gap:6px; align-items:center; margin-bottom:6px;" title="우선순위(기출빈도 랭킹) N위~M위만 표시합니다. 한쪽만 입력해도 됩니다.">
         <span style="font-size:11px; color:var(--ink-soft,#8a93a3); white-space:nowrap;">🎯 우선순위</span>
         <input type="number" id="problemPriorityMin" min="1" placeholder="이상(예:1)" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #333; background:#1a2030; color:inherit; font-size:12px;">
@@ -1431,6 +1464,20 @@
               <div>
                 <h2 id="problemTitle">문제를 선택하거나 추가하세요</h2>
                 <div class="meta" id="problemMeta"></div>
+                <div class="grade-box" id="gradeBox" title="이 문제의 그레이드를 등록합니다 (난이도 × 결과)">
+                  <div class="grade-row">
+                    <span class="grade-row-label">난이도</span>
+                    <button type="button" class="grade-btn" data-kind="difficulty" data-val="A" title="복잡해서 시간이 소요되는 문제">A 복잡</button>
+                    <button type="button" class="grade-btn" data-kind="difficulty" data-val="B" title="중간 난이도 문제">B 중간</button>
+                    <button type="button" class="grade-btn" data-kind="difficulty" data-val="C" title="단순계산·쉬운 문제">C 단순</button>
+                  </div>
+                  <div class="grade-row">
+                    <span class="grade-row-label">결과</span>
+                    <button type="button" class="grade-btn" data-kind="result" data-val="A" title="틀린 문제">A 오답</button>
+                    <button type="button" class="grade-btn" data-kind="result" data-val="B" title="애매한 문제">B 애매</button>
+                    <button type="button" class="grade-btn" data-kind="result" data-val="C" title="맞춘 문제">C 정답</button>
+                  </div>
+                </div>
               </div>
               <div class="problem-nav-group">
                 <button class="problem-nav-btn" id="prevProblemBtn" title="이전 문제">&lt;</button>
@@ -3922,6 +3969,18 @@ function renderProblemFieldFilterOptions(){
   if(state.fields.includes(keep)) sel.value = keep;
 }
 
+const GRADE_DIFFICULTY_LABEL = {A:'복잡', B:'중간', C:'단순'};
+const GRADE_RESULT_LABEL = {A:'오답', B:'애매', C:'정답'};
+const GRADE_RESULT_ICON = {A:'❌', B:'❓', C:'⭕'};
+function gradeBadgeHtml(p){
+  const d = p.gradeDifficulty, r = p.gradeResult;
+  if(!d && !r) return '';
+  const code = (d||'?') + (r||'?');
+  const icon = r ? GRADE_RESULT_ICON[r] : '';
+  const cls = 'grade-' + (d || 'x');
+  const title = `그레이드 ${code} (난이도:${d?GRADE_DIFFICULTY_LABEL[d]:'미지정'} · 결과:${r?GRADE_RESULT_LABEL[r]:'미지정'})`;
+  return `<span class="grade-badge ${cls}" title="${escapeHtml(title)}">${code}${icon}</span>`;
+}
 function createProblemChip(p, roundName, showRoundBadge, examNo){
   const chip = document.createElement('div');
   chip.className = 'problem-chip' + (p.id===state.currentProblemId ? ' active':'') + (p.excludeReview ? ' excluded':'');
@@ -3931,6 +3990,7 @@ function createProblemChip(p, roundName, showRoundBadge, examNo){
     <div class="problem-chip-info">
       ${examNo!=null ? `<span class="exam-badge" title="모의고사 문제 순서">모의${escapeHtml(String(examNo))}</span>` : ''}
       ${hasPriority ? `<span class="priority-badge${p.priorityDone?' done':''}" title="기출빈도 랭킹 ${escapeHtml(String(p.priority))}위${p.priorityDone?' (우선순위 학습에서 뺀 문제)':''}">🎯${escapeHtml(String(p.priority))}${p.priorityDone?' ✔':''}</span>` : ''}
+      ${gradeBadgeHtml(p)}
       <span>${p.num}번 ${p.solvedCorrect?'✅':''}${p.excludeReview?'🔕':''}${sessCount?`<span class="review-count">${sessCount}회독</span>`:''}</span>
       <span class="tag">${p.field}</span>
       ${showRoundBadge ? `<span class="round-badge">${escapeHtml(roundName)}</span>` : ''}
@@ -4025,6 +4085,10 @@ function getFilteredSortedProblemItems(){
     if(r) (r.problems||[]).forEach(p=> items.push({p, roundName:state.currentRound}));
   }
   if(fieldVal) items = items.filter(it=>it.p.field===fieldVal);
+  const gradeDiffVal = document.getElementById('problemGradeDifficultyFilter').value;
+  const gradeResVal = document.getElementById('problemGradeResultFilter').value;
+  if(gradeDiffVal) items = items.filter(it=>it.p.gradeDifficulty===gradeDiffVal);
+  if(gradeResVal) items = items.filter(it=>it.p.gradeResult===gradeResVal);
   if(!showExcluded) items = items.filter(it=>!it.p.excludeReview);
   if(sortByPriority && !showPriorityDone) items = items.filter(it=>!it.p.priorityDone);
   if(sortByPriority){
@@ -4150,6 +4214,8 @@ function renderProblemList(){
   renderStatusBox();
 }
 document.getElementById('problemFieldFilter').addEventListener('change', renderProblemList);
+document.getElementById('problemGradeDifficultyFilter').addEventListener('change', renderProblemList);
+document.getElementById('problemGradeResultFilter').addEventListener('change', renderProblemList);
 document.getElementById('showExcludedToggle').addEventListener('change', renderProblemList);
 document.getElementById('problemRoundFilterSel').addEventListener('change', renderProblemList);
 document.getElementById('showPriorityDoneToggle').addEventListener('change', ()=>{ priorityBatchOffset = 0; renderProblemList(); });
@@ -4586,6 +4652,24 @@ function renderExamPracticeView(p){
   });
 }
 
+function renderGradeBox(p){
+  document.querySelectorAll('.grade-btn').forEach(btn=>{
+    const field = btn.dataset.kind==='difficulty' ? 'gradeDifficulty' : 'gradeResult';
+    btn.classList.toggle('active', !!p && p[field]===btn.dataset.val);
+  });
+}
+document.querySelectorAll('.grade-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const p = getProblem();
+    if(!p) return;
+    const field = btn.dataset.kind==='difficulty' ? 'gradeDifficulty' : 'gradeResult';
+    p[field] = (p[field]===btn.dataset.val) ? null : btn.dataset.val;
+    saveState();
+    renderGradeBox(p);
+    renderProblemList();
+  });
+});
+
 function renderSolveView(){
   const p = getProblem();
   if(!p){
@@ -4594,6 +4678,7 @@ function renderSolveView(){
     problemTitle.textContent = '문제를 선택하거나 추가하세요';
     problemMeta.textContent = '';
     solveSlimTitle.textContent = '문제를 선택하거나 추가하세요';
+    renderGradeBox(null);
     updateProblemNavButtons();
     stopTicking();
     updateTimerDisplay();
@@ -4603,6 +4688,7 @@ function renderSolveView(){
   solveEmpty.style.display='none';
   problemTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   problemMeta.innerHTML = `<span class="badge">${p.field}</span>${p.solvedCorrect ? '✅ 정답 처리됨' : ''}`;
+  renderGradeBox(p);
   solveSlimTitle.textContent = `${state.currentRound} · ${p.num}번 문제`;
   updateProblemNavButtons();
   switchTab('problem');
