@@ -31,6 +31,7 @@
     color:var(--ink);
   }
   .page{
+    position:relative;
     max-width:940px; margin:0 auto;
     background:#fff; border-radius:14px;
     padding:22px; box-shadow:0 6px 24px rgba(10,20,40,0.08);
@@ -438,6 +439,35 @@
     content: attr(data-placeholder);
     color:#aab3c2;
   }
+  .edit-area.qb2-dragover{
+    outline:2.5px dashed var(--blue-500); outline-offset:-8px;
+    background-color:var(--blue-100);
+  }
+  /* ---- 삽입된 그림 ---- */
+  .edit-area img{
+    max-width:100%; height:auto;
+    display:block; margin:8px 0;
+    border-radius:6px; cursor:pointer;
+  }
+  .edit-area img.qb2-img-selected{
+    outline:2.5px solid var(--blue-500); outline-offset:2px;
+  }
+  .img-float-toolbar{
+    position:absolute; display:none;
+    align-items:center; gap:4px;
+    background:var(--blue-900); border-radius:8px;
+    padding:5px 6px; box-shadow:0 6px 18px rgba(10,20,40,0.28);
+    z-index:50;
+  }
+  .img-float-toolbar.show{ display:flex; }
+  .img-float-toolbar button{
+    font-family:inherit; font-size:11px; font-weight:700;
+    border:none; background:rgba(255,255,255,0.14); color:#fff;
+    border-radius:5px; padding:5px 8px; cursor:pointer; white-space:nowrap;
+  }
+  .img-float-toolbar button:hover{ background:rgba(255,255,255,0.3); }
+  .img-float-toolbar button.del{ background:var(--red); }
+  .img-float-toolbar button.del:hover{ background:#b8382f; }
 
   /* ---- 하단 액션 ---- */
   .bottom-actions{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
@@ -539,6 +569,7 @@
     <button type="button" id="exportHtmlBtn" title="지금 작성 중인 답안을 html 파일로 내려받습니다">⬇ HTML 다운로드</button>
     <button type="button" id="importHtmlBtn" title="html 파일을 불러와 편집기에서 이어서 편집합니다">⬆ HTML 불러오기</button>
     <input type="file" id="importHtmlInput" accept=".html,.htm,text/html" style="display:none;">
+    <input type="file" id="imageInsertInput" accept="image/*" multiple style="display:none;">
     <button type="button" id="findReplaceToggleBtn" title="편집 중인 답안에서 텍스트를 찾고 바꿉니다 (편집기 안에서 Ctrl+F)">🔍 찾기/바꾸기</button>
     <button type="button" id="timerToggleBtn">⏱ 타이머</button>
     <button type="button" class="btn export" id="exportPdfBtn" title="인쇄 대화상자의 '추가 설정'에서 &quot;머리글 및 바닥글&quot; 체크를 해제하면 상단 날짜/앱이름, 하단 URL/페이지번호 없이 더 깔끔하게 저장돼요">📄 PDF로 저장 (인쇄)</button>
@@ -626,6 +657,8 @@
   <div class="edit-toolbar">
     <button type="button" id="undoBtn" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
     <button type="button" id="redoBtn" title="다시 실행 (Ctrl+Y)">↷ 다시실행</button>
+    <span class="tb-sep"></span>
+    <button type="button" id="insertImageBtn" title="그림 파일 삽입 (.png, .jpg, .jpeg 등) — 드래그해서 놓거나 붙여넣기(Ctrl+V)도 가능">🖼 그림삽입</button>
     <span class="tb-sep"></span>
     <button type="button" data-cmd="bold"><b>B</b></button>
     <button type="button" data-cmd="italic"><i>I</i></button>
@@ -885,6 +918,13 @@
   </div>
 
   <div id="editArea" class="edit-area" contenteditable="true" data-placeholder="여기에 문제 풀이를 필기하듯 작성하세요. 🧾 답안 뼈대 버튼으로 시작하면 편합니다. (자동 저장됨)"></div>
+  <div class="img-float-toolbar" id="imgFloatToolbar">
+    <button type="button" data-size="25">25%</button>
+    <button type="button" data-size="50">50%</button>
+    <button type="button" data-size="75">75%</button>
+    <button type="button" data-size="100">100%</button>
+    <button type="button" class="del" id="imgDeleteBtn">🗑 삭제</button>
+  </div>
 
   <!-- 셀프테스트 정답 비교 -->
   <div class="compare-panel" id="comparePanel">
@@ -939,6 +979,10 @@
 
 <script>
 const editArea = document.getElementById('editArea');
+/* 파이어폭스 등 일부 브라우저는 contenteditable 안의 이미지를 클릭하면 자체 크기조절
+   손잡이를 띄우는데, 아래에서 만드는 25/50/75/100% 크기조절 툴바와 겹쳐 보이므로 꺼둔다. */
+try{ document.execCommand('enableObjectResizing', false, false); } catch(e){ /* 미지원 브라우저는 무시 */ }
+try{ document.execCommand('enableInlineTableEditing', false, false); } catch(e){ /* 무시 */ }
 const toggleCalcBtnTop = document.getElementById('toggleCalcBtnTop');
 const lineHeightSelect = document.getElementById('lineHeightSelect');
 const alignSelect = document.getElementById('alignSelect');
@@ -1101,6 +1145,196 @@ document.getElementById('answerMarkBtn').addEventListener('click', ()=>{
   document.execCommand('insertHTML', false, '<b>∴ 답</b> : ');
   scheduleAutosave();
 });
+
+/* ================= 이미지 삽입 =================
+   1) 🖼 그림삽입 버튼으로 파일 선택
+   2) 편집창으로 이미지 파일을 드래그해서 놓기
+   3) 클립보드에서 붙여넣기(Ctrl+V) — 캡처한 스크린샷 등
+   어떤 경로든 dataURL로 바꿔서 <img>로 편집창에 넣는다. 자동저장(localStorage)/
+   되돌리기 기록/구글드라이브 동기화가 큰 사진 때문에 금방 무거워지지 않도록,
+   삽입 전에 긴 변 기준 IMG_MAX_DIMENSION을 넘지 않게 축소하고 압축한다.
+   (투명배경이 필요할 수 있는 PNG는 원본 형식을 유지한다) */
+const imageInsertInput = document.getElementById('imageInsertInput');
+const insertImageBtn = document.getElementById('insertImageBtn');
+const imgFloatToolbar = document.getElementById('imgFloatToolbar');
+const IMG_MAX_DIMENSION = 1280;
+const IMG_JPEG_QUALITY = 0.85;
+
+let imgInsertSelRange = null; // 파일 선택창을 여는 순간의 커서 위치 (선택창이 열리는 동안 포커스가 빠지므로 기억해둔다)
+let selectedImg = null; // 지금 크기조절 툴바가 붙어있는 이미지
+
+function fileToResizedDataUrl(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=> reject(reader.error);
+    reader.onload = ()=>{
+      const srcUrl = String(reader.result);
+      const img = new Image();
+      img.onerror = ()=> resolve(srcUrl); // 디코딩 실패 시 원본이라도 사용
+      img.onload = ()=>{
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, IMG_MAX_DIMENSION / Math.max(w, h));
+        if(!w || !h || scale >= 1){ resolve(srcUrl); return; } // 이미 충분히 작으면 그대로 사용
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const keepPng = /png/i.test(file.type);
+        try{ resolve(canvas.toDataURL(keepPng ? 'image/png' : 'image/jpeg', IMG_JPEG_QUALITY)); }
+        catch(e){ resolve(srcUrl); } // 캔버스 변환 실패 시 원본 사용
+      };
+      img.src = srcUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function insertImageAtSavedRange(dataUrl){
+  commitDiscreteAction(()=>{
+    editArea.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    if(imgInsertSelRange){
+      try{ sel.addRange(imgInsertSelRange.cloneRange()); } catch(e){ /* 무시 */ }
+    }
+    if(!sel.rangeCount){
+      const r = document.createRange();
+      r.selectNodeContents(editArea);
+      r.collapse(false);
+      sel.addRange(r);
+    }
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    range.insertNode(img);
+    const br = document.createElement('br'); // 이미지 바로 뒤에 줄바꿈을 넣어 다음 줄에 이어 쓰기 편하게 한다
+    img.after(br);
+    const nr = document.createRange();
+    nr.setStartAfter(br);
+    nr.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  });
+}
+
+async function insertImageFiles(files){
+  const imgFiles = [...files].filter(f => f.type.startsWith('image/'));
+  if(!imgFiles.length){ showToast('⚠️ 이미지 파일이 아닙니다'); return; }
+  for(const file of imgFiles){
+    try{
+      const dataUrl = await fileToResizedDataUrl(file);
+      insertImageAtSavedRange(dataUrl);
+    } catch(err){
+      showToast('⚠️ 이미지를 불러오지 못했습니다: ' + file.name);
+    }
+  }
+  showToast('🖼 이미지를 삽입했습니다');
+}
+
+insertImageBtn.addEventListener('click', ()=>{
+  const sel = window.getSelection();
+  imgInsertSelRange = (sel.rangeCount && editArea.contains(sel.getRangeAt(0).commonAncestorContainer))
+    ? sel.getRangeAt(0).cloneRange() : null;
+  imageInsertInput.click();
+});
+imageInsertInput.addEventListener('change', async (e)=>{
+  const files = e.target.files;
+  if(files && files.length) await insertImageFiles(files);
+  e.target.value = '';
+});
+
+/* ---- 드래그 앤 드롭으로 그림 삽입 ---- */
+editArea.addEventListener('dragover', (e)=>{
+  if(!e.dataTransfer) return;
+  const items = e.dataTransfer.items;
+  const hasFile = items ? [...items].some(it => it.kind === 'file') : true;
+  if(!hasFile) return;
+  e.preventDefault();
+  editArea.classList.add('qb2-dragover');
+});
+editArea.addEventListener('dragleave', ()=>{ editArea.classList.remove('qb2-dragover'); });
+editArea.addEventListener('drop', async (e)=>{
+  if(!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  const hasImage = [...e.dataTransfer.files].some(f => f.type.startsWith('image/'));
+  if(!hasImage) return;
+  e.preventDefault();
+  editArea.classList.remove('qb2-dragover');
+  let range = null;
+  if(document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+  else if(document.caretPositionFromPoint){
+    const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+    if(pos){ range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+  }
+  imgInsertSelRange = range;
+  await insertImageFiles(e.dataTransfer.files);
+});
+
+/* ---- 클립보드에서 이미지 붙여넣기 (스크린샷 등) ----
+   일반 텍스트/서식 붙여넣기는 기존 붙여넣기 동작에 그대로 맡기고,
+   클립보드에 이미지 파일이 있을 때만 여기서 가로채 용량을 줄여 넣는다. */
+editArea.addEventListener('paste', (e)=>{
+  if(testState) return; // 셀프 테스트 중에는 건드리지 않는다
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  const imgItem = [...items].find(it => it.kind === 'file' && it.type.startsWith('image/'));
+  if(!imgItem) return;
+  const file = imgItem.getAsFile();
+  if(!file) return;
+  e.preventDefault();
+  const sel = window.getSelection();
+  imgInsertSelRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+  insertImageFiles([file]);
+});
+
+/* ---- 삽입된 이미지 선택 → 크기 조절 / 삭제 ---- */
+function hideImgToolbar(){
+  imgFloatToolbar.classList.remove('show');
+  if(selectedImg) selectedImg.classList.remove('qb2-img-selected');
+  selectedImg = null;
+}
+function positionImgToolbar(img){
+  const pageEl = document.querySelector('.page');
+  const pageRect = pageEl.getBoundingClientRect();
+  const imgRect = img.getBoundingClientRect();
+  imgFloatToolbar.style.left = Math.max(0, imgRect.left - pageRect.left) + 'px';
+  const aboveTop = imgRect.top - pageRect.top - imgFloatToolbar.offsetHeight - 6;
+  imgFloatToolbar.style.top = (aboveTop >= 0 ? aboveTop : (imgRect.bottom - pageRect.top + 6)) + 'px';
+}
+editArea.addEventListener('click', (e)=>{
+  if(e.target.tagName === 'IMG'){
+    if(selectedImg && selectedImg !== e.target) selectedImg.classList.remove('qb2-img-selected');
+    selectedImg = e.target;
+    selectedImg.classList.add('qb2-img-selected');
+    imgFloatToolbar.classList.add('show');
+    positionImgToolbar(selectedImg);
+  } else {
+    hideImgToolbar();
+  }
+});
+document.addEventListener('click', (e)=>{
+  if(!editArea.contains(e.target) && !imgFloatToolbar.contains(e.target)) hideImgToolbar();
+});
+imgFloatToolbar.querySelectorAll('button[data-size]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(!selectedImg) return;
+    const img = selectedImg;
+    commitDiscreteAction(()=>{
+      img.style.width = btn.dataset.size + '%';
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+    });
+    positionImgToolbar(img);
+  });
+});
+document.getElementById('imgDeleteBtn').addEventListener('click', ()=>{
+  if(!selectedImg) return;
+  const img = selectedImg;
+  commitDiscreteAction(()=>{ img.remove(); });
+  hideImgToolbar();
+});
+window.addEventListener('resize', ()=>{ if(selectedImg) positionImgToolbar(selectedImg); });
 
 /* ================= 키보드 단축입력 (//코드 + 스페이스) ================= */
 const SHORTCUTS = {
@@ -2994,6 +3228,7 @@ function buildStandaloneHtml(title, contentHtml, lineHeight, align, fontSize){
   .frac{ display:inline-flex; flex-direction:column; justify-content:center; vertical-align:middle; margin:0 3px; font-size:0.92em; line-height:1.15; position:relative; top:-1px; }
   .frac .frac-num{ padding:0 4px 1px; border-bottom:1.3px solid currentColor; text-align:center; }
   .frac .frac-den{ padding:1px 4px 0; text-align:center; }
+  #answerContent img{ max-width:100%; height:auto; display:block; margin:8px 0; border-radius:6px; }
   @media(max-width:640px){ body{ padding:12px; } .page{ padding:16px; border-radius:10px; } }
   @media print{
     @page{ margin:14mm 12mm; }
