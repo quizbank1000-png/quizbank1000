@@ -2700,6 +2700,45 @@ async function loadPriorityBatchImages(){
   renderSolveView();
 }
 
+/* "🌐 전체 문제에서 찾기" / "🗂 그룹·유형별로 묶어보기" 같은 필터링 목록(우선순위 정렬이 아닌 경우)에서도
+   압축 보관된 이미지를 한 번에 불러올 수 있도록 하는 함수. 필터에 걸린 문제만 대상으로 하며,
+   회차별로 묶어서 zip을 한 번씩만 열어 필요한 문제 이미지만 복원한다. */
+async function loadFilteredListImages(){
+  const {items} = getFilteredSortedProblemItems();
+  const need = items.filter(it=>problemNeedsImageLoad(it.p));
+  if(!need.length) return;
+
+  if(need.length > 40){
+    const ok = confirm(`현재 필터에 걸린 문제 중 이미지를 아직 안 불러온 문제가 ${need.length}개입니다.\n한 번에 불러오면 시간이 걸릴 수 있어요. 계속할까요?\n(분야·년도 등으로 더 좁혀서 나눠 불러오는 것도 방법입니다)`);
+    if(!ok) return;
+  }
+
+  const byRound = {};
+  need.forEach(it=>{
+    if(!byRound[it.roundName]) byRound[it.roundName] = [];
+    byRound[it.roundName].push(it.p.num);
+  });
+
+  setSyncStatus('busy', `필터링된 문제 이미지 불러오는 중... (회차 ${Object.keys(byRound).length}개)`);
+  const failedRounds = [];
+  for(const [roundName, nums] of Object.entries(byRound)){
+    try{
+      await restoreSpecificProblemImages(roundName, nums);
+    }catch(e){
+      console.error(roundName, e);
+      failedRounds.push({roundName, e});
+    }
+  }
+  if(failedRounds.length){
+    setSyncStatus('err', `이미지 불러오기 일부 실패 (${failedRounds.length}개 회차)`);
+    handleArchiveLoadError(failedRounds[0].roundName, failedRounds[0].e);
+  } else {
+    setSyncStatus('ok', '필터링된 문제 이미지 불러오기 완료 (임시 조회 · 메인 데이터는 그대로 가벼움)');
+  }
+  renderProblemList();
+  renderSolveView();
+}
+
 function priorityBatchNext(){ priorityBatchOffset += PRIORITY_BATCH_SIZE; renderProblemList(); }
 function priorityBatchPrev(){ priorityBatchOffset = Math.max(0, priorityBatchOffset - PRIORITY_BATCH_SIZE); renderProblemList(); }
 function priorityBatchReset(){ priorityBatchOffset = 0; renderProblemList(); }
@@ -2788,6 +2827,23 @@ function renderStatusBox(){
         <button class="mini-btn secondary" style="flex:0 0 auto; padding:6px 8px;" onclick="priorityBatchNext()" ${end>=total?'disabled':''}>▶</button>
       </div>
       <button class="mini-btn secondary" style="display:block; width:100%; margin-top:4px; padding:4px;" onclick="priorityBatchReset()">↺ 1위부터 다시</button>
+    `;
+    return;
+  }
+
+  if(scopeAll && !sortByPriority){
+    // "🌐 전체 문제에서 찾기" / "🗂 그룹·유형별로 묶어보기" 등 필터링된 목록 보기.
+    // 현재 필터(분야·년도·회차·그레이드·검색어 등)에 걸린 문제 중 압축 보관되어
+    // 이미지를 아직 안 불러온 문제가 있으면, 한 번에 불러올 수 있는 버튼을 보여준다.
+    const {items} = getFilteredSortedProblemItems();
+    const needCount = items.filter(it=>problemNeedsImageLoad(it.p)).length;
+    if(!needCount){ box.style.display='none'; return; }
+    box.style.display='block';
+    box.style.border='1px solid #2b6';
+    box.style.background='rgba(40,180,120,0.08)';
+    body.innerHTML = `
+      📂 필터링된 문제 <b>${items.length}</b>개 중 압축 보관되어 이미지를 아직 안 불러온 문제 <b>${needCount}</b>개
+      <button class="mini-btn" style="display:block; width:100%; margin-top:6px; padding:6px 4px;" onclick="loadFilteredListImages()">📂 이 ${needCount}개 이미지 불러오기</button>
     `;
     return;
   }
